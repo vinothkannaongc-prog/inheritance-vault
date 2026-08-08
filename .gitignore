@@ -7,3 +7,5 @@ dist/
 
 # deployments/ is deliberately NOT ignored: the records hold public addresses and are the
 # canonical answer to "which contract is live on which chain".
+deployments/hardhat.json
+deployments/localnode.json
