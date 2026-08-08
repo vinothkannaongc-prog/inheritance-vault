@@ -5,4 +5,5 @@ coverage/
 dist/
 .env
 
-deployments/
+# deployments/ is deliberately NOT ignored: the records hold public addresses and are the
+# canonical answer to "which contract is live on which chain".
