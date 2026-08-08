@@ -1,0 +1,13 @@
+{
+  "name": "willandkey-notify",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Will & Key check-in reminder service — polls vault state read-only, sends escalating alerts. Holds no keys, ever.",
+  "main": "watcher.js",
+  "dependencies": {
+    "ethers": "^6.13.5"
+  },
+  "optionalDependencies": {
+    "nodemailer": "^6.9.16"
+  }
+}

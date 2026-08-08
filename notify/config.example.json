@@ -1,0 +1,17 @@
+{
+  "rpc": "https://sepolia.base.org",
+  "contract": "0x0000000000000000000000000000000000000000",
+  "appUrl": "https://willandkey.com/app.html",
+  "from": "Will & Key <reminders@willandkey.com>",
+  "stateFile": "state.json",
+  "outboxDir": "outbox",
+  "smtp": null,
+  "watches": [
+    {
+      "owner": "0xOwnerAddressHere",
+      "email": "owner@example.com",
+      "heirEmail": "heir@example.com",
+      "label": "Alice's main vault"
+    }
+  ]
+}

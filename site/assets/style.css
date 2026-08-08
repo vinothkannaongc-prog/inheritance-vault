@@ -144,6 +144,31 @@ input.f:focus, select.f:focus { outline: 2px solid var(--gold); border-color: va
 .txlog { font-size: 0.85rem; color: var(--ink-soft); margin-top: 10px; word-break: break-all; }
 .txlog a { color: var(--gold); }
 
+/* ---------- guides ---------- */
+.article { max-width: 72ch; margin: 48px auto 72px; padding: 0 24px; }
+.article h1 { font-family: var(--serif); font-size: clamp(1.8rem, 4vw, 2.5rem); line-height: 1.2; }
+.article .standfirst { color: var(--ink-soft); font-size: 1.12rem; margin: 16px 0 8px; }
+.article .byline { color: var(--ink-soft); font-size: 0.85rem; border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 8px; }
+.article h2 { font-family: var(--serif); font-size: 1.45rem; margin: 1.8em 0 0.5em; }
+.article h3 { font-family: var(--serif); font-size: 1.15rem; margin: 1.4em 0 0.4em; }
+.article p, .article li { margin: 0.9em 0; }
+.article ul, .article ol { padding-left: 1.4em; }
+.article blockquote { border-left: 3px solid var(--gold); padding: 4px 0 4px 18px; color: var(--ink-soft); font-style: italic; margin: 1.2em 0; }
+.article a { color: var(--gold); }
+.article .cta-box { background: var(--gold-soft); border: 1px solid #e4d5ae; border-radius: var(--radius); padding: 20px 24px; margin: 2em 0; }
+.article .cta-box p { margin: 0 0 12px; }
+.article table { width: 100%; border-collapse: collapse; margin: 1.2em 0; }
+.article th, .article td { border: 1px solid var(--line); padding: 10px 14px; text-align: left; }
+.article th { background: var(--gold-soft); font-family: var(--serif); }
+.crumbs { font-size: 0.85rem; color: var(--ink-soft); margin: 24px auto 0; max-width: 72ch; padding: 0 24px; }
+.crumbs a { color: var(--gold); text-decoration: none; }
+
+.guide-list { display: grid; gap: 18px; margin-top: 8px; }
+.guide-list a.g { display: block; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 26px; text-decoration: none; color: var(--ink); }
+.guide-list a.g:hover { border-color: var(--gold); }
+.guide-list a.g h3 { font-family: var(--serif); margin-bottom: 6px; }
+.guide-list a.g p { color: var(--ink-soft); font-size: 0.95rem; margin: 0; }
+
 @media (max-width: 640px) {
   .hero { padding: 56px 0 40px; }
   nav.main a { margin-left: 12px; }

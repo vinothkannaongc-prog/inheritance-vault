@@ -6,22 +6,28 @@
 
 const CHAINS = {
   84532: {
-    name: "Base Sepolia", contract: "", explorer: "https://sepolia.basescan.org",
+    name: "Base Sepolia", contract: "", notify: "", explorer: "https://sepolia.basescan.org",
     hex: "0x14a34", rpc: "https://sepolia.base.org", coin: "ETH", testnet: true,
   },
   8453: {
-    name: "Base", contract: "", explorer: "https://basescan.org",
+    name: "Base", contract: "", notify: "", explorer: "https://basescan.org",
     hex: "0x2105", rpc: "https://mainnet.base.org", coin: "ETH", testnet: false,
   },
   97: {
-    name: "BNB Testnet", contract: "", explorer: "https://testnet.bscscan.com",
+    name: "BNB Testnet", contract: "", notify: "", explorer: "https://testnet.bscscan.com",
     hex: "0x61", rpc: "https://data-seed-prebsc-1-s1.bnbchain.org:8545", coin: "tBNB", testnet: true,
   },
   56: {
-    name: "BNB Chain", contract: "", explorer: "https://bscscan.com",
+    name: "BNB Chain", contract: "", notify: "", explorer: "https://bscscan.com",
     hex: "0x38", rpc: "https://bsc-dataseed.bnbchain.org", coin: "BNB", testnet: false,
   },
 };
+
+const SUB_ABI = [
+  "function pricePerMonth() view returns (uint256)",
+  "function paidUntil(address) view returns (uint64)",
+  "function subscribe(address account) payable",
+];
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 const STATES = ["—", "Active", "Claim pending", "Settled", "Closed"];
@@ -344,6 +350,38 @@ $("crCheckBtn").addEventListener("click", async () => {
   }
 });
 
+/* ---------------- reminders (crypto-paid subscription) ---------------- */
+
+async function refreshSub() {
+  const status = $("subStatus"), log = $("subLog");
+  status.hidden = false;
+  if (!S.account || !chain()) { status.textContent = "Connect a wallet first."; return null; }
+  if (!chain().notify) {
+    status.textContent = `The reminder service isn't live on ${chain().name} yet — it launches with the audited deployment.`;
+    return null;
+  }
+  const sub = new ethers.Contract(chain().notify, SUB_ABI, S.signer);
+  const [price, until] = await Promise.all([sub.pricePerMonth(), sub.paidUntil(S.account)]);
+  const active = Number(until) * 1000 > Date.now();
+  status.className = active ? "banner warn" : "banner bad";
+  status.textContent = (active
+    ? `Reminders active until ${new Date(Number(until) * 1000).toLocaleDateString()}. `
+    : `No active subscription for ${short(S.account)}. `) +
+    `Price: ${ethers.formatEther(price)} ${chain().coin}/month.`;
+  return { sub, price };
+}
+
+$("subBtn").addEventListener("click", async () => {
+  const log = $("subLog");
+  const r = await refreshSub();
+  if (!r) return;
+  const months = BigInt($("subMonths").value || "0");
+  if (months < 1n) { log.textContent = "Enter at least one month."; return; }
+  await runTx(log, `Subscribe ${months} month(s)`, () =>
+    r.sub.subscribe(S.account, { value: r.price * months }));
+  await refreshSub();
+});
+
 /* ---------------- tabs & boot ---------------- */
 
 $("tabs").addEventListener("click", (e) => {
@@ -352,6 +390,7 @@ $("tabs").addEventListener("click", (e) => {
   document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("active", x === b));
   document.querySelectorAll(".tab-pane").forEach((p) => (p.hidden = true));
   $(`tab-${b.dataset.tab}`).hidden = false;
+  if (b.dataset.tab === "remind") refreshSub().catch(() => {});
 });
 
 $("connectBtn").addEventListener("click", (e) => { e.preventDefault(); connect(); });

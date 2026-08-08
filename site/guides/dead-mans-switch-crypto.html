@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What Is a Dead Man's Switch for Crypto? | Will &amp; Key</title>
+<meta name="description" content="A dead man's switch releases your crypto to your heir only after you stop checking in. How the mechanism works on chain, what it protects against, what it can't, and the questions to ask any implementation.">
+<link rel="canonical" href="https://willandkey.com/guides/dead-mans-switch-crypto.html">
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Article",
+"headline":"What Is a Dead Man's Switch for Crypto?",
+"description":"How the dead man's switch mechanism works on chain, what it protects against, and what it can't.",
+"author":{"@type":"Organization","name":"Will & Key"},
+"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com"},
+"datePublished":"2026-08-09","dateModified":"2026-08-09",
+"mainEntityOfPage":"https://willandkey.com/guides/dead-mans-switch-crypto.html"}
+</script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="../index.html">Will <span class="amp">&amp;</span> Key</a>
+    <nav class="main">
+      <a href="index.html">Guides</a>
+      <a class="cta" href="../app.html">Open the app</a>
+    </nav>
+  </div>
+</header>
+
+<div class="crumbs"><a href="../index.html">Home</a> › <a href="index.html">Guides</a> › Dead man's switch for crypto</div>
+
+<article class="article">
+<h1>What is a dead man's switch for crypto?</h1>
+<p class="standfirst">A mechanism as old as locomotives, rebuilt in smart-contract form: as long
+as you keep signaling "I'm here," nothing happens. When the signals stop, your crypto goes to
+the person you chose. Here's exactly how it works — and the hard questions to ask anyone
+selling you one.</p>
+<p class="byline">By the Will &amp; Key team · Updated August 2026</p>
+
+<h2>The train driver's handle</h2>
+<p>Early locomotives had a simple safety problem: what if the driver dies at the controls? The
+answer was a handle the driver had to keep holding. Grip it and the train runs; let go and the
+brakes apply. The system doesn't need to <em>know</em> the driver is dead — absence of the
+signal is the signal.</p>
+<p>That inversion is what makes the idea perfect for crypto inheritance, because it solves the
+problem no blockchain can solve directly: a smart contract cannot check a death certificate. It
+can, however, notice that an address which used to send a heartbeat transaction every month has
+gone silent for a year.</p>
+
+<h2>The mechanism, step by step</h2>
+<ol>
+<li><strong>Lock.</strong> You put funds in a vault contract and name your heir's wallet
+address. You choose an <em>inactivity period</em> — how long the silence must last.</li>
+<li><strong>Check in.</strong> Any time before the period elapses, you send a cheap transaction
+that resets the timer. Checking in monthly on a 90-day timer means three missed months before
+anything can happen.</li>
+<li><strong>Claim.</strong> If the timer truly runs out, your heir — and only the wallet you
+named — can initiate a claim.</li>
+<li><strong>Challenge window.</strong> The claim doesn't settle instantly. A veto period runs
+(in Will &amp; Key's case, minimum seven days, typically 30) during which any action from your
+wallet cancels the claim and resets everything. This is the safeguard against the hospital
+scenario: being unreachable is not being dead.</li>
+<li><strong>Settle.</strong> Window passes with no veto → the transfer finalizes. It cannot be
+blocked, reversed, or intercepted by anyone at that point — including the people who built the
+contract.</li>
+</ol>
+
+<h2>What it protects against — and what it can't</h2>
+<p>Honest implementations are explicit about both columns:</p>
+<table>
+<tr><th>Protects against</th><th>Cannot protect against</th></tr>
+<tr><td>Death or permanent incapacity (the funds reach your heir)</td>
+<td>A stolen owner key (a thief with your key is indistinguishable from you)</td></tr>
+<tr><td>Your own lost key (stop checking in, heir inherits — a built-in recovery path)</td>
+<td>A lost <em>heir</em> key after you're gone (keep the heir's address current while alive)</td></tr>
+<tr><td>Custodian failure (there is no custodian)</td>
+<td>Forgetting to check in <em>and</em> ignoring every warning (that's what the challenge window and reminders are for)</td></tr>
+<tr><td>Seed-phrase leakage via paperwork (no secret is ever shared — see
+<a href="never-put-seed-phrase-in-will.html">why not a will</a>)</td>
+<td>Chain-level catastrophe (any on-chain asset shares its chain's fate)</td></tr>
+</table>
+
+<h2>The questions to ask any dead man's switch</h2>
+<ul>
+<li><strong>"Can the operator touch my funds?"</strong> The only acceptable answer is a provable
+no — in Will &amp; Key's contract, vault balances are arithmetically outside the admin's reach,
+and that's verifiable in the source, not a policy promise.</li>
+<li><strong>"What happens if the company disappears?"</strong> The contract must keep working
+with the website gone. Claims must be finalizable by anyone, not by the operator's server.</li>
+<li><strong>"Can the fee change under me?"</strong> Look for a hard cap in the bytecode and a
+locked rate per vault. Ours: 0.5% on settlement only, capped at 1% forever, locked at vault
+creation.</li>
+<li><strong>"Is it upgradeable?"</strong> An upgradeable inheritance contract means someone can
+change the rules after you're gone. Non-upgradeable is the right answer even though it makes
+the developer's life harder.</li>
+<li><strong>"Has it been audited?"</strong> If the answer is no — as it currently is for our own
+testnet deployment — the product should say so on every page and refuse your real funds. Check
+that it does.</li>
+</ul>
+
+<h2>The trade you are making</h2>
+<p>A dead man's switch converts the inheritance problem into a liveness problem. You no longer
+need to trust an institution, share a secret, or teach your family cryptography. In exchange,
+you take on one recurring obligation: check in, on a schedule you chose, for the rest of your
+life. Whether that trade is good depends entirely on whether checking in is easy — which is why
+the mechanism pairs naturally with reminders that escalate long before anything is at stake,
+and why the timer minimums are measured in weeks, not hours.</p>
+
+<div class="cta-box">
+<p><strong>Will &amp; Key is this mechanism, built honestly:</strong> open-source vault on
+Ethereum L2, check-ins that cost about a cent, a veto window you size yourself, and a trust
+model documented scenario by scenario — including the ugly ones.</p>
+<a class="btn primary" href="../app.html">Open the app</a>
+</div>
+
+<p>Further reading: <a href="what-happens-to-your-crypto-when-you-die.html">what happens to your
+crypto when you die</a> · <a href="crypto-inheritance-planning.html">a complete inheritance plan
+in one weekend</a>.</p>
+</article>
+
+<footer class="site">
+  <div class="wrap">
+    <div>Will &amp; Key — self-custody inheritance. Not legal, tax, or investment advice.</div>
+    <div><a href="index.html" style="color:var(--gold)">All guides</a></div>
+  </div>
+</footer>
+
+</body>
+</html>

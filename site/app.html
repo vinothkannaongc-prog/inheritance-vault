@@ -34,6 +34,7 @@
     <button data-tab="create">Create a vault</button>
     <button data-tab="heir">I'm an heir</button>
     <button data-tab="credits">Payouts</button>
+    <button data-tab="remind">Reminders</button>
   </div>
 
   <!-- ================= my vaults ================= -->
@@ -109,6 +110,27 @@
       <button class="btn ghost" id="crCheckBtn">Check balance</button>
       <button class="btn primary" id="crPullBtn" hidden>Withdraw to my wallet</button>
       <div class="txlog" id="crLog"></div>
+    </div>
+  </div>
+
+  <!-- ================= reminders ================= -->
+  <div id="tab-remind" class="tab-pane" hidden>
+    <div class="card">
+      <h3>Check-in reminders</h3>
+      <p style="color:var(--ink-soft);margin-bottom:14px">Escalating email alerts before your
+      deadline, an immediate warning if a claim starts on your vault, and heir notifications when
+      it matters. Paid in crypto, on chain — no card, no account, and the service can never touch
+      your vault. Cancel by simply not renewing; your vault keeps working either way.</p>
+      <div id="subStatus" class="banner warn" hidden></div>
+      <label class="f" style="max-width:220px"><span>Months</span>
+        <input class="f" id="subMonths" type="number" value="12" min="1" max="120">
+      </label>
+      <button class="btn primary" id="subBtn">Subscribe</button>
+      <div class="txlog" id="subLog"></div>
+      <p style="color:var(--ink-soft);font-size:0.85rem;margin-top:14px">Beta note: after
+      subscribing, send your wallet address and preferred email to
+      <a href="mailto:reminders@willandkey.com" style="color:var(--gold)">reminders@willandkey.com</a>
+      so we know where to write. Self-serve email setup ships with mainnet.</p>
     </div>
   </div>
 

@@ -23,6 +23,9 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {},
+    // Port 8547, not 8545: the ozo-dapp project's London-pinned local node claims 8545 on this
+    // machine, and Cancun bytecode sent there dies with "invalid opcode".
+    localnode: { url: "http://127.0.0.1:8547", chainId: 31337 },
     base: {
       url: process.env.BASE_RPC_URL ?? "https://mainnet.base.org",
       chainId: 8453,
