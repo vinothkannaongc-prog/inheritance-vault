@@ -26,8 +26,9 @@ const CHAINS = {
 const SUB_ABI = [
   "function pricePerMonth() view returns (uint256)",
   "function paidUntil(address) view returns (uint64)",
-  "function subscribe(address account) payable",
+  "function subscribe(address account, uint256 minSecondsAdded) payable",
 ];
+const MONTH_SECS = 2592000n;
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 const STATES = ["—", "Active", "Claim pending", "Settled", "Closed"];
@@ -364,10 +365,14 @@ async function refreshSub() {
   const [price, until] = await Promise.all([sub.pricePerMonth(), sub.paidUntil(S.account)]);
   const active = Number(until) * 1000 > Date.now();
   status.className = active ? "banner warn" : "banner bad";
+  // The address is named in BOTH branches, deliberately. Subscriptions are keyed by address and
+  // can never be moved, so a green "active" banner that doesn't say WHICH wallet is how someone
+  // pays for a year of reminders on the wrong account and never finds out.
   status.textContent = (active
-    ? `Reminders active until ${new Date(Number(until) * 1000).toLocaleDateString()}. `
+    ? `Reminders active until ${new Date(Number(until) * 1000).toLocaleDateString()} for ${short(S.account)}. `
     : `No active subscription for ${short(S.account)}. `) +
-    `Price: ${ethers.formatEther(price)} ${chain().coin}/month.`;
+    `Price: ${ethers.formatEther(price)} ${chain().coin}/month. ` +
+    `This must be the wallet that OWNS your vaults — reminders follow the vault owner's address.`;
   return { sub, price };
 }
 
@@ -377,8 +382,21 @@ $("subBtn").addEventListener("click", async () => {
   if (!r) return;
   const months = BigInt($("subMonths").value || "0");
   if (months < 1n) { log.textContent = "Enter at least one month."; return; }
-  await runTx(log, `Subscribe ${months} month(s)`, () =>
-    r.sub.subscribe(S.account, { value: r.price * months }));
+
+  // Warn if this wallet owns no vaults: paying from the wrong account is unrecoverable.
+  try {
+    const owned = await S.contract.openVaultIds(S.account);
+    if (owned.length === 0 &&
+        !confirm(`${short(S.account)} owns no vaults on ${chain().name}.\n\n` +
+                 `Subscriptions are tied to an address permanently and cannot be moved or ` +
+                 `refunded. Pay from this wallet anyway?`)) return;
+  } catch { /* vault contract not deployed here; fall through */ }
+
+  const value = r.price * months;
+  // Slippage floor at 99% of the quote: if the price moves between this read and the mined
+  // transaction, revert rather than silently deliver less time than we just displayed.
+  const minSeconds = ((value * MONTH_SECS) / r.price) * 99n / 100n;
+  await runTx(log, `Subscribe ${months} month(s)`, () => r.sub.subscribe(S.account, minSeconds, { value }));
   await refreshSub();
 });
 

@@ -32,8 +32,13 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  *       never claims at all, they are stuck forever. Keeping the heir's address current is
  *       part of owning a vault.
  *   T3. guaranteedInheritanceAt = absoluteDeadline + challengeWindow is a hard date against a
- *       lost owner key and against runaway check-in automation: checkIn and checkInByChain
- *       revert once the horizon is reached, and only the owner's live key can extend it.
+ *       lost owner key and against runaway check-in automation: checkIn, checkInByChain and
+ *       setCheckInChain revert once the horizon is reached, abortClaim closes with them, and a
+ *       partial withdraw no longer displaces a claim. The ONLY way past the date is
+ *       extendHorizon, which needs the live owner key, must name a horizon at least one
+ *       inactivity period in the future, and is logged as HorizonExtended. So a living owner
+ *       can still override the date deliberately -- at a cost of one full inactivity period per
+ *       override -- and nothing can do it silently or without bound.
  *   T4. The admin can pause new vault creation, lower (never raise above each vault's own
  *       creation-time ceiling) the claim fee, change the fee recipient, and sweep value that
  *       was force-fed outside the accounting lanes. The admin cannot reach a wei of any
@@ -52,9 +57,22 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * creation as a ceiling the admin can never raise for that vault; if the global fee is lower
  * at settlement time, the lower rate applies. No fee is taken while no fee recipient is set.
  *
- * NOT SUPPORTED, deliberately: rebasing tokens (balances are recorded, not shares -- a rebase
- * strands or manufactures surplus), and ERC721/1155. One vault holds exactly one asset; owners
- * who want a split estate create several vaults and refresh them with one checkInMany call.
+ * NOT SUPPORTED, deliberately: ERC721/1155, and rebasing tokens. The rebase consequence stated
+ * exactly, because "strands or manufactures surplus" was too kind: on a POSITIVE rebase the
+ * yield accrues as surplus and the admin can sweep it, so depositors keep only their nominal
+ * balance; on a NEGATIVE rebase the credit lane is all-or-nothing and first-come-first-served,
+ * so the last claimant recovers NOTHING rather than a pro-rata share. Do not use this contract
+ * with stETH or any balance-adjusting token.
+ *
+ * ALSO NOT RECOVERABLE, and inherent rather than fixable: value credited to an address that can
+ * neither originate a call nor receive native value (e.g. a claim recipient typed as a token
+ * contract) is stuck. withdrawCredit lets the credited account route anywhere, which covers
+ * blocklisted EOAs and any contract able to make one call; nothing covers an address that can
+ * do neither. No admin rescue exists on purpose -- a hatch that can move a user's credit is a
+ * hatch that can move a user's credit.
+ *
+ * One vault holds exactly one asset; owners who want a split estate create several vaults and
+ * refresh them with one checkInMany call.
  */
 contract InheritanceVault is Ownable2Step, ReentrancyGuard {
     using SafeCast for uint256;
@@ -118,6 +136,10 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
         uint32 hbLeft;
         // ---- slot 4
         address claimRecipient;
+        /// @dev min(feeBps, global) captured at initiateClaim, so the rate cannot be raised
+        /// under a claim already in flight. Kept separate from feeBps so the creation-time
+        /// ceiling stays immutable and never disagrees with the VaultCreated event.
+        uint16 lockedFeeBps;
         // ---- slot 5
         bytes32 hbAnchor;
     }
@@ -223,6 +245,8 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
     error ChallengeWindowOpen(uint64 finalizableAt);
     error HorizonNotExtended(uint64 current, uint64 requested);
     error HorizonTooFar(uint64 given, uint64 maximum);
+    error HorizonTooSoon(uint64 minimum, uint64 given);
+    error NothingCheckedIn();
     error InvalidPeriod(uint32 given);
     error InvalidChallengeWindow(uint32 given);
     error InvalidCheckInChain();
@@ -266,12 +290,30 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
         v.deadline = next < cap ? next : cap;
     }
 
-    /// @dev Any owner action supersedes a running claim: the owner acting IS the liveness proof
-    /// the claim asserted was missing. Unlike PQVault there is no proven recipient to preserve --
-    /// no one-time key was burned, so the beneficiary re-initiates for free once the (reset)
-    /// deadline expires again.
+    /**
+     * @dev Any owner action supersedes a running claim: the owner acting IS the liveness proof
+     * the claim asserted was missing. Unlike PQVault there is no proven recipient to preserve --
+     * no one-time key was burned, so the beneficiary re-initiates for free once the (reset)
+     * deadline expires again.
+     *
+     * PAST THE HORIZON this closes. _resetClock can no longer move `deadline` (it clamps to
+     * absoluteDeadline, already in the past), so a claim displaced after the horizon could be
+     * displaced again in the very next block -- an unbounded, zero-cooldown denial of the
+     * inheritance. Exactly ONE action may still displace a claim then: extendHorizon, and only
+     * because it is now required to name a genuinely future horizon, which restores a full
+     * inactivity period of cooldown and is logged as HorizonExtended.
+     *
+     * A partial withdraw is deliberately NOT on that list. It was, in the first pass of this
+     * audit, on the theory that it "actually moves the money out" -- but a 1 wei withdraw moves
+     * nothing out and was a strictly better abortClaim: same effect, same gas, and you keep the
+     * wei. Past the horizon a partial withdraw now leaves the claim running and the heir simply
+     * inherits less. A full withdraw closes the vault, which ends the claim by ending the vault.
+     */
     function _clearPending(Vault storage v, uint256 vaultId, uint8 action) private {
         if (v.state == STATE_CLAIM_PENDING) {
+            if (block.timestamp >= v.absoluteDeadline && action != ACT_EXTEND_HORIZON) {
+                revert HorizonReached(v.absoluteDeadline);
+            }
             v.state = STATE_ACTIVE;
             v.claimInitiatedAt = 0;
             v.claimRecipient = address(0);
@@ -344,7 +386,10 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
             revert InvalidChallengeWindow(challengeWindow);
         }
         if (absoluteDeadline < block.timestamp + inactivityPeriod) {
-            revert HorizonNotExtended(uint64(block.timestamp), absoluteDeadline);
+            // Reports the minimum that would have been accepted, not `now` -- a frontend showing
+            // "current 1800000000, requested 1801000000" describes a valid extension being
+            // refused and gives the user no way to learn the real floor.
+            revert HorizonTooSoon(uint64(block.timestamp) + inactivityPeriod, absoluteDeadline);
         }
         if (absoluteDeadline > block.timestamp + MAX_HORIZON) {
             revert HorizonTooFar(absoluteDeadline, uint64(block.timestamp) + MAX_HORIZON);
@@ -399,6 +444,10 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
         if (v.state != STATE_ACTIVE) revert VaultNotActive(vaultId, v.state);
 
         uint256 received = _pull(v.token, amount);
+        // Re-assert AFTER the transfer. A token with a receive hook can call back into the
+        // owner's own functions during _pull; without this the deposit could be written onto a
+        // vault the callback had already closed, stranding it outside every exit.
+        if (v.state != STATE_ACTIVE) revert VaultNotActive(vaultId, v.state);
         v.balance = (uint256(v.balance) + received).toUint128();
         totalLocked[v.token] += received;
         emit ToppedUp(vaultOwner, vaultId, msg.sender, received);
@@ -406,7 +455,7 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
 
     // ------------------------------------------------------------------ liveness
 
-    function checkIn(uint256 vaultId) public {
+    function checkIn(uint256 vaultId) external nonReentrant {
         Vault storage v = _vault(msg.sender, vaultId);
         if (v.state == STATE_CLAIM_PENDING) revert ClaimPendingUseAbort(vaultId);
         if (v.state != STATE_ACTIVE) revert VaultNotActive(vaultId, v.state);
@@ -418,18 +467,46 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
         emit CheckedIn(msg.sender, vaultId, v.deadline, false);
     }
 
-    function checkInMany(uint256[] calldata vaultIds) external {
+    /**
+     * @notice Refresh a whole split estate in one transaction.
+     * @return refreshed how many vaults were actually checked in.
+     *
+     * Vaults that cannot be checked in (past their own horizon, or with a claim pending that
+     * needs an explicit abortClaim) are SKIPPED, not reverted on. Strictness here was a trap:
+     * one vault reaching a horizon chosen years earlier would revert the batch, so a keeper
+     * following the documented pattern would silently stop refreshing all 32 vaults and hand
+     * every heir a premature inheritance. Reverts only when nothing at all could be refreshed,
+     * so a total no-op still cannot masquerade as success.
+     */
+    function checkInMany(uint256[] calldata vaultIds) external nonReentrant returns (uint256 refreshed) {
         uint256 n = vaultIds.length;
         if (n > MAX_BATCH) revert BatchTooLarge(n, MAX_BATCH);
-        for (uint256 i = 0; i < n; i++) checkIn(vaultIds[i]);
+        uint64 owned = vaultCount[msg.sender];
+        for (uint256 i = 0; i < n; i++) {
+            // An id the caller never had is skipped, not reverted on: leaving this one revert
+            // path in place would have preserved the whole trap for any keeper whose id list
+            // outran a customer's vault count. `refreshed` counts array entries, so a caller
+            // passing duplicates gets a count above the number of distinct vaults refreshed.
+            if (vaultIds[i] >= owned) continue;
+            Vault storage v = _vaults[msg.sender][vaultIds[i]];
+            if (v.state != STATE_ACTIVE || block.timestamp >= v.absoluteDeadline) continue;
+            _resetClock(v);
+            refreshed += 1;
+            emit CheckedIn(msg.sender, vaultIds[i], v.deadline, false);
+        }
+        if (refreshed == 0) revert NothingCheckedIn();
     }
 
     /// @dev Owner-gated: installing a check-in chain extends liveness and therefore delays
     /// inheritance, so it carries the same authority as checkIn itself.
-    function setCheckInChain(uint256 vaultId, bytes32 anchor, uint32 count) external {
+    function setCheckInChain(uint256 vaultId, bytes32 anchor, uint32 count) external nonReentrant {
         if (anchor == bytes32(0) || count == 0 || count > MAX_HB_COUNT) revert InvalidCheckInChain();
         Vault storage v = _vault(msg.sender, vaultId);
         _requireLive(v, vaultId);
+        // checkInByChain reverts past the horizon, so installing a chain there would take a fee,
+        // clear the "chain exhausted" warning, and hand the owner a mechanism that can never
+        // fire -- exactly the green-toast lie checkIn refuses to tell.
+        if (block.timestamp >= v.absoluteDeadline) revert HorizonReached(v.absoluteDeadline);
         v.hbAnchor = anchor;
         v.hbLeft = count;
         _resetClock(v);
@@ -445,11 +522,17 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
      * the vault alive from a 32-byte seed while they coordinate with their heir. The chain runs
      * one way, so a captured check-in can be replayed but never extended.
      *
-     * Its limit, stated plainly: it proves liveness, not authority. It cannot veto a claim that
+     * Its limits, stated plainly: it proves liveness, not authority. It cannot veto a claim that
      * is already pending (abortClaim needs the owner key), cannot withdraw, and cannot change
      * the heir. A keyless owner's real endgame is for the NAMED heir to claim and hand back.
+     *
+     * And the sharp edge that follows from that: because initiateClaim needs no secret, an heir
+     * watching the mempool can front-run a chain check-in that arrives after the deadline has
+     * lapsed. Once the vault is CLAIM_PENDING this function reverts for good, so the remaining
+     * preimages are worthless. The chain survives only if every check-in lands STRICTLY BEFORE
+     * the deadline -- run the relayer with real margin, never at the wire.
      */
-    function checkInByChain(address vaultOwner, uint256 vaultId, bytes32 preimage) external {
+    function checkInByChain(address vaultOwner, uint256 vaultId, bytes32 preimage) external nonReentrant {
         Vault storage v = _vault(vaultOwner, vaultId);
         if (v.state != STATE_ACTIVE) revert VaultNotActive(vaultId, v.state);
         if (v.hbAnchor == bytes32(0)) revert InvalidCheckInChain();
@@ -466,7 +549,7 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
 
     // ------------------------------------------------------------------ owner actions
 
-    function withdraw(uint256 vaultId, uint256 amount, address to) external {
+    function withdraw(uint256 vaultId, uint256 amount, address to) external nonReentrant {
         if (to == address(0)) revert ZeroAddress();
         if (to == address(this)) revert CannotPayToSelf();
         if (amount == 0) revert ZeroAmount();
@@ -479,18 +562,24 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
         totalLocked[v.token] -= amount;
         _credit(v.token, to, amount);
         _resetClock(v);
-        _clearPending(v, vaultId, ACT_WITHDRAW);
 
         bool closed = v.balance == 0;
         if (closed) {
+            // Closing ends any pending claim by ending the vault; there is nothing left to claim.
             v.state = STATE_CLOSED;
+            v.claimInitiatedAt = 0;
+            v.claimRecipient = address(0);
             vaultsClosed += 1;
             _removeFromOpen(msg.sender, v);
+        } else if (block.timestamp < v.absoluteDeadline) {
+            // Before the horizon a partial withdraw is a liveness proof like any other owner
+            // action. Past it, see the note on _clearPending: it must not displace the claim.
+            _clearPending(v, vaultId, ACT_WITHDRAW);
         }
         emit Withdrawn(msg.sender, vaultId, to, amount, closed);
     }
 
-    function setBeneficiary(uint256 vaultId, address newBeneficiary) external {
+    function setBeneficiary(uint256 vaultId, address newBeneficiary) external nonReentrant {
         if (newBeneficiary == address(0) || newBeneficiary == address(this)) revert ZeroAddress();
         if (newBeneficiary == msg.sender) revert BeneficiaryIsOwner();
 
@@ -504,7 +593,7 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
         emit BeneficiaryChanged(msg.sender, vaultId, newBeneficiary, old);
     }
 
-    function setInactivityPeriod(uint256 vaultId, uint32 newPeriod) external {
+    function setInactivityPeriod(uint256 vaultId, uint32 newPeriod) external nonReentrant {
         if (newPeriod < MIN_INACTIVITY || newPeriod > MAX_INACTIVITY) revert InvalidPeriod(newPeriod);
         Vault storage v = _vault(msg.sender, vaultId);
         _requireLive(v, vaultId);
@@ -519,12 +608,19 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
     /// the owner key deliberately extending their own horizon is the person the vault serves.
     /// `challengeWindow` has no setter at all -- its immutability is the heir's guarantee that a
     /// claim, once initiated, has a settlement date no one can stretch.
-    function extendHorizon(uint256 vaultId, uint64 newAbsoluteDeadline) external {
+    function extendHorizon(uint256 vaultId, uint64 newAbsoluteDeadline) external nonReentrant {
         Vault storage v = _vault(msg.sender, vaultId);
         _requireLive(v, vaultId);
         if (newAbsoluteDeadline <= v.absoluteDeadline) {
             revert HorizonNotExtended(v.absoluteDeadline, newAbsoluteDeadline);
         }
+        // A horizon must be genuinely in the future by at least one inactivity period. Without
+        // this, an owner already past their horizon could satisfy the check above with +1 second
+        // -- clearing a pending claim, leaving `deadline` pinned in the past, and repeating every
+        // block: the same unbounded veto loop abortClaim was closed to prevent, wearing the one
+        // costume _clearPending still admits.
+        uint64 floor = uint64(block.timestamp) + v.inactivityPeriod;
+        if (newAbsoluteDeadline < floor) revert HorizonTooSoon(floor, newAbsoluteDeadline);
         uint64 max = uint64(block.timestamp) + MAX_HORIZON;
         if (newAbsoluteDeadline > max) revert HorizonTooFar(newAbsoluteDeadline, max);
 
@@ -540,13 +636,20 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
     /// should route the payout to a fresh address if they want one, without moving their identity
     /// key. There is no relayer path here: on the target chains gas is cents, and gating on
     /// msg.sender is what makes the beneficiary address the authority.
-    function initiateClaim(address vaultOwner, uint256 vaultId, address recipient) external {
+    function initiateClaim(address vaultOwner, uint256 vaultId, address recipient) external nonReentrant {
         if (recipient == address(0) || recipient == address(this)) revert ZeroAddress();
         Vault storage v = _vault(vaultOwner, vaultId);
         if (v.state != STATE_ACTIVE) revert VaultNotActive(vaultId, v.state);
         if (msg.sender != v.beneficiary) revert NotTheBeneficiary(msg.sender, v.beneficiary);
         if (block.timestamp < v.deadline) revert NotYetExpired(v.deadline);
         if (v.balance == 0) revert NothingToClaim(vaultId);
+
+        // Lock the effective fee for the whole challenge window. Without this the admin could
+        // sandwich a settlement -- raise the rate back to the vault's ceiling immediately before
+        // finalizeClaim and drop it immediately after -- taking a fee the heir had every public
+        // reason to believe was lower. The rate can still only ever move DOWN from here.
+        uint16 current = claimFeeBps;
+        v.lockedFeeBps = current < v.feeBps ? current : v.feeBps;
 
         v.claimRecipient = recipient;
         v.claimInitiatedAt = uint64(block.timestamp);
@@ -557,9 +660,14 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
 
     /// @dev The veto. Resets the clock, so the abort/re-claim loop is naturally rate-limited to
     /// once per inactivity period -- and unlike PQVault it costs the heir nothing but gas.
-    function abortClaim(uint256 vaultId) external {
+    function abortClaim(uint256 vaultId) external nonReentrant {
         Vault storage v = _vault(msg.sender, vaultId);
         if (v.state != STATE_CLAIM_PENDING) revert NoClaimPending(vaultId);
+        // Past the horizon this ECDSA veto closes for good. _resetClock can no longer move the
+        // deadline, so an abort here would be repeatable every block -- an unbounded denial of
+        // the inheritance. A living owner who genuinely wants to stop a claim past the horizon
+        // must say so explicitly with extendHorizon, which is logged as exactly that.
+        if (block.timestamp >= v.absoluteDeadline) revert HorizonReached(v.absoluteDeadline);
 
         v.claimInitiatedAt = 0;
         v.claimRecipient = address(0);
@@ -571,7 +679,7 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
     /// @dev Permissionless and free of external calls. Splitting settlement from payment keeps a
     /// hostile or non-payable recipient from jamming the vault: value lands in the credit lane
     /// and is pulled from there.
-    function finalizeClaim(address vaultOwner, uint256 vaultId) external {
+    function finalizeClaim(address vaultOwner, uint256 vaultId) external nonReentrant {
         Vault storage v = _vault(vaultOwner, vaultId);
         if (v.state != STATE_CLAIM_PENDING) revert NoClaimPending(vaultId);
         uint64 finalizableAt = v.claimInitiatedAt + v.challengeWindow;
@@ -581,9 +689,10 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
         address to = v.claimRecipient;
         address token = v.token;
 
-        // The vault's creation-time fee is a ceiling; a lower current global rate applies.
+        // lockedFeeBps was fixed at initiateClaim. Re-taking the minimum here lets a fee CUT
+        // made during the challenge window still reach the heir, while a rise cannot.
         // No recipient configured means no fee, so an abandoned admin can never strand a claim.
-        uint16 bps = v.feeBps;
+        uint16 bps = v.lockedFeeBps;
         uint16 current = claimFeeBps;
         if (current < bps) bps = current;
         address feeTo = feeRecipient;
@@ -670,8 +779,10 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
         _payout(token, to, amount);
     }
 
-    /// @dev Plain transfers are refused so native value can never enter outside the accounting
-    /// lanes. (ERC20s can still be force-fed by direct transfer; they land in surplus.)
+    /// @dev Plain transfers are refused, so native value cannot enter through an ordinary call.
+    /// SELFDESTRUCT and block-reward payments can still force-feed native value without running
+    /// any code here; like force-fed ERC20s it lands in surplus and is sweepable. What no path
+    /// can do is add value to a vault's balance without going through createVault or topUp.
     receive() external payable {
         revert UseTopUp();
     }

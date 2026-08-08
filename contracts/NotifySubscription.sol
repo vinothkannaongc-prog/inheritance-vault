@@ -36,6 +36,7 @@ contract NotifySubscription is Ownable2Step {
     error ZeroAddress();
     error ZeroAmount();
     error PriceIsZero();
+    error PriceMoved(uint256 secondsBought, uint256 minimumRequested);
     error TooFarAhead(uint256 maximum);
     error NothingToWithdraw();
     error NativeTransferFailed(address to, uint256 amount);
@@ -46,14 +47,23 @@ contract NotifySubscription is Ownable2Step {
         pricePerMonth = initialPricePerMonth;
     }
 
-    /// @notice Extend `account`'s subscription by whatever `msg.value` buys at today's price.
-    /// Extension is from the later of now and the current expiry, so early renewal loses nothing.
-    function subscribe(address account) external payable {
+    /**
+     * @notice Extend `account`'s subscription by whatever `msg.value` buys at today's price.
+     * Extension is from the later of now and the current expiry, so early renewal loses nothing.
+     * @param minSecondsAdded Slippage floor: revert rather than deliver less time than this.
+     *
+     * The floor is not decoration. `setPrice` takes effect immediately, so without it a routine
+     * price change ordered ahead of an in-flight payment silently delivers a fraction of the
+     * time the UI quoted, with no refund and no way to unwind — purchased time can never be
+     * revoked, which cuts both ways. Pass 0 only if you genuinely do not care what you get.
+     */
+    function subscribe(address account, uint256 minSecondsAdded) external payable {
         if (account == address(0)) revert ZeroAddress();
         if (msg.value == 0) revert ZeroAmount();
 
         uint256 added = (msg.value * MONTH) / pricePerMonth;
         if (added == 0) revert ZeroAmount(); // dust that buys less than one second
+        if (added < minSecondsAdded) revert PriceMoved(added, minSecondsAdded);
 
         uint256 current = paidUntil[account];
         uint256 base = current > block.timestamp ? current : block.timestamp;

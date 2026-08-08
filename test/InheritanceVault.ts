@@ -146,7 +146,7 @@ describe("InheritanceVault", () => {
       await expect(c({ period: 3650 * DAY + 1 })).to.be.revertedWithCustomError(f.vault, "InvalidPeriod");
       await expect(c({ window: 7 * DAY - 1 })).to.be.revertedWithCustomError(f.vault, "InvalidChallengeWindow");
       await expect(c({ window: 365 * DAY + 1 })).to.be.revertedWithCustomError(f.vault, "InvalidChallengeWindow");
-      await expect(c({ hor: now + PERIOD - DAY })).to.be.revertedWithCustomError(f.vault, "HorizonNotExtended");
+      await expect(c({ hor: now + PERIOD - DAY })).to.be.revertedWithCustomError(f.vault, "HorizonTooSoon");
       await expect(c({ hor: now + 36500 * DAY + DAY })).to.be.revertedWithCustomError(f.vault, "HorizonTooFar");
       await expect(c({ value: DEPOSIT - 1n })).to.be.revertedWithCustomError(f.vault, "NativeAmountMismatch");
       await expect(
