@@ -2,6 +2,7 @@ import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-ethers";
 import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-network-helpers";
+import "@nomicfoundation/hardhat-verify";
 
 /**
  * Target chains are Base (OP-stack ETH L2) and BNB Chain. Both run Cancun, so unlike the
@@ -45,6 +46,16 @@ const config: HardhatUserConfig = {
       url: process.env.BNB_TESTNET_RPC_URL ?? "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
       chainId: 97,
       accounts: deployer,
+    },
+  },
+  // Source verification is not optional for this product: a vault whose bytecode nobody can
+  // read against its source is asking for exactly the trust it claims not to need.
+  etherscan: {
+    apiKey: {
+      base: process.env.BASESCAN_API_KEY ?? "",
+      baseSepolia: process.env.BASESCAN_API_KEY ?? "",
+      bsc: process.env.BSCSCAN_API_KEY ?? "",
+      bscTestnet: process.env.BSCSCAN_API_KEY ?? "",
     },
   },
   paths: { sources: "./contracts", tests: "./test", cache: "./cache", artifacts: "./artifacts" },

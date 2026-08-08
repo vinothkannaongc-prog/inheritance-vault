@@ -4,3 +4,5 @@ cache/
 coverage/
 dist/
 .env
+
+deployments/
