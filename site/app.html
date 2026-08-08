@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Will &amp; Key — app</title>
+<meta name="description" content="Create and manage your inheritance vaults: check in, top up, and claim.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="index.html">Will <span class="amp">&amp;</span> Key</a>
+    <nav class="main">
+      <span id="netPill" class="pill dim">no wallet</span>
+      <a class="cta" href="#" id="connectBtn">Connect wallet</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="app-head">
+    <h1>Your vaults</h1>
+    <span class="pill warn">Pre-audit — testnet only</span>
+  </div>
+
+  <div id="walletBanner" class="banner warn" hidden></div>
+  <div id="deployBanner" class="banner bad" hidden></div>
+
+  <div class="tabs" id="tabs">
+    <button data-tab="mine" class="active">My vaults</button>
+    <button data-tab="create">Create a vault</button>
+    <button data-tab="heir">I'm an heir</button>
+    <button data-tab="credits">Payouts</button>
+  </div>
+
+  <!-- ================= my vaults ================= -->
+  <div id="tab-mine" class="tab-pane">
+    <div class="card" id="mineEmpty">
+      <p>Connect your wallet to see your vaults. Every vault you own appears here with its
+      countdown, and one click checks in on all of them at once.</p>
+    </div>
+    <div style="margin-bottom:14px">
+      <button class="btn primary" id="checkAllBtn" hidden>Check in on all vaults</button>
+    </div>
+    <div id="vaultList"></div>
+  </div>
+
+  <!-- ================= create ================= -->
+  <div id="tab-create" class="tab-pane" hidden>
+    <div class="card">
+      <h3>Create a vault</h3>
+      <div class="grid2">
+        <label class="f"><span>Asset</span>
+          <select class="f" id="cAsset">
+            <option value="native">Native coin (ETH / BNB)</option>
+            <option value="erc20">ERC-20 token</option>
+          </select>
+        </label>
+        <label class="f" id="cTokenWrap" hidden><span>Token contract address</span>
+          <input class="f" id="cToken" placeholder="0x…">
+        </label>
+        <label class="f"><span>Amount</span>
+          <input class="f" id="cAmount" placeholder="1.0">
+        </label>
+        <label class="f"><span>Heir's wallet address</span>
+          <input class="f" id="cHeir" placeholder="0x…">
+        </label>
+        <label class="f"><span>Inactivity period (days, 7–3650)</span>
+          <input class="f" id="cPeriod" type="number" value="90" min="7" max="3650">
+        </label>
+        <label class="f"><span>Challenge window (days, 7–365) — your veto period after a claim</span>
+          <input class="f" id="cWindow" type="number" value="30" min="7" max="365">
+        </label>
+        <label class="f"><span>Horizon — guaranteed inheritance date, even if check-in bots run forever</span>
+          <input class="f" id="cHorizon" type="date">
+        </label>
+      </div>
+      <button class="btn primary" id="createBtn">Create vault</button>
+      <div class="txlog" id="createLog"></div>
+    </div>
+  </div>
+
+  <!-- ================= heir ================= -->
+  <div id="tab-heir" class="tab-pane" hidden>
+    <div class="card">
+      <h3>Claim an inheritance</h3>
+      <p style="color:var(--ink-soft);margin-bottom:14px">Enter the vault owner's address. Vaults
+      that name your connected wallet as heir will appear, with their status and what you can do.</p>
+      <label class="f"><span>Vault owner's address</span>
+        <input class="f" id="hOwner" placeholder="0x…">
+      </label>
+      <button class="btn primary" id="hLookupBtn">Look up</button>
+      <div id="heirList" style="margin-top:18px"></div>
+    </div>
+  </div>
+
+  <!-- ================= credits ================= -->
+  <div id="tab-credits" class="tab-pane" hidden>
+    <div class="card">
+      <h3>Payouts owed to you</h3>
+      <p style="color:var(--ink-soft);margin-bottom:14px">Settled inheritances and withdrawals land
+      here as credits you pull to any address you choose.</p>
+      <label class="f"><span>Token (leave blank for native coin)</span>
+        <input class="f" id="crToken" placeholder="0x… or blank">
+      </label>
+      <button class="btn ghost" id="crCheckBtn">Check balance</button>
+      <button class="btn primary" id="crPullBtn" hidden>Withdraw to my wallet</button>
+      <div class="txlog" id="crLog"></div>
+    </div>
+  </div>
+
+  <footer class="site" style="border-top:none;padding-top:8px">
+    <div class="wrap" style="padding:0">
+      <div>Will &amp; Key — self-custody inheritance. Not legal, tax, or investment advice.</div>
+    </div>
+  </footer>
+</div>
+
+<!-- Pinned version. Self-host this file at deploy time so the app has zero third-party runtime deps. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js" referrerpolicy="no-referrer"></script>
+<script src="assets/abi.js"></script>
+<script src="assets/app.js"></script>
+
+</body>
+</html>

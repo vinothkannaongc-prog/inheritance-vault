@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Will &amp; Key — your crypto should outlive you</title>
+<meta name="description" content="A self-custody inheritance vault. Deposit crypto, name your heir, check in on your schedule. If you go silent, they inherit — no custodian, no seed-phrase sharing, no lawyer holding your keys.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="index.html">Will <span class="amp">&amp;</span> Key</a>
+    <nav class="main">
+      <a href="#how">How it works</a>
+      <a href="#trust">Trust model</a>
+      <a href="#fees">Fees</a>
+      <a href="#faq">FAQ</a>
+      <a class="cta" href="app.html">Open the app</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <h1>Your crypto should outlive you.</h1>
+    <p class="lead">
+      Billions in crypto are lost forever when people die without a plan. Will &amp; Key is a
+      self-custody vault with a dead man's switch: deposit, name your heir, and check in on a
+      schedule you choose. If you ever go silent, your heir inherits — automatically, on chain,
+      with no custodian and no one holding your seed phrase.
+    </p>
+    <div class="actions">
+      <a class="btn primary" href="app.html">Open the app</a>
+      <a class="btn ghost" href="#how">See how it works</a>
+    </div>
+    <p style="margin-top:28px"><span class="notice"><strong>Status:</strong> pre-audit, testnet only.
+    Do not deposit real funds until the independent audit is complete.</span></p>
+  </div>
+</section>
+
+<section class="band" id="how">
+  <div class="wrap">
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="num">1</div>
+        <h3>Lock</h3>
+        <p>Create a vault with ETH, BNB, or any ERC-20. Name your heir's wallet address, pick your
+        check-in schedule (7 days to 10 years), and set a challenge window. Your keys, your coins —
+        the contract is open source and non-upgradable.</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h3>Check in</h3>
+        <p>One cheap transaction resets your timer. One click refreshes every vault you own. Miss a
+        check-in because life happened? Nothing fires instantly — your heir must wait out your full
+        inactivity period, and then a challenge window in which you can still veto.</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h3>They inherit</h3>
+        <p>If you truly go silent, your heir claims with their own wallet. After the challenge
+        window passes with no veto from you, anyone can finalize and the funds are theirs. No court,
+        no customer support, no company that needs to still exist.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band alt" id="trust">
+  <div class="wrap">
+    <h2>The trust model, stated honestly</h2>
+    <div class="trust-scroll">
+    <table class="trust">
+      <tr><th>Scenario</th><th>What happens</th></tr>
+      <tr><td>You lose your wallet</td>
+        <td>The vault expires on schedule and your heir inherits. This is the designed recovery
+        path. An optional paper-seed check-in chain can keep the vault alive while you coordinate.</td></tr>
+      <tr><td>Your wallet is stolen</td>
+        <td>A stolen owner key is a stolen vault. Will &amp; Key defends against absence and loss,
+        not against a compromised key — nothing self-custodial can.</td></tr>
+      <tr><td>Your heir loses their wallet</td>
+        <td>While you're alive: change the heir address in one transaction. Keeping it current is
+        part of owning a vault.</td></tr>
+      <tr><td>We disappear</td>
+        <td>Nothing changes. The contract keeps running without us. Claims can always be finalized
+        by anyone, and if our fee address is ever unset, no fee is taken at all.</td></tr>
+      <tr><td>We turn evil</td>
+        <td>We can pause <em>new</em> vault creation. We cannot touch a wei of any vault, block a
+        withdrawal, block a claim, or raise your fee — those are arithmetic facts of the bytecode,
+        not promises.</td></tr>
+    </table>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="fees">
+  <div class="wrap">
+    <h2>Fees you can verify</h2>
+    <div class="fees">
+      <ul>
+        <li><strong>0.5% when an inheritance settles.</strong> That is the only fee. Deposits,
+        check-ins, and your own withdrawals are always free.</li>
+        <li><strong>Hard-capped at 1% in the bytecode.</strong> No admin, present or future, can
+        ever take more.</li>
+        <li><strong>Your rate is locked when you create the vault.</strong> It can go down if we
+        lower fees later; it can never go up.</li>
+        <li><strong>Open source.</strong> Read the contract; the fee logic is twelve lines.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="band alt" id="faq">
+  <div class="wrap">
+    <h2>Questions people actually ask</h2>
+    <details class="faq">
+      <summary>Is this a legal will?</summary>
+      <p>No. It is a technical mechanism that transfers on-chain assets, and it operates
+      independently of probate. Estate law varies by country — for anything beyond crypto, and for
+      tax treatment, talk to a professional. Will &amp; Key handles the part lawyers can't: keys.</p>
+    </details>
+    <details class="faq">
+      <summary>What if I'm in hospital and miss my check-in?</summary>
+      <p>Nothing fires instantly. Your heir must first wait out your full inactivity period, then
+      claim, then wait a challenge window of at least 7 days — during which any action from your
+      wallet cancels the claim and resets the clock. Choose a schedule that fits your life; most
+      people pick 60–180 days.</p>
+    </details>
+    <details class="faq">
+      <summary>Can Will &amp; Key or a hacker take my funds?</summary>
+      <p>The contract lets exactly two addresses move funds: yours (anywhere, any time) and your
+      heir's (only to a claim, only after your timer expires, only through the challenge window).
+      The admin's power is limited to pausing new vault creation and sweeping accidental transfers
+      — the accounting makes vault balances arithmetically unreachable.</p>
+    </details>
+    <details class="faq">
+      <summary>What does my heir need to know?</summary>
+      <p>Three things: that the vault exists, which wallet address you named for them, and that
+      they should keep that wallet safe. They pay nothing until they claim, and claiming costs
+      cents on an L2. Our guides walk them through it step by step when the time comes.</p>
+    </details>
+    <details class="faq">
+      <summary>Which chains?</summary>
+      <p>Base (Ethereum L2) first, BNB Chain next. Check-ins cost about a cent on Base, and the
+      contract needs to outlive you by decades — Ethereum's security inheritance matters more for
+      an inheritance product than for anything else in crypto.</p>
+    </details>
+    <details class="faq">
+      <summary>Has it been audited?</summary>
+      <p>An independent adversarial audit is in progress. Until it is published here, the app is
+      testnet-only and the site will tell you so. We will not soften that line — an inheritance
+      product earns trust slowly or not at all.</p>
+    </details>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap">
+    <div>Will &amp; Key — self-custody inheritance. Not legal, tax, or investment advice.</div>
+    <div>Contract source: open at launch, after the audit publishes.</div>
+  </div>
+</footer>
+
+</body>
+</html>
