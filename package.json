@@ -9,7 +9,9 @@
     "node": "hardhat node --port 8547",
     "scenario": "hardhat run scripts/notify-scenario.ts --network localnode",
     "deploy:baseSepolia": "hardhat run scripts/deploy.ts --network baseSepolia",
-    "deploy:bnbTestnet": "hardhat run scripts/deploy.ts --network bnbTestnet"
+    "deploy:bnbTestnet": "hardhat run scripts/deploy.ts --network bnbTestnet",
+    "deploy:base": "hardhat run scripts/deploy.ts --network base",
+    "smoke:base": "hardhat run scripts/smoke.ts --network base"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
