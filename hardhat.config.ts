@@ -50,13 +50,12 @@ const config: HardhatUserConfig = {
   },
   // Source verification is not optional for this product: a vault whose bytecode nobody can
   // read against its source is asking for exactly the trust it claims not to need.
+  //
+  // ONE key, not a per-network map. Etherscan's V2 API is multichain and covers Base and BSC
+  // from a single etherscan.io key; the per-network form silently targets the retired V1
+  // endpoints and fails with a migration notice.
   etherscan: {
-    apiKey: {
-      base: process.env.BASESCAN_API_KEY ?? "",
-      baseSepolia: process.env.BASESCAN_API_KEY ?? "",
-      bsc: process.env.BSCSCAN_API_KEY ?? "",
-      bscTestnet: process.env.BSCSCAN_API_KEY ?? "",
-    },
+    apiKey: process.env.ETHERSCAN_API_KEY ?? process.env.BASESCAN_API_KEY ?? "",
   },
   paths: { sources: "./contracts", tests: "./test", cache: "./cache", artifacts: "./artifacts" },
   mocha: { timeout: 60_000 },
