@@ -1,17 +1,22 @@
 {
-  "rpc": "https://sepolia.base.org",
-  "contract": "0x0000000000000000000000000000000000000000",
+  "rpc": "https://mainnet.base.org",
+  "contract": "0xC821849A1D74959753450409b594b23eCE7fEe2f",
   "appUrl": "https://willandkey.com/app.html",
   "from": "Will & Key <reminders@willandkey.com>",
   "stateFile": "state.json",
   "outboxDir": "outbox",
   "smtp": null,
+  "subscription": {
+    "contract": "0x60749aF621180de1DC05DB4f3d158D09dE979dC6",
+    "enforce": false
+  },
   "watches": [
     {
-      "owner": "0xOwnerAddressHere",
+      "owner": "0xVaultOwnerAddressHere",
       "email": "owner@example.com",
       "heirEmail": "heir@example.com",
-      "label": "Alice's main vault"
+      "heirAddress": "0xHeirAddressHere",
+      "label": "Main vault"
     }
   ]
 }

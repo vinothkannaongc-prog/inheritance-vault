@@ -10,7 +10,10 @@ const CHAINS = {
     hex: "0x14a34", rpc: "https://sepolia.base.org", coin: "ETH", testnet: true,
   },
   8453: {
-    name: "Base", contract: "", notify: "", explorer: "https://basescan.org",
+    name: "Base",
+    contract: "0xC821849A1D74959753450409b594b23eCE7fEe2f",
+    notify: "0x60749aF621180de1DC05DB4f3d158D09dE979dC6",
+    explorer: "https://basescan.org",
     hex: "0x2105", rpc: "https://mainnet.base.org", coin: "ETH", testnet: false,
   },
   97: {

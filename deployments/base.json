@@ -1,0 +1,16 @@
+{
+  "network": "base",
+  "chainId": 8453,
+  "deployedAt": "2026-08-09T03:38:05.241Z",
+  "deployer": "0x4306a8875a04c0FbaC76CE2FC860E0b3c7aAd986",
+  "admin": "0x4306a8875a04c0FbaC76CE2FC860E0b3c7aAd986",
+  "feeRecipient": "0x4306a8875a04c0FbaC76CE2FC860E0b3c7aAd986",
+  "contracts": {
+    "InheritanceVault": "0xC821849A1D74959753450409b594b23eCE7fEe2f",
+    "NotifySubscription": "0x60749aF621180de1DC05DB4f3d158D09dE979dC6"
+  },
+  "params": {
+    "claimFeeBps": 50,
+    "subPricePerMonth": "1000000000000000"
+  }
+}
