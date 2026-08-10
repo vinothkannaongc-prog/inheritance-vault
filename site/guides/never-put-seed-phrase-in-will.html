@@ -21,7 +21,7 @@
 <link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
-{"@type":"Article","headline":"Never Put Your Seed Phrase in Your Will","description":"Why recovery information must stay separate from a will and what the will should contain instead.","image":"https://willandkey.com/assets/social/seed-phrase-will.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-08-10T15:30:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/never-put-seed-phrase-in-will"},
+{"@type":"Article","headline":"Never Put Your Seed Phrase in Your Will","description":"Why recovery information must stay separate from a will and what the will should contain instead.","image":"https://willandkey.com/assets/social/seed-phrase-will.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-08-10T17:00:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/never-put-seed-phrase-in-will"},
 {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://willandkey.com/guides/"},{"@type":"ListItem","position":3,"name":"Seed phrases and wills","item":"https://willandkey.com/guides/never-put-seed-phrase-in-will"}]}
 ]}
 </script>
@@ -45,31 +45,70 @@
 <h1>Never put your seed phrase in your will</h1>
 <p class="standfirst">It feels like the responsible thing to do. It is actually one of the fastest
 ways to lose everything — possibly while you're still alive.</p>
-<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Updated August 2026 · <a href="/editorial-policy">Editorial policy</a></p>
+<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 10 August 2026 · <a href="/editorial-policy">Editorial policy</a></p>
 
-<h2>A will is not a secret</h2>
+<div class="answer-box"><p><strong>Direct answer:</strong> do not place a seed phrase, private key, wallet PIN or passphrase in a will. Put legal ownership and a pointer to separately protected instructions in the will; keep the spendable recovery material in a different security process.</p></div>
+<p class="review-note"><strong>Review status:</strong> technically reviewed by the Will &amp; Key project team on 10 August 2026. No independent lawyer, tax adviser or security reviewer has approved this guide.</p>
+
+<section class="key-takeaways" aria-labelledby="takeaways">
+<h2 id="takeaways">Key takeaways</h2>
+<ul>
+<li>A seed phrase can recreate a wallet; it is not descriptive account information.</li>
+<li>Wills may be copied, retained and made obtainable through probate systems.</li>
+<li>The will should name beneficiaries and point to a separate recovery protocol.</li>
+<li>Never test recovery by typing a seed phrase into an unsolicited website or support form.</li>
+</ul>
+</section>
+
+<nav class="toc" aria-labelledby="contents">
+<h2 id="contents">On this page</h2>
+<ol>
+<li><a href="#why-secret">Why the seed phrase is a master secret</a></li>
+<li><a href="#will-exposure">Why a will is the wrong container</a></li>
+<li><a href="#failure-modes">Three failure modes</a></li>
+<li><a href="#what-belongs">What belongs in each document</a></li>
+<li><a href="#recovery-options">Safer recovery structures</a></li>
+<li><a href="#sources">Primary sources</a></li>
+</ol>
+</nav>
+
+<h2 id="why-secret">Why a seed phrase is different from an account number</h2>
+<p>BIP-39 defines a mnemonic as human-readable input that is converted into a binary seed for
+deterministic wallets. Ethereum's documentation explains the result from the account side: the
+private key grants custody and signs transactions. The phrase is therefore functionally closer
+to a master signing credential than to a list of assets.</p>
+
+<div class="process-flow" aria-label="Seed phrase control path">
+<div class="process-step"><strong>Seed phrase</strong><span>Recreates deterministic wallet material.</span></div>
+<div class="process-step"><strong>Private keys</strong><span>Control the corresponding blockchain accounts.</span></div>
+<div class="process-step"><strong>Signature</strong><span>Authorizes an irreversible transaction.</span></div>
+<div class="process-step"><strong>Transfer</strong><span>Moves the asset without consulting the will.</span></div>
+</div>
+
+<h2 id="will-exposure">A will is not a secret</h2>
 <p>People treat a will like a vault: sealed envelope, solemn lawyer, opened once. That is not
 what a will is. A will is a <em>document designed to be shown to people</em>, and at the end of
 its life it is shown to everyone.</p>
-<p>Follow its journey. You draft it — perhaps in a law office, on the firm's document system,
+<p>Follow its journey. You draft it - perhaps in a law office, on the firm's document system,
 with copies retained. Witnesses sign it. Your executor gets a copy, or at least knows where it
-lives. Update it and the old versions don't reliably vanish. Then you die, and in many
-jurisdictions the will is filed for probate and becomes a <strong>public court record</strong> —
-readable by journalists, genealogy services, and anyone who asks the registry.</p>
+lives. Update it and old versions may remain in archives or backups. Probate visibility then
+depends on jurisdiction. England and Wales, for example, provide an official service through
+which a person can order a probate record including the will; California courts identify wills
+and probate records within court public records.</p>
 <p>Now imagine that document contains twelve words that transfer your life savings to whoever
 reads them first, from anywhere on earth, irreversibly, in ninety seconds.</p>
 
-<h2>Three failure modes, in order of arrival</h2>
+<h2 id="failure-modes">Three failure modes, in order of arrival</h2>
 <h3>1. Theft before you die</h3>
 <p>Everyone with access to the document — or the drafts, or the firm's backups — can spend your
 coins <em>today</em>. Unlike a bank transfer there is no name attached to the theft and no
 reversal. You might not even notice for months, and when you do, there will be a long list of
 people it could have been and no way to know which.</p>
 <h3>2. The probate broadcast</h3>
-<p>The moment the will enters probate, the race begins between your grieving heir and every
-stranger who reads court records for a living. Your heir must locate the wallet, learn the
-tooling, and move the funds before someone with a prepared script does. Automated bots watch for
-exactly this. The bots are faster.</p>
+<p>If a probated will becomes obtainable and contains a valid seed phrase, anyone who gets the
+document may have the same technical spending power as the heir. The heir must locate the wallet,
+learn the tooling and move the funds while an attacker only needs the exposed secret. The design
+error is publishing a bearer credential, not the speed of any particular attacker.</p>
 <h3>3. The stale-phrase problem</h3>
 <p>Wills are updated rarely; wallets change more often. People rotate wallets, move to new seed
 phrases, add passphrases. A will that confidently hands your heir the seed phrase of an empty
@@ -85,7 +124,7 @@ exposed moment. A will maximizes both.</p>
 probate process while contradicting the will's own instructions creates genuine legal confusion.
 Your will should say <em>who inherits</em>. It should never contain <em>the means to take</em>.</p>
 
-<h2>What to put in your will instead</h2>
+<h2 id="what-belongs">What to put in your will instead</h2>
 <ul>
 <li><strong>That the assets exist.</strong> "I own cryptocurrency; instructions for accessing it
 are stored separately with [location/person]." Findability without secrets.</li>
@@ -95,7 +134,17 @@ actually good at.</li>
 recovery document — safe deposit box, home safe, or with your heir directly.</li>
 </ul>
 
-<h2>And for the keys themselves, pick a mechanism built for secrets</h2>
+<div class="table-scroll">
+<table>
+<tr><th>Record</th><th>What may belong there</th><th>What must stay out</th></tr>
+<tr><td>Will or testament</td><td>Asset class, beneficiary, executor and pointer to separate instructions</td><td>Seed phrase, private key, PIN, passphrase, password or two-factor code</td></tr>
+<tr><td>Secret-free inventory</td><td>Wallet label, network, public address, provider and instruction location</td><td>Anything that authorizes spending</td></tr>
+<tr><td>Recovery protocol</td><td>How authorized people obtain the required key, shares or signer threshold</td><td>Unnecessary copies and ambiguous emergency shortcuts</td></tr>
+<tr><td>Physical secret store</td><td>Wallet backup or cryptographic shares under chosen access controls</td><td>Asset values, public labels or clues that increase targeting</td></tr>
+</table>
+</div>
+
+<h2 id="recovery-options">For the keys themselves, use a mechanism built for secrets</h2>
 <p>The underlying problem is that paper inheritance mechanisms require revealing the secret to
 work. The better mechanisms transfer <em>control</em> without ever revealing the secret:</p>
 <ul>
@@ -110,15 +159,36 @@ No secret ever changes hands at all. That's the model
 Will &amp; Key is.</li>
 </ul>
 
-<div class="cta-box">
-<p><strong>The clean division of labor:</strong> your will names who inherits everything else.
-Will &amp; Key handles the one asset class the legal system cannot reach — with no seed phrase
-written down anywhere but your own backup.</p>
-<a class="btn primary" href="/app">Open the app</a>
+<p>A multi-share backup should use a wallet-supported threshold scheme; manually cutting a seed
+phrase into word fragments can create an unrecoverable, non-standard backup. Trezor's SLIP-39
+guidance, for example, distinguishes formal recovery shares from an ordinary BIP-39 phrase.
+Multisig has a different operational requirement: heirs need enough signers plus the wallet
+configuration or metadata needed to reconstruct the account.</p>
+
+<div class="download-box">
+<p><strong>Use a checklist that is safe to discover.</strong> The downloadable worksheet records
+asset locations and recovery responsibilities without asking for any seed phrase or private key.</p>
+<a class="btn primary" href="/assets/downloads/crypto-inheritance-checklist.pdf" download>Download checklist (PDF)</a>
 </div>
+
+<div class="risk-box"><strong>Product caution:</strong> Will &amp; Key is one possible technical
+mechanism, not a substitute for a valid estate plan. Its deployed contract has not completed an
+independent audit or full Base Sepolia lifecycle test. Review <a href="/security">security status</a>
+before testing it with a small amount.</div>
 
 <p>Nothing on this page is legal advice. The interaction between on-chain transfers and your
 local estate law is worth one conversation with a professional — bring this article.</p>
+<h2 id="sources">Primary sources and verification</h2>
+<ul class="source-list">
+<li><a href="https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki" rel="noopener">Bitcoin BIP-39 - mnemonic code for deterministic keys</a></li>
+<li><a href="https://ethereum.org/developers/docs/accounts" rel="noopener">Ethereum.org - private keys and account control</a></li>
+<li><a href="https://www.ledger.com/academy/enter-the-trust-zone/why-the-twenty-four-words-phrase" rel="noopener">Ledger - recovery phrase can recreate wallet accounts</a></li>
+<li><a href="https://trezor.io/guides/backups-recovery/general-standards/how-to-use-a-wallet-backup" rel="noopener">Trezor - do not share or digitize a wallet backup</a></li>
+<li><a href="https://trezor.io/guides/backups-recovery/general-standards/slip39-faqs" rel="noopener">Trezor - SLIP-39 multi-share backup</a></li>
+<li><a href="https://www.gov.uk/search-will-probate" rel="noopener">GOV.UK - probate-record and will search</a></li>
+<li><a href="https://courts.ca.gov/policy-administration/public-records" rel="noopener">California Courts - wills and probate records</a></li>
+<li><a href="/security">Will &amp; Key - deployed addresses and current audit status</a></li>
+</ul>
 </article>
 
 <footer class="site">

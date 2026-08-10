@@ -21,7 +21,7 @@
 <link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
-{"@type":"Article","headline":"What Is a Dead Man's Switch for Crypto?","description":"How the mechanism works on chain, what it protects against and what it cannot protect against.","image":"https://willandkey.com/assets/social/dead-mans-switch.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-08-10T15:30:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/dead-mans-switch-crypto"},
+{"@type":"Article","headline":"What Is a Dead Man's Switch for Crypto?","description":"How the mechanism works on chain, what it protects against and what it cannot protect against.","image":"https://willandkey.com/assets/social/dead-mans-switch.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-08-10T17:00:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/dead-mans-switch-crypto"},
 {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://willandkey.com/guides/"},{"@type":"ListItem","position":3,"name":"Crypto dead man's switch","item":"https://willandkey.com/guides/dead-mans-switch-crypto"}]}
 ]}
 </script>
@@ -47,9 +47,34 @@
 as you keep signaling "I'm here," nothing happens. When the signals stop, your crypto goes to
 the person you chose. Here's exactly how it works — and the hard questions to ask anyone
 selling you one.</p>
-<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Updated August 2026 · <a href="/editorial-policy">Editorial policy</a></p>
+<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 10 August 2026 · <a href="/editorial-policy">Editorial policy</a></p>
 
-<h2>The train driver's handle</h2>
+<div class="answer-box"><p><strong>Direct answer:</strong> a crypto dead man's switch is a time-based transfer mechanism. The owner periodically proves activity; after a configured silence period, a named beneficiary may start a claim; a separate challenge window lets the owner cancel a false trigger before settlement.</p></div>
+<p class="review-note"><strong>Review status:</strong> technically reviewed against the deployed Will &amp; Key contract and tests on 10 August 2026. No independent smart-contract auditor or lawyer has approved this guide.</p>
+
+<section class="key-takeaways" aria-labelledby="takeaways">
+<h2 id="takeaways">Key takeaways</h2>
+<ul>
+<li>The mechanism detects silence, not death.</li>
+<li>Inactivity and challenge periods solve different problems and should not be merged.</li>
+<li>A beneficiary address is a security-critical configuration item.</li>
+<li>Admin powers, upgradeability, fee rules and settlement liveness must be verified in code.</li>
+</ul>
+</section>
+
+<nav class="toc" aria-labelledby="contents">
+<h2 id="contents">On this page</h2>
+<ol>
+<li><a href="#concept">Why silence is the signal</a></li>
+<li><a href="#mechanism">The five-stage mechanism</a></li>
+<li><a href="#timeline">A worked timeline</a></li>
+<li><a href="#limits">What it can and cannot protect</a></li>
+<li><a href="#evaluation">How to evaluate a contract</a></li>
+<li><a href="#sources">Primary sources</a></li>
+</ol>
+</nav>
+
+<h2 id="concept">The train driver's handle</h2>
 <p>Early locomotives had a simple safety problem: what if the driver dies at the controls? The
 answer was a handle the driver had to keep holding. Grip it and the train runs; let go and the
 brakes apply. The system doesn't need to <em>know</em> the driver is dead — absence of the
@@ -59,7 +84,7 @@ problem no blockchain can solve directly: a smart contract cannot check a death 
 can, however, notice that an address which used to send a heartbeat transaction every month has
 gone silent for a year.</p>
 
-<h2>The mechanism, step by step</h2>
+<h2 id="mechanism">The mechanism, step by step</h2>
 <ol>
 <li><strong>Lock.</strong> You put funds in a vault contract and name your heir's wallet
 address. You choose an <em>inactivity period</em> — how long the silence must last.</li>
@@ -77,7 +102,27 @@ blocked, reversed, or intercepted by anyone at that point — including the peop
 contract.</li>
 </ol>
 
-<h2>What it protects against — and what it can't</h2>
+<div class="process-flow" aria-label="Dead man's switch stages">
+<div class="process-step"><strong>1. Lock</strong><span>Owner defines beneficiary and timing rules.</span></div>
+<div class="process-step"><strong>2. Check in</strong><span>Owner activity refreshes the deadline.</span></div>
+<div class="process-step"><strong>3. Claim</strong><span>Beneficiary acts after the deadline.</span></div>
+<div class="process-step"><strong>4. Challenge</strong><span>Owner can cancel a false trigger.</span></div>
+<div class="process-step"><strong>5. Settle</strong><span>Funds become claimable under fixed code.</span></div>
+</div>
+
+<h2 id="timeline">Worked timeline: 90 days of inactivity plus 30 days to challenge</h2>
+<table>
+<tr><th>Day</th><th>Event</th><th>What the contract permits</th></tr>
+<tr><td>0</td><td>Owner checks in</td><td>Inactivity deadline becomes day 90</td></tr>
+<tr><td>90</td><td>Deadline passes with no owner activity</td><td>The named beneficiary becomes eligible to initiate a claim</td></tr>
+<tr><td>91</td><td>Beneficiary initiates</td><td>A 30-day challenge window starts; funds do not transfer yet</td></tr>
+<tr><td>100</td><td>Owner proves activity</td><td>The pending claim is cancelled under the contract's owner-action rules</td></tr>
+<tr><td>121</td><td>If no valid veto occurred</td><td>The claim can be finalized according to the contract</td></tr>
+</table>
+<p>This example is explanatory, not a recommended timer. Hospitalization, travel, hardware loss,
+network congestion and the beneficiary's own availability all affect a sensible margin.</p>
+
+<h2 id="limits">What it protects against — and what it can't</h2>
 <p>Honest implementations are explicit about both columns:</p>
 <table>
 <tr><th>Protects against</th><th>Cannot protect against</th></tr>
@@ -92,7 +137,7 @@ contract.</li>
 <td>Chain-level catastrophe (any on-chain asset shares its chain's fate)</td></tr>
 </table>
 
-<h2>The questions to ask any dead man's switch</h2>
+<h2 id="evaluation">The questions to ask any dead man's switch</h2>
 <ul>
 <li><strong>"Can the operator touch my funds?"</strong> The only acceptable answer is a provable
 no — in Will &amp; Key's contract, vault balances are arithmetically outside the admin's reach,
@@ -100,15 +145,29 @@ and that's verifiable in the source, not a policy promise.</li>
 <li><strong>"What happens if the company disappears?"</strong> The contract must keep working
 with the website gone. Claims must be finalizable by anyone, not by the operator's server.</li>
 <li><strong>"Can the fee change under me?"</strong> Look for a hard cap in the bytecode and a
-locked rate per vault. Ours: 0.5% on settlement only, capped at 1% forever, locked at vault
-creation.</li>
+creation-time ceiling. Will &amp; Key's current global settlement fee is 0.5% and the bytecode cap
+is 1%. Each vault records its creation-time ceiling; the effective rate can fall, but cannot rise
+above that ceiling. A claim also locks its effective rate against a mid-claim increase.</li>
 <li><strong>"Is it upgradeable?"</strong> An upgradeable inheritance contract means someone can
 change the rules after you're gone. Non-upgradeable is the right answer even though it makes
 the developer's life harder.</li>
-<li><strong>"Has it been audited?"</strong> If the answer is no — as it currently is for our own
-testnet deployment — the product should say so on every page and refuse your real funds. Check
-that it does.</li>
+<li><strong>"Who controls administration?"</strong> Identify the current owner address and every
+privileged function. Will &amp; Key currently retains deployer administration rather than a multisig;
+that is disclosed as an unresolved risk even though the administrator cannot withdraw vault balances.</li>
+<li><strong>"Has it been audited?"</strong> Will &amp; Key's Base deployment has internal tests and an
+internal review, but no completed independent audit and no full minimum-duration Base Sepolia
+lifecycle test. Do not treat internal evidence as an external assurance.</li>
 </ul>
+
+<h2>Three timers, three different promises</h2>
+<div class="table-scroll">
+<table>
+<tr><th>Setting</th><th>Purpose</th><th>Too short</th><th>Too long</th></tr>
+<tr><td>Inactivity period</td><td>Defines when a beneficiary may begin</td><td>Ordinary missed check-ins can trigger claims</td><td>Recovery after genuine incapacity is delayed</td></tr>
+<tr><td>Challenge window</td><td>Gives the owner time to cancel a false trigger</td><td>Hospitalization or access problems may outlast it</td><td>A legitimate beneficiary waits longer after claiming</td></tr>
+<tr><td>Absolute horizon</td><td>Bounds how far routine check-ins can defer the final inheritance path</td><td>Owner may need deliberate extension sooner</td><td>The beneficiary has a weaker long-stop guarantee</td></tr>
+</table>
+</div>
 
 <h2>The trade you are making</h2>
 <p>A dead man's switch converts the inheritance problem into a liveness problem. You no longer
@@ -119,15 +178,31 @@ the mechanism pairs naturally with reminders that escalate long before anything 
 and why the timer minimums are measured in weeks, not hours.</p>
 
 <div class="cta-box">
-<p><strong>Will &amp; Key is this mechanism, built honestly:</strong> open-source vault on
-Ethereum L2, check-ins that cost about a cent, a veto window you size yourself, and a trust
-model documented scenario by scenario — including the ugly ones.</p>
-<a class="btn primary" href="/app">Open the app</a>
+<p><strong>Verify the mechanism before using the interface.</strong> Read the deployed address,
+bytecode hashes, administrator powers, fee boundaries, test status and known limitations.</p>
+<a class="btn primary" href="/security">Review security evidence</a>
+</div>
+
+<div class="download-box">
+<p><strong>Deciding whether this mechanism fits your family?</strong> Use the printable worksheet
+to compare it with exchange custody, multi-share backups and multisig, then record a rehearsal.</p>
+<a class="btn primary" href="/assets/downloads/crypto-inheritance-checklist.pdf" download>Download checklist (PDF)</a>
 </div>
 
 <p>Further reading: <a href="/guides/what-happens-to-your-crypto-when-you-die">what happens to your
 crypto when you die</a> · <a href="/guides/crypto-inheritance-planning">a complete inheritance plan
 in one weekend</a>.</p>
+<h2 id="sources">Primary sources and verification</h2>
+<ul class="source-list">
+<li><a href="https://ethereum.org/developers/docs/smart-contracts/" rel="noopener">Ethereum.org - smart contracts, real-world data limits and multisig</a></li>
+<li><a href="https://ethereum.org/developers/docs/accounts" rel="noopener">Ethereum.org - externally owned and contract accounts</a></li>
+<li><a href="https://docs.base.org/base-chain/quickstart/connecting-to-base" rel="noopener">Base documentation - mainnet and Base Sepolia network details</a></li>
+<li><a href="https://docs.base.org/get-started/block-explorers" rel="noopener">Base documentation - verifying contracts and transactions with explorers</a></li>
+<li><a href="https://docs.openzeppelin.com/contracts/5.x/access-control" rel="noopener">OpenZeppelin - ownership and access-control concepts</a></li>
+<li><a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">BaseScan - deployed Will &amp; Key InheritanceVault address</a></li>
+<li><a href="/how-it-works">Will &amp; Key - transaction-by-transaction mechanism</a></li>
+<li><a href="/security">Will &amp; Key - bytecode, admin powers, tests and audit status</a></li>
+</ul>
 </article>
 
 <footer class="site">

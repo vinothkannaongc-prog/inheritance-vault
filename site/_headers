@@ -13,3 +13,7 @@
 
 /app.html
   X-Robots-Tag: noindex, follow, noarchive
+
+/assets/downloads/*
+  X-Robots-Tag: noindex, noarchive
+  Cache-Control: public, max-age=86400

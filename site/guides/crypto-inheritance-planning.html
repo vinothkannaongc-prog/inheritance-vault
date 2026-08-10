@@ -21,7 +21,7 @@
 <link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
-{"@type":"Article","headline":"Crypto Inheritance Planning: A Plan You Can Finish This Weekend","description":"A practical crypto inheritance plan in five steps: inventory, custody, instructions, transfer mechanism and rehearsal.","image":"https://willandkey.com/assets/social/crypto-inheritance-plan.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-08-10T15:30:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/crypto-inheritance-planning"},
+{"@type":"Article","headline":"Crypto Inheritance Planning: A Plan You Can Finish This Weekend","description":"A practical crypto inheritance plan in five steps: inventory, custody, instructions, transfer mechanism and rehearsal.","image":"https://willandkey.com/assets/social/crypto-inheritance-plan.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-08-10T17:00:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/crypto-inheritance-planning"},
 {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://willandkey.com/guides/"},{"@type":"ListItem","position":3,"name":"Crypto inheritance planning","item":"https://willandkey.com/guides/crypto-inheritance-planning"}]}
 ]}
 </script>
@@ -46,9 +46,35 @@
 <p class="standfirst">Most crypto inheritance advice is either "trust an exchange" or a
 cryptography seminar. This is neither: five concrete steps, one weekend, and about ten minutes a
 year of maintenance afterward.</p>
-<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Updated August 2026 · <a href="/editorial-policy">Editorial policy</a></p>
+<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 10 August 2026 · <a href="/editorial-policy">Editorial policy</a></p>
 
-<h2>Before you start: the two failure modes you're designing against</h2>
+<div class="answer-box"><p><strong>Direct answer:</strong> a workable crypto inheritance plan has five parts: an asset inventory, a custody map, separate legal and technical instructions, a transfer mechanism, and a rehearsal. The inventory should help an heir discover assets without containing any private key, seed phrase, PIN or password.</p></div>
+<p class="review-note"><strong>Review status:</strong> technically reviewed by the Will &amp; Key project team on 10 August 2026. No independent legal, tax or security reviewer has approved this guide.</p>
+
+<section class="key-takeaways" aria-labelledby="takeaways">
+<h2 id="takeaways">Key takeaways</h2>
+<ul>
+<li>Separate the map of assets from the secrets that can spend them.</li>
+<li>Design for both discovery failure and access failure.</li>
+<li>Choose a mechanism your actual heir can operate, not the most sophisticated mechanism.</li>
+<li>Test the full path with a small amount and review it after any material change.</li>
+</ul>
+</section>
+
+<nav class="toc" aria-labelledby="contents">
+<h2 id="contents">On this page</h2>
+<ol>
+<li><a href="#failure-modes">Define the failure modes</a></li>
+<li><a href="#inventory">Build a safe inventory</a></li>
+<li><a href="#custody">Simplify custody</a></li>
+<li><a href="#instructions">Write separate instructions</a></li>
+<li><a href="#mechanism">Choose the transfer mechanism</a></li>
+<li><a href="#rehearsal">Rehearse and maintain</a></li>
+<li><a href="#sources">Primary sources</a></li>
+</ol>
+</nav>
+
+<h2 id="failure-modes">Before you start: the two failure modes you're designing against</h2>
 <p>Every crypto estate fails one of two ways. <strong>Discovery failure:</strong> your family
 never finds the assets, or never learns they exist. <strong>Access failure:</strong> they find
 them but can't move them. A good plan attacks both, in that order — because the discovery
@@ -56,28 +82,40 @@ failure is more common and cheaper to fix. (The full picture of what goes wrong 
 <a href="/guides/what-happens-to-your-crypto-when-you-die">what happens to your crypto when you
 die</a>.)</p>
 
-<h2>Step 1 — Inventory (Saturday morning)</h2>
+<h2 id="inventory">Step 1 — Inventory (Saturday morning)</h2>
 <p>One page, plain language. Every place you hold crypto: chains, wallets, exchanges, DeFi
 positions, staked assets. For each: what it roughly is, and <em>where the access instructions
 live</em> — never the instructions themselves. The test for this page: if it blew out of a
 window onto the street, you'd shrug. If any line would make you sprint after it, that line
 doesn't belong on it.</p>
 
-<h2>Step 2 — Consolidate custody (Saturday afternoon)</h2>
+<div class="table-scroll">
+<table>
+<tr><th>Inventory field</th><th>Safe example</th><th>Never record here</th></tr>
+<tr><td>Provider or wallet label</td><td>"Long-term Bitcoin wallet" or "Coinbase account"</td><td>Username, password or two-factor recovery codes</td></tr>
+<tr><td>Asset and network</td><td>BTC on Bitcoin; ETH on Base</td><td>Private key or seed phrase</td></tr>
+<tr><td>Public identifier</td><td>Public address or provider public account ID</td><td>PIN or passphrase</td></tr>
+<tr><td>Instruction location</td><td>"Envelope B in home safe"</td><td>The contents of Envelope B</td></tr>
+<tr><td>Review marker</td><td>Last checked 10 August 2026</td><td>False promises that values are current</td></tr>
+</table>
+</div>
+
+<h2 id="custody">Step 2 — Consolidate custody (Saturday afternoon)</h2>
 <p>Inheritance plans die of complexity. Eight wallets across four chains with three DeFi
 positions is a scavenger hunt for your heirs; two wallets is a plan.</p>
 <ul>
-<li>Move long-term holdings to one hardware wallet
-(<a href="https://www.ledger.com" rel="nofollow">Ledger</a> and
-<a href="https://trezor.io" rel="nofollow">Trezor</a> are both fine; buy only from the
-manufacturer, never second-hand).<!-- affiliate: swap for tracked links once program accounts approved --></li>
-<li>Keep a small hot wallet for activity, and treat it as expendable.</li>
-<li>Unwind the clever stuff. A yield position your heir must understand to withdraw is, for
-inheritance purposes, already lost. If you wouldn't leave your family a margin account, don't
-leave them a leveraged farm.</li>
+<li>Reduce the number of wallets, networks and protocols an heir must identify.</li>
+<li>Keep long-term and day-to-day holdings distinct, with both represented in the inventory.</li>
+<li>Document staked, bridged or protocol-held positions; simplify positions the heir cannot safely unwind.</li>
+<li>Follow the chosen wallet manufacturer's current backup procedure and perform its supported recovery check.</li>
 </ul>
+<p>A hardware wallet is not the inheritance plan by itself. Its backup may recreate every derived
+account, which makes that backup both the recovery tool and a master secret. Trezor says its wallet
+backup contains the information needed to recover the wallet; Ledger likewise says anyone with its
+recovery phrase can recreate the accounts. Keep vendor-neutral estate instructions and product-specific
+recovery instructions separate.</p>
 
-<h2>Step 3 — The letter (Saturday evening)</h2>
+<h2 id="instructions">Step 3 — The letter (Saturday evening)</h2>
 <p>A sealed physical letter for your heir with exactly three contents: the inventory page, what
 to do first ("do nothing for a week; don't tell anyone outside the family; don't type anything
 into any website"), and who to ask for technical help — a named person you actually trust, not
@@ -88,31 +126,34 @@ leaks</a>.</p>
 targeted scam demographic. Anyone who contacts your family offering "wallet recovery help" after
 a death is a predator, one hundred percent of the time.</p>
 
-<h2>Step 4 — The mechanism (Sunday)</h2>
+<h2 id="mechanism">Step 4 — The mechanism (Sunday)</h2>
 <p>Now the access problem. You have three serious options, and the right choice depends on who
 your heirs are:</p>
+<div class="table-scroll">
 <table>
-<tr><th>If your heir is…</th><th>Best mechanism</th><th>Why</th></tr>
-<tr><td>Crypto-native themselves</td><td>Multisig (e.g. 2-of-3)</td>
-<td>They can run the ceremony; strongest against single-point loss</td></tr>
-<tr><td>A normal person with a phone</td><td>On-chain dead man's switch</td>
-<td>They need one wallet and one claim, years from now; no secrets change hands; see
-<a href="/guides/dead-mans-switch-crypto">how it works</a></td></tr>
-<tr><td>Unable to manage any wallet</td><td>Regulated custodian + will</td>
-<td>Honest worst case: counterparty risk accepted in exchange for a purely legal process</td></tr>
+<tr><th>Method</th><th>Best fit</th><th>What the heir must preserve or do</th><th>Main failure mode</th></tr>
+<tr><td>Exchange estate process</td><td>Heir needs a conventional legal process</td><td>Discover account and produce current provider documents</td><td>Provider risk or undiscovered account</td></tr>
+<tr><td>Multi-share backup</td><td>Family can safeguard physical shares</td><td>Locate the threshold and follow supported recovery steps</td><td>Too few valid shares survive</td></tr>
+<tr><td>Multisig</td><td>Several capable, independent signers exist</td><td>Coordinate threshold signatures and wallet configuration</td><td>Signer or metadata loss</td></tr>
+<tr><td>On-chain inactivity switch</td><td>Heir can use one wallet but should not hold today's spending key</td><td>Initiate a claim after the configured inactivity period</td><td>Missed owner check-ins, bad beneficiary address or contract defect</td></tr>
+<tr><td>Full seed shared in advance</td><td>Rarely appropriate</td><td>Protect a secret that spends immediately</td><td>Premature compromise</td></tr>
 </table>
+</div>
 <p>These compose. A common adult pattern: hardware wallet + a Will &amp; Key vault holding the
 long-term stack with a spouse as heir, checked in on quarterly; the hot wallet handled by the
 letter; the exchange account handled by the will.</p>
 
-<div class="cta-box">
-<p><strong>Setting up a Will &amp; Key vault takes about ten minutes:</strong> deposit, paste
-your heir's address, pick your check-in period and veto window. It's free until an inheritance
-actually settles (then 0.5%, capped at 1% forever in the contract itself).</p>
-<a class="btn primary" href="/app">Create a vault</a>
+<div class="download-box">
+<p><strong>Use the printable checklist before choosing a product.</strong> It gives you a
+secret-free inventory, mechanism decision record, rehearsal log and annual review page.</p>
+<a class="btn primary" href="/assets/downloads/crypto-inheritance-checklist.pdf" download>Download checklist (PDF)</a>
 </div>
 
-<h2>Step 5 — The rehearsal (Sunday evening, 30 minutes)</h2>
+<div class="risk-box"><strong>Will &amp; Key status:</strong> the deployed contract is internally
+tested but has not completed an independent audit or a full minimum-duration Base Sepolia claim
+lifecycle. Review the <a href="/security">security evidence</a> and use only a small test amount.</div>
+
+<h2 id="rehearsal">Step 5 — The rehearsal (Sunday evening, 30 minutes)</h2>
 <p>Whatever you chose, run it once with your heir while you're alive. Send a token amount. Have
 them find the letter, follow it, and (for a dead man's switch) do a claim on a test vault so
 they've seen the screens they'll one day see alone. A rehearsed plan is a plan; an unrehearsed
@@ -128,6 +169,26 @@ plan is a hope. This half hour is the highest-value part of the whole weekend.</
 
 <p>That's the whole discipline. Not a seminar — a weekend, then ten minutes a year, for the only
 asset class you own that has no undo button and no lost-and-found.</p>
+<h2>Worked example: a reviewable plan, not a pile of secrets</h2>
+<div class="process-flow" aria-label="Inheritance planning workflow">
+<div class="process-step"><strong>Inventory</strong><span>Lists assets, networks and instruction locations.</span></div>
+<div class="process-step"><strong>Legal plan</strong><span>Names recipients and executor under local law.</span></div>
+<div class="process-step"><strong>Recovery protocol</strong><span>Stores secrets separately and defines access conditions.</span></div>
+<div class="process-step"><strong>Rehearsal</strong><span>Uses a small amount and records what failed.</span></div>
+<div class="process-step"><strong>Review</strong><span>Runs annually and after wallet, heir or jurisdiction changes.</span></div>
+</div>
+
+<h2 id="sources">Primary sources and verification</h2>
+<ul class="source-list">
+<li><a href="https://ethereum.org/developers/docs/accounts" rel="noopener">Ethereum.org - accounts and private-key control</a></li>
+<li><a href="https://ethereum.org/developers/docs/smart-contracts/" rel="noopener">Ethereum.org - smart contracts and multisig thresholds</a></li>
+<li><a href="https://help.coinbase.com/en/coinbase/managing-my-account/other/how-do-i-gain-access-to-a-deceased-family-members-coinbase-account" rel="noopener">Coinbase - current decedent-account procedure</a></li>
+<li><a href="https://support.kraken.com/hc/articles/360031279771-is-it-possible-to-set-a-beneficiary-or-nominee-" rel="noopener">Kraken - current deceased-client claim procedure</a></li>
+<li><a href="https://trezor.io/guides/backups-recovery/general-standards/how-to-use-a-wallet-backup" rel="noopener">Trezor - wallet-backup handling</a></li>
+<li><a href="https://www.ledger.com/academy/hardwarewallet/best-ways-to-protect-your-recovery-phrase" rel="noopener">Ledger - recovery-phrase security</a></li>
+<li><a href="https://help.safe.global/articles/9629761095-managing-safe-owners-and-signatures" rel="noopener">Safe - owners and signature thresholds</a></li>
+<li><a href="/security">Will &amp; Key - deployed addresses, tests and audit status</a></li>
+</ul>
 </article>
 
 <footer class="site">
