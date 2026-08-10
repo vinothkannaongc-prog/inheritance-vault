@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Will &amp; Key — app</title>
+<title>Will &amp; Key - app</title>
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <meta name="description" content="Create and manage your inheritance vaults: check in, top up, and claim.">
 <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -20,36 +21,36 @@
 </header>
 
 <div class="wrap">
-
   <div class="app-head">
     <h1>Your vaults</h1>
-    <span class="pill warn">Live on Base · no third-party audit</span>
+    <span class="pill warn">Live on Base - no third-party audit</span>
   </div>
 
   <div id="walletBanner" class="banner warn" hidden></div>
   <div id="deployBanner" class="banner bad" hidden></div>
+  <div class="banner warn">
+    Paid reminder subscriptions are disabled. The vault contract and check-in functions continue
+    to work normally; do not send funds directly to the retired reminder billing contract.
+  </div>
 
   <div class="tabs" id="tabs">
     <button data-tab="mine" class="active">My vaults</button>
     <button data-tab="create">Create a vault</button>
     <button data-tab="heir">I'm an heir</button>
     <button data-tab="credits">Payouts</button>
-    <button data-tab="remind">Reminders</button>
   </div>
 
-  <!-- ================= my vaults ================= -->
   <div id="tab-mine" class="tab-pane">
     <div class="card" id="mineEmpty">
       <p>Connect your wallet to see your vaults. Every vault you own appears here with its
       countdown, and one click checks in on all of them at once.</p>
     </div>
-    <div style="margin-bottom:14px">
+    <div class="mb-14">
       <button class="btn primary" id="checkAllBtn" hidden>Check in on all vaults</button>
     </div>
     <div id="vaultList"></div>
   </div>
 
-  <!-- ================= create ================= -->
   <div id="tab-create" class="tab-pane" hidden>
     <div class="card">
       <h3>Create a vault</h3>
@@ -61,21 +62,21 @@
           </select>
         </label>
         <label class="f" id="cTokenWrap" hidden><span>Token contract address</span>
-          <input class="f" id="cToken" placeholder="0x…">
+          <input class="f" id="cToken" placeholder="0x...">
         </label>
         <label class="f"><span>Amount</span>
           <input class="f" id="cAmount" placeholder="1.0">
         </label>
         <label class="f"><span>Heir's wallet address</span>
-          <input class="f" id="cHeir" placeholder="0x…">
+          <input class="f" id="cHeir" placeholder="0x...">
         </label>
-        <label class="f"><span>Inactivity period (days, 7–3650)</span>
+        <label class="f"><span>Inactivity period (days, 7-3650)</span>
           <input class="f" id="cPeriod" type="number" value="90" min="7" max="3650">
         </label>
-        <label class="f"><span>Challenge window (days, 7–365) — your veto period after a claim</span>
+        <label class="f"><span>Challenge window (days, 7-365) - your veto period after a claim</span>
           <input class="f" id="cWindow" type="number" value="30" min="7" max="365">
         </label>
-        <label class="f"><span>Horizon — guaranteed inheritance date, even if check-in bots run forever</span>
+        <label class="f"><span>Horizon - guaranteed inheritance date, even if check-in bots run forever</span>
           <input class="f" id="cHorizon" type="date">
         </label>
       </div>
@@ -84,28 +85,26 @@
     </div>
   </div>
 
-  <!-- ================= heir ================= -->
   <div id="tab-heir" class="tab-pane" hidden>
     <div class="card">
       <h3>Claim an inheritance</h3>
-      <p style="color:var(--ink-soft);margin-bottom:14px">Enter the vault owner's address. Vaults
-      that name your connected wallet as heir will appear, with their status and what you can do.</p>
+      <p class="muted-copy">Enter the vault owner's address. Vaults that name your connected
+      wallet as heir will appear, with their status and available actions.</p>
       <label class="f"><span>Vault owner's address</span>
-        <input class="f" id="hOwner" placeholder="0x…">
+        <input class="f" id="hOwner" placeholder="0x...">
       </label>
       <button class="btn primary" id="hLookupBtn">Look up</button>
-      <div id="heirList" style="margin-top:18px"></div>
+      <div id="heirList" class="mt-18"></div>
     </div>
   </div>
 
-  <!-- ================= credits ================= -->
   <div id="tab-credits" class="tab-pane" hidden>
     <div class="card">
       <h3>Payouts owed to you</h3>
-      <p style="color:var(--ink-soft);margin-bottom:14px">Settled inheritances and withdrawals land
-      here as credits you pull to any address you choose.</p>
+      <p class="muted-copy">Settled inheritances and withdrawals land here as credits you pull
+      to any address you choose.</p>
       <label class="f"><span>Token (leave blank for native coin)</span>
-        <input class="f" id="crToken" placeholder="0x… or blank">
+        <input class="f" id="crToken" placeholder="0x... or blank">
       </label>
       <button class="btn ghost" id="crCheckBtn">Check balance</button>
       <button class="btn primary" id="crPullBtn" hidden>Withdraw to my wallet</button>
@@ -113,36 +112,16 @@
     </div>
   </div>
 
-  <!-- ================= reminders ================= -->
-  <div id="tab-remind" class="tab-pane" hidden>
-    <div class="card">
-      <h3>Check-in reminders</h3>
-      <p style="color:var(--ink-soft);margin-bottom:14px">Escalating email alerts before your
-      deadline, an immediate warning if a claim starts on your vault, and heir notifications when
-      it matters. Paid in crypto, on chain — no card, no account, and the service can never touch
-      your vault. Cancel by simply not renewing; your vault keeps working either way.</p>
-      <div id="subStatus" class="banner warn" hidden></div>
-      <label class="f" style="max-width:220px"><span>Months</span>
-        <input class="f" id="subMonths" type="number" value="12" min="1" max="120">
-      </label>
-      <button class="btn primary" id="subBtn">Subscribe</button>
-      <div class="txlog" id="subLog"></div>
-      <p style="color:var(--ink-soft);font-size:0.85rem;margin-top:14px">Beta note: after
-      subscribing, send your wallet address and preferred email to
-      <a href="mailto:reminders@willandkey.com" style="color:var(--gold)">reminders@willandkey.com</a>
-      so we know where to write. Self-serve email setup ships with mainnet.</p>
-    </div>
-  </div>
-
-  <footer class="site" style="border-top:none;padding-top:8px">
-    <div class="wrap" style="padding:0">
-      <div>Will &amp; Key — self-custody inheritance. Not legal, tax, or investment advice.</div>
+  <footer class="site app-footer">
+    <div class="wrap app-footer-wrap">
+      <div>Will &amp; Key - self-custody inheritance. Not legal, tax, or investment advice.</div>
+      <div><a href="privacy.html">Privacy</a> - <a href="terms.html">Terms &amp; service disclosures</a></div>
     </div>
   </footer>
 </div>
 
-<!-- Pinned version. Self-host this file at deploy time so the app has zero third-party runtime deps. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js" referrerpolicy="no-referrer"></script>
+<!-- Vendored from the pinned npm dependency; no third-party runtime fetches. -->
+<script src="assets/vendor/ethers.umd.min.js"></script>
 <script src="assets/abi.js"></script>
 <script src="assets/app.js"></script>
 

@@ -56,7 +56,7 @@ check-ins, or owner withdrawals. Three bounds protect users:
 
 ```bash
 npm install
-npm test        # 39 tests
+npm test        # 63 tests
 npm run build
 ```
 
@@ -71,4 +71,20 @@ this contract targets mainstream wallets, where ordinary ECDSA keys are the auth
 trust-model header in [`contracts/InheritanceVault.sol`](contracts/InheritanceVault.sol) for
 exactly what that trades away.
 
-**Status: pre-audit.** Do not deploy with real funds until an independent review is complete.
+## Production status
+
+The immutable contracts are deployed on Base:
+
+- `InheritanceVault`: `0xC821849A1D74959753450409b594b23eCE7fEe2f`
+- Retired reminder billing contract: `0x60749aF621180de1DC05DB4f3d158D09dE979dC6`
+
+Paid reminder sales are disabled. The retired billing contract is immutable and cannot be paused,
+so do not send it funds or call it directly. The website is a static Cloudflare Pages deployment
+with locally hosted dependencies and a restrictive Content Security Policy.
+
+**Status: deployed, internally reviewed, not independently audited.** The live
+`InheritanceVault` runtime bytecode exactly matches the compiler artifact recorded for this
+repository. The internal adversarial review is evidence, not an independent audit. Do not use
+material value until an independent review and the full Base Sepolia lifecycle test are complete.
+See [AUDIT_SCOPE.md](AUDIT_SCOPE.md), [AUDIT-2026-08-09.md](AUDIT-2026-08-09.md), and
+[SECURITY.md](SECURITY.md).

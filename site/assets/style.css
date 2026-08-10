@@ -99,6 +99,15 @@ details.faq p { padding: 0 0 16px; color: var(--ink-soft); }
 
 footer.site { border-top: 1px solid var(--line); padding: 36px 0; color: var(--ink-soft); font-size: 0.9rem; }
 footer.site .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+footer.site a, .footer-link { color: var(--gold); }
+
+.mb-14 { margin-bottom: 14px; }
+.mt-18 { margin-top: 18px; }
+.muted-copy { color: var(--ink-soft); margin-bottom: 14px; }
+.warning-text { color: var(--red); }
+.notice-wrap { margin-top: 28px; }
+.app-footer { border-top: 0; padding-top: 8px; }
+.app-footer .app-footer-wrap { padding: 0; }
 
 /* ---------- app ---------- */
 .app-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin: 34px 0 8px; }
@@ -168,6 +177,10 @@ input.f:focus, select.f:focus { outline: 2px solid var(--gold); border-color: va
 .guide-list a.g:hover { border-color: var(--gold); }
 .guide-list a.g h3 { font-family: var(--serif); margin-bottom: 6px; }
 .guide-list a.g p { color: var(--ink-soft); font-size: 0.95rem; margin: 0; }
+.guides-head { margin-top: 44px; }
+.guides-title { font-family: var(--serif); font-size: 1.9rem; }
+.guides-intro { color: var(--ink-soft); max-width: 60ch; margin-bottom: 28px; }
+.guide-list-spaced { margin-bottom: 64px; }
 
 @media (max-width: 640px) {
   .hero { padding: 56px 0 40px; }

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Will &amp; Key — your crypto should outlive you</title>
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
 <meta name="description" content="A self-custody inheritance vault. Deposit crypto, name your heir, check in on your schedule. If you go silent, they inherit — no custodian, no seed-phrase sharing, no lawyer holding your keys.">
 <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -35,7 +36,7 @@
       <a class="btn primary" href="app.html">Open the app</a>
       <a class="btn ghost" href="#how">See how it works</a>
     </div>
-    <p style="margin-top:28px"><span class="notice"><strong>Live on Base, source verified.</strong>
+    <p class="notice-wrap"><span class="notice"><strong>Live on Base, source verified.</strong>
     The contract is deployed, running, and readable on Basescan. It has <strong>not</strong> had a
     third-party security audit — only our own adversarial review, published in full. Treat it as
     new software: start with an amount you could afford to lose.</span></p>
@@ -166,9 +167,9 @@
       page:<br>
       <strong>Vault:</strong>
       <a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821849A1D74959753450409b594b23eCE7fEe2f</a><br>
-      <strong>Reminders:</strong>
+      <strong>Retired reminder billing contract (do not pay):</strong>
       <a href="https://basescan.org/address/0x60749aF621180de1DC05DB4f3d158D09dE979dC6" rel="noopener">0x60749aF621180de1DC05DB4f3d158D09dE979dC6</a><br>
-      Both are <strong>source-verified on Basescan with an exact bytecode match</strong>, so you can
+      Both contracts are <strong>source-verified on Basescan with an exact bytecode match</strong>, so you can
       read the code that is actually running rather than taking our word for it. The contract is not
       upgradeable: what is deployed there is what will run forever.</p>
     </details>
@@ -178,7 +179,9 @@
 <footer class="site">
   <div class="wrap">
     <div>Will &amp; Key — self-custody inheritance. Not legal, tax, or investment advice.</div>
-    <div><a href="guides/index.html" style="color:var(--gold)">Guides</a> · Contract source: open at launch, after the audit publishes.</div>
+    <div><a class="footer-link" href="guides/index.html">Guides</a> ·
+      <a class="footer-link" href="privacy.html">Privacy</a> ·
+      <a class="footer-link" href="terms.html">Terms &amp; service disclosures</a></div>
   </div>
 </footer>
 

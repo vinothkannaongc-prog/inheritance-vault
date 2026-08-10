@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terms and service disclosures | Will &amp; Key</title>
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<meta name="description" content="Risk, fee, service-status, and refund disclosures for the Will & Key self-custody interface.">
+<link rel="canonical" href="https://willandkey.com/terms.html">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="index.html">Will <span class="amp">&amp;</span> Key</a>
+    <nav class="main"><a class="cta" href="app.html">Open the app</a></nav>
+  </div>
+</header>
+
+<main class="article">
+  <h1>Terms and service disclosures</h1>
+  <p class="standfirst">Read these disclosures before depositing assets or signing a transaction.</p>
+  <p class="byline">Last updated: 10 August 2026</p>
+
+  <h2>Technical tool, not a legal will</h2>
+  <p>Will &amp; Key is a software interface to an autonomous smart contract. It is not a lawyer,
+  fiduciary, custodian, executor, tax adviser, investment adviser, or substitute for a legally
+  valid estate plan. Laws and tax treatment vary. Obtain qualified advice for your jurisdiction.</p>
+
+  <h2>Self-custody and immutable-contract risk</h2>
+  <p>You control transaction signing and are responsible for wallet security, beneficiary
+  addresses, asset compatibility, check-in timing, horizon settings, and gas. The deployed vault
+  contract is non-upgradeable. A defect, compromised key, wrong address, unsupported token,
+  network failure, or lost beneficiary key can cause permanent loss. The contract has an internal
+  adversarial review but no completed independent third-party audit. Use only value you can afford
+  to lose.</p>
+
+  <h2>Fees</h2>
+  <p>The current vault interface discloses a 0.5% claim-settlement fee, capped at 1% by the deployed
+  bytecode and by each vault's creation-time ceiling. Blockchain gas fees are separate and go to
+  the network, not Will &amp; Key. Verify current contract state before signing.</p>
+
+  <h2>Paid reminders are disabled</h2>
+  <p>Will &amp; Key is not accepting new paid reminder subscriptions through this website. The older
+  reminder billing contract remains immutable on Base and may still accept a direct contract call;
+  such a call is not an accepted service order. Do not send funds to it. The vault itself does not
+  depend on the reminder service.</p>
+
+  <h2>Existing reminder payments and refunds</h2>
+  <p>The retired on-chain billing contract has no automatic refund function. If you previously paid
+  for reminders and believe a service obligation or refund is outstanding, contact
+  <a href="mailto:reminders@willandkey.com">reminders@willandkey.com</a> with the wallet address and
+  transaction hash. Any refund or remedy will be handled off-chain where required by the applicable
+  agreement or law; never send a seed phrase or private key.</p>
+
+  <h2>No warranty</h2>
+  <p>The website and contracts are provided on an "as available" basis to the extent permitted by
+  law. Availability, uninterrupted RPC access, accurate third-party token metadata, or fitness for
+  a particular estate plan is not guaranteed. Nothing here excludes rights or liabilities that
+  cannot legally be excluded.</p>
+
+  <h2>Source and audit status</h2>
+  <p>The deployed contract addresses and source-verification links are published on the home page.
+  The project repository includes source, tests, deployment records, and the internal audit report.
+  An independent audit remains a release requirement for recommending use with material value.</p>
+</main>
+
+<footer class="site"><div class="wrap">
+  <div>Will &amp; Key - self-custody inheritance.</div>
+  <div><a href="privacy.html">Privacy</a></div>
+</div></footer>
+</body>
+</html>
