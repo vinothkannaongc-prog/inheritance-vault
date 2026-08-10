@@ -11,7 +11,8 @@
     "deploy:baseSepolia": "hardhat run scripts/deploy.ts --network baseSepolia",
     "deploy:bnbTestnet": "hardhat run scripts/deploy.ts --network bnbTestnet",
     "deploy:base": "hardhat run scripts/deploy.ts --network base",
-    "smoke:base": "hardhat run scripts/smoke.ts --network base"
+    "smoke:base": "hardhat run scripts/smoke.ts --network base",
+    "validate:site": "node scripts/validate-site.js"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",

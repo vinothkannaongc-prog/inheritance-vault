@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How the Crypto Inheritance Vault Works | Will &amp; Key</title>
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<meta name="description" content="Understand Will &amp; Key's complete on-chain lifecycle: vault creation, check-ins, inactivity, beneficiary claims, challenges and settlement.">
+<link rel="canonical" href="https://willandkey.com/how-it-works">
+<meta property="og:type" content="article"><meta property="og:site_name" content="Will &amp; Key">
+<meta property="og:title" content="How the Will &amp; Key inheritance vault works">
+<meta property="og:description" content="A transparent walkthrough of vault creation, check-ins, claims, challenges, settlement and failure modes.">
+<meta property="og:url" content="https://willandkey.com/how-it-works"><meta property="og:image" content="https://willandkey.com/assets/social/dead-mans-switch.jpg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A four-stage on-chain timeline showing check-in, inactivity, challenge and beneficiary access">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="https://willandkey.com/assets/social/dead-mans-switch.jpg">
+<link rel="stylesheet" href="/assets/style.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"TechArticle","headline":"How the Will & Key Crypto Inheritance Vault Works","description":"A complete walkthrough of vault creation, check-ins, claims, challenges and settlement.","image":"https://willandkey.com/assets/social/dead-mans-switch.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-10","dateModified":"2026-08-10","mainEntityOfPage":"https://willandkey.com/how-it-works"},
+{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"How it works","item":"https://willandkey.com/how-it-works"}]}
+]}
+</script>
+</head>
+<body>
+<header class="site"><div class="wrap"><a class="brand" href="/">Will <span class="amp">&amp;</span> Key</a><nav class="main"><a href="/guides/">Guides</a><a href="/security">Security</a><a class="cta" href="/app">Open the app</a></nav></div></header>
+<div class="crumbs"><a href="/">Home</a> › How it works</div>
+<main class="article">
+<h1>How the inheritance vault works</h1>
+<p class="standfirst">Will &amp; Key is a non-custodial smart contract. It does not detect death.
+It follows a timer, an heir's transaction and a challenge period that the owner can veto.</p>
+<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Published 10 August 2026 · <a href="/security">Security status</a></p>
+
+<h2>1. The owner creates a vault</h2>
+<p>The owner connects a wallet, chooses a supported asset and names one beneficiary wallet. The
+owner also sets:</p>
+<ul>
+<li><strong>Inactivity period:</strong> how long the owner may go without checking in.</li>
+<li><strong>Challenge window:</strong> the time between a beneficiary's claim and settlement.</li>
+<li><strong>Absolute horizon:</strong> a long-stop date that prevents automated check-ins from extending the plan forever after the intended limit.</li>
+</ul>
+<p>Each vault covers one asset and one beneficiary. An owner can create multiple vaults for
+different assets or heirs. The contract does not receive or store a seed phrase.</p>
+
+<h2>2. The owner remains in control</h2>
+<p>While the vault is active, the owner can check in, add funds, withdraw funds, change the
+beneficiary and adjust permitted timing settings. A check-in moves the inactivity deadline
+forward, subject to the absolute horizon. One batch transaction can refresh several owned vaults.</p>
+<p>A wallet signature is the authority. A stolen owner key can therefore control the vault; the
+contract is designed for absence and key loss, not for recovering from key compromise.</p>
+
+<h2>3. The deadline passes</h2>
+<p>Nothing moves automatically when the inactivity deadline passes. Funds remain in the contract.
+The named beneficiary must notice the condition and submit an on-chain claim from the nominated
+wallet address. A stranger cannot initiate the claim.</p>
+
+<h2>4. The beneficiary initiates a claim</h2>
+<p>A valid claim changes the vault from active to claim-pending and starts the challenge window.
+The effective settlement fee is locked when the claim begins and can only fall before settlement,
+never rise above the vault's creation-time ceiling.</p>
+
+<h2>5. The owner gets a veto window</h2>
+<p>Before the absolute horizon, an authenticated owner action can cancel a pending claim and
+restart the clock. At or after the horizon, soft actions cannot create an endless denial loop.
+The owner must either close the vault by withdrawing everything or extend the horizon far enough
+into the future to restore a meaningful cooldown.</p>
+<p>This distinction is important: the challenge window protects against a mistaken or premature
+claim, while the horizon protects the heir against an unattended automation loop or repeated
+last-second veto with no real extension.</p>
+
+<h2>6. Anyone can finalize after the challenge</h2>
+<p>If the challenge period ends without a valid veto, anyone may call the finalization function.
+The heir does not depend on a Will &amp; Key server or employee being available. Settlement records
+the heir's entitlement in a pull-payment credit lane. The heir then withdraws that credit to an
+address they choose.</p>
+<p>Using credits rather than sending funds during the state transition prevents a hostile or
+incompatible recipient contract from blocking settlement through a failed callback.</p>
+
+<h2>Fees</h2>
+<p>The current global claim-settlement fee is 0.5%. The bytecode caps it at 1%. Each vault records
+the global rate at creation as its personal ceiling; an administrator cannot later raise that
+vault above the ceiling. Deposits, owner withdrawals and check-ins have no Will &amp; Key service
+fee, although every on-chain transaction still pays the network's gas charge.</p>
+
+<h2>What the administrator can and cannot do</h2>
+<table>
+<tr><th>Can do</th><th>Cannot do</th></tr>
+<tr><td>Pause creation of new vaults</td><td>Withdraw a user's locked balance</td></tr>
+<tr><td>Change the global fee within the 1% hard cap</td><td>Raise an existing vault above its creation ceiling</td></tr>
+<tr><td>Change the fee recipient</td><td>Change a vault's beneficiary</td></tr>
+<tr><td>Sweep only accounting surplus</td><td>Block a valid owner withdrawal or final settlement</td></tr>
+</table>
+
+<h2>Failure modes to plan for</h2>
+<ul>
+<li><strong>Owner key stolen:</strong> the attacker has the owner's authority.</li>
+<li><strong>Beneficiary key lost after the owner is gone:</strong> the entitlement may become permanently inaccessible.</li>
+<li><strong>Unsupported token behavior:</strong> rebasing and unusual transfer behavior can break normal accounting assumptions.</li>
+<li><strong>Missed notifications:</strong> reminders are not part of contract correctness; owners and heirs must not rely on email as the only awareness mechanism.</li>
+<li><strong>Contract defect:</strong> the deployment is immutable, so a serious defect requires a new contract and migration.</li>
+</ul>
+
+<div class="risk-box"><strong>Verification before value:</strong> read the <a href="/security">security and audit page</a>, inspect the deployed source and try the complete flow with a small amount. The contract has not completed an independent audit.</div>
+
+<p>For a broader planning workflow, continue with the <a href="/guides/crypto-inheritance-planning">crypto inheritance planning checklist</a> or read the <a href="/guides/dead-mans-switch-crypto">dead-man switch guide</a>.</p>
+</main>
+<footer class="site"><div class="wrap"><div>Will &amp; Key — mechanism before marketing.</div><div><a class="footer-link" href="/security">Security</a> · <a class="footer-link" href="/guides/">Guides</a> · <a class="footer-link" href="/about">About</a></div></div></footer>
+</body>
+</html>

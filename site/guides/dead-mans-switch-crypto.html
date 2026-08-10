@@ -3,34 +3,43 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>What Is a Dead Man's Switch for Crypto? | Will &amp; Key</title>
+<title>Crypto Dead Man's Switch Explained | Will &amp; Key</title>
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
-<meta name="description" content="A dead man's switch releases your crypto to your heir only after you stop checking in. How the mechanism works on chain, what it protects against, what it can't, and the questions to ask any implementation.">
-<link rel="canonical" href="https://willandkey.com/guides/dead-mans-switch-crypto.html">
-<link rel="stylesheet" href="../assets/style.css">
+<meta name="description" content="Learn how a crypto dead man's switch uses check-ins, an inactivity period and a challenge window before an heir can claim on-chain assets.">
+<link rel="canonical" href="https://willandkey.com/guides/dead-mans-switch-crypto">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Will &amp; Key">
+<meta property="og:title" content="How a crypto dead man's switch works">
+<meta property="og:description" content="Check-ins, inactivity, challenge windows and the safeguards a trustworthy implementation needs.">
+<meta property="og:url" content="https://willandkey.com/guides/dead-mans-switch-crypto">
+<meta property="og:image" content="https://willandkey.com/assets/social/dead-mans-switch.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A four-stage on-chain timeline showing check-in, inactivity, challenge and beneficiary access">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://willandkey.com/assets/social/dead-mans-switch.jpg">
+<link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Article",
-"headline":"What Is a Dead Man's Switch for Crypto?",
-"description":"How the dead man's switch mechanism works on chain, what it protects against, and what it can't.",
-"author":{"@type":"Organization","name":"Will & Key"},
-"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com"},
-"datePublished":"2026-08-09","dateModified":"2026-08-09",
-"mainEntityOfPage":"https://willandkey.com/guides/dead-mans-switch-crypto.html"}
+{"@context":"https://schema.org","@graph":[
+{"@type":"Article","headline":"What Is a Dead Man's Switch for Crypto?","description":"How the mechanism works on chain, what it protects against and what it cannot protect against.","image":"https://willandkey.com/assets/social/dead-mans-switch.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-08-10T15:30:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/dead-mans-switch-crypto"},
+{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://willandkey.com/guides/"},{"@type":"ListItem","position":3,"name":"Crypto dead man's switch","item":"https://willandkey.com/guides/dead-mans-switch-crypto"}]}
+]}
 </script>
 </head>
 <body>
 
 <header class="site">
   <div class="wrap">
-    <a class="brand" href="../index.html">Will <span class="amp">&amp;</span> Key</a>
+    <a class="brand" href="/">Will <span class="amp">&amp;</span> Key</a>
     <nav class="main">
-      <a href="index.html">Guides</a>
-      <a class="cta" href="../app.html">Open the app</a>
+      <a href="/guides/">Guides</a>
+      <a href="/security">Security</a>
+      <a class="cta" href="/app">Open the app</a>
     </nav>
   </div>
 </header>
 
-<div class="crumbs"><a href="../index.html">Home</a> › <a href="index.html">Guides</a> › Dead man's switch for crypto</div>
+<div class="crumbs"><a href="/">Home</a> › <a href="/guides/">Guides</a> › Dead man's switch for crypto</div>
 
 <article class="article">
 <h1>What is a dead man's switch for crypto?</h1>
@@ -38,7 +47,7 @@
 as you keep signaling "I'm here," nothing happens. When the signals stop, your crypto goes to
 the person you chose. Here's exactly how it works — and the hard questions to ask anyone
 selling you one.</p>
-<p class="byline">By the Will &amp; Key team · Updated August 2026</p>
+<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Updated August 2026 · <a href="/editorial-policy">Editorial policy</a></p>
 
 <h2>The train driver's handle</h2>
 <p>Early locomotives had a simple safety problem: what if the driver dies at the controls? The
@@ -79,7 +88,7 @@ contract.</li>
 <tr><td>Custodian failure (there is no custodian)</td>
 <td>Forgetting to check in <em>and</em> ignoring every warning (that's what the challenge window and reminders are for)</td></tr>
 <tr><td>Seed-phrase leakage via paperwork (no secret is ever shared — see
-<a href="never-put-seed-phrase-in-will.html">why not a will</a>)</td>
+<a href="/guides/never-put-seed-phrase-in-will">why not a will</a>)</td>
 <td>Chain-level catastrophe (any on-chain asset shares its chain's fate)</td></tr>
 </table>
 
@@ -113,18 +122,20 @@ and why the timer minimums are measured in weeks, not hours.</p>
 <p><strong>Will &amp; Key is this mechanism, built honestly:</strong> open-source vault on
 Ethereum L2, check-ins that cost about a cent, a veto window you size yourself, and a trust
 model documented scenario by scenario — including the ugly ones.</p>
-<a class="btn primary" href="../app.html">Open the app</a>
+<a class="btn primary" href="/app">Open the app</a>
 </div>
 
-<p>Further reading: <a href="what-happens-to-your-crypto-when-you-die.html">what happens to your
-crypto when you die</a> · <a href="crypto-inheritance-planning.html">a complete inheritance plan
+<p>Further reading: <a href="/guides/what-happens-to-your-crypto-when-you-die">what happens to your
+crypto when you die</a> · <a href="/guides/crypto-inheritance-planning">a complete inheritance plan
 in one weekend</a>.</p>
 </article>
 
 <footer class="site">
   <div class="wrap">
     <div>Will &amp; Key — self-custody inheritance. Not legal, tax, or investment advice.</div>
-    <div><a class="footer-link" href="index.html">All guides</a></div>
+    <div><a class="footer-link" href="/guides/">All guides</a> ·
+      <a class="footer-link" href="/security">Security</a> ·
+      <a class="footer-link" href="/about">About</a></div>
   </div>
 </footer>
 

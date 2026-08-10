@@ -3,22 +3,44 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Will &amp; Key — your crypto should outlive you</title>
+<title>Crypto Inheritance Without Sharing Keys | Will &amp; Key</title>
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
-<meta name="description" content="A self-custody inheritance vault. Deposit crypto, name your heir, check in on your schedule. If you go silent, they inherit — no custodian, no seed-phrase sharing, no lawyer holding your keys.">
-<link rel="stylesheet" href="assets/style.css">
+<meta name="description" content="Plan crypto inheritance without sharing a seed phrase. Will &amp; Key is an open-source, self-custody vault with check-ins and an heir claim window.">
+<link rel="canonical" href="https://willandkey.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Will &amp; Key">
+<meta property="og:title" content="Crypto inheritance without sharing your keys">
+<meta property="og:description" content="An open-source, self-custody inheritance vault with scheduled check-ins and a protected heir claim process.">
+<meta property="og:url" content="https://willandkey.com/">
+<meta property="og:image" content="https://willandkey.com/assets/social/willandkey-home.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A cryptographic key connected to a protected inheritance vault">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Crypto inheritance without sharing your keys">
+<meta name="twitter:description" content="Open-source, self-custody crypto inheritance with check-ins and a protected claim process.">
+<meta name="twitter:image" content="https://willandkey.com/assets/social/willandkey-home.jpg">
+<link rel="stylesheet" href="/assets/style.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"Organization","@id":"https://willandkey.com/#organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"},"sameAs":["https://github.com/vinothkannaongc-prog/inheritance-vault"]},
+{"@type":"WebSite","@id":"https://willandkey.com/#website","url":"https://willandkey.com/","name":"Will & Key","publisher":{"@id":"https://willandkey.com/#organization"}},
+{"@type":"WebPage","@id":"https://willandkey.com/#webpage","url":"https://willandkey.com/","name":"Crypto Inheritance Without Sharing Keys","isPartOf":{"@id":"https://willandkey.com/#website"},"about":{"@id":"https://willandkey.com/#organization"}}
+]}
+</script>
 </head>
 <body>
 
 <header class="site">
   <div class="wrap">
-    <a class="brand" href="index.html">Will <span class="amp">&amp;</span> Key</a>
+    <a class="brand" href="/">Will <span class="amp">&amp;</span> Key</a>
     <nav class="main">
       <a href="#how">How it works</a>
       <a href="#trust">Trust model</a>
       <a href="#fees">Fees</a>
-      <a href="guides/index.html">Guides</a>
-      <a class="cta" href="app.html">Open the app</a>
+      <a href="/guides/">Guides</a>
+      <a href="/security">Security</a>
+      <a class="cta" href="/app">Open the app</a>
     </nav>
   </div>
 </header>
@@ -27,13 +49,13 @@
   <div class="wrap">
     <h1>Your crypto should outlive you.</h1>
     <p class="lead">
-      Billions in crypto are lost forever when people die without a plan. Will &amp; Key is a
-      self-custody vault with a dead man's switch: deposit, name your heir, and check in on a
+      Crypto can become permanently inaccessible when the only signing key is lost. Will &amp; Key
+      is a self-custody vault with a dead man's switch: deposit, name your heir, and check in on a
       schedule you choose. If you ever go silent, your heir inherits — automatically, on chain,
       with no custodian and no one holding your seed phrase.
     </p>
     <div class="actions">
-      <a class="btn primary" href="app.html">Open the app</a>
+      <a class="btn primary" href="/app">Open the app</a>
       <a class="btn ghost" href="#how">See how it works</a>
     </div>
     <p class="notice-wrap"><span class="notice"><strong>Live on Base, source verified.</strong>
@@ -179,9 +201,12 @@
 <footer class="site">
   <div class="wrap">
     <div>Will &amp; Key — self-custody inheritance. Not legal, tax, or investment advice.</div>
-    <div><a class="footer-link" href="guides/index.html">Guides</a> ·
-      <a class="footer-link" href="privacy.html">Privacy</a> ·
-      <a class="footer-link" href="terms.html">Terms &amp; service disclosures</a></div>
+    <div><a class="footer-link" href="/guides/">Guides</a> ·
+      <a class="footer-link" href="/how-it-works">How it works</a> ·
+      <a class="footer-link" href="/security">Security</a> ·
+      <a class="footer-link" href="/about">About</a> ·
+      <a class="footer-link" href="/privacy">Privacy</a> ·
+      <a class="footer-link" href="/terms">Terms</a></div>
   </div>
 </footer>
 

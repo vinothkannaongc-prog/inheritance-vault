@@ -7,3 +7,9 @@
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+
+/app
+  X-Robots-Tag: noindex, follow, noarchive
+
+/app.html
+  X-Robots-Tag: noindex, follow, noarchive

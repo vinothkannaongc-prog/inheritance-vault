@@ -1,12 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://willandkey.com/</loc><lastmod>2026-08-09</lastmod></url>
-  <url><loc>https://willandkey.com/app.html</loc><lastmod>2026-08-10</lastmod></url>
-  <url><loc>https://willandkey.com/privacy.html</loc><lastmod>2026-08-10</lastmod></url>
-  <url><loc>https://willandkey.com/terms.html</loc><lastmod>2026-08-10</lastmod></url>
-  <url><loc>https://willandkey.com/guides/</loc><lastmod>2026-08-09</lastmod></url>
-  <url><loc>https://willandkey.com/guides/what-happens-to-your-crypto-when-you-die.html</loc><lastmod>2026-08-09</lastmod></url>
-  <url><loc>https://willandkey.com/guides/crypto-inheritance-planning.html</loc><lastmod>2026-08-09</lastmod></url>
-  <url><loc>https://willandkey.com/guides/never-put-seed-phrase-in-will.html</loc><lastmod>2026-08-09</lastmod></url>
-  <url><loc>https://willandkey.com/guides/dead-mans-switch-crypto.html</loc><lastmod>2026-08-09</lastmod></url>
+  <url><loc>https://willandkey.com/</loc><lastmod>2026-08-10</lastmod></url>
+  <url><loc>https://willandkey.com/guides/</loc><lastmod>2026-08-10</lastmod></url>
+  <url><loc>https://willandkey.com/guides/what-happens-to-your-crypto-when-you-die</loc><lastmod>2026-08-10</lastmod></url>
+  <url><loc>https://willandkey.com/guides/crypto-inheritance-planning</loc><lastmod>2026-08-10</lastmod></url>
+  <url><loc>https://willandkey.com/guides/never-put-seed-phrase-in-will</loc><lastmod>2026-08-10</lastmod></url>
+  <url><loc>https://willandkey.com/guides/dead-mans-switch-crypto</loc><lastmod>2026-08-10</lastmod></url>
+  <url><loc>https://willandkey.com/how-it-works</loc><lastmod>2026-08-10</lastmod></url>
+  <url><loc>https://willandkey.com/security</loc><lastmod>2026-08-10</lastmod></url>
+  <url><loc>https://willandkey.com/about</loc><lastmod>2026-08-10</lastmod></url>
+  <url><loc>https://willandkey.com/editorial-policy</loc><lastmod>2026-08-10</lastmod></url>
+  <url><loc>https://willandkey.com/authors</loc><lastmod>2026-08-10</lastmod></url>
+  <url><loc>https://willandkey.com/privacy</loc><lastmod>2026-08-10</lastmod></url>
+  <url><loc>https://willandkey.com/terms</loc><lastmod>2026-08-10</lastmod></url>
 </urlset>

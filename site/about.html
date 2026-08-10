@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About the Will &amp; Key Project</title>
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+<meta name="description" content="Learn why Will &amp; Key is building an open-source, self-custody crypto inheritance vault and where the project stands today.">
+<link rel="canonical" href="https://willandkey.com/about">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Will &amp; Key">
+<meta property="og:title" content="About the Will &amp; Key project">
+<meta property="og:description" content="An open-source project exploring self-custody crypto inheritance without sharing seed phrases.">
+<meta property="og:url" content="https://willandkey.com/about">
+<meta property="og:image" content="https://willandkey.com/assets/social/willandkey-home.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://willandkey.com/assets/social/willandkey-home.jpg">
+<link rel="stylesheet" href="/assets/style.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"AboutPage","@id":"https://willandkey.com/about#webpage","url":"https://willandkey.com/about","name":"About the Will & Key Project","isPartOf":{"@id":"https://willandkey.com/#website"},"about":{"@id":"https://willandkey.com/#organization"}},
+{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"About","item":"https://willandkey.com/about"}]}
+]}
+</script>
+</head>
+<body>
+
+<header class="site"><div class="wrap">
+  <a class="brand" href="/">Will <span class="amp">&amp;</span> Key</a>
+  <nav class="main"><a href="/guides/">Guides</a><a href="/security">Security</a><a class="cta" href="/app">Open the app</a></nav>
+</div></header>
+
+<div class="crumbs"><a href="/">Home</a> › About</div>
+<main class="article">
+<h1>About Will &amp; Key</h1>
+<p class="standfirst">Will &amp; Key is an open-source experiment in one narrow problem: helping
+self-custody crypto reach a chosen beneficiary without giving anyone the owner's seed phrase
+while the owner is alive.</p>
+<p class="byline">Project information · Last reviewed 10 August 2026</p>
+
+<h2>The problem we are working on</h2>
+<p>A bank can respond to a court order. A blockchain cannot. If the only person able to sign for a
+self-custody wallet dies or permanently loses the key, legal ownership alone does not produce a
+valid transaction. Families therefore need both a lawful estate plan and a technically workable
+access or transfer mechanism.</p>
+<p>Will &amp; Key addresses only the technical transfer mechanism. It does not write a legal will,
+verify a death, give tax advice, act as executor, hold recovery phrases or decide who should
+inherit.</p>
+
+<h2>What has been built</h2>
+<p>The project has deployed a non-upgradeable inheritance-vault contract on Base. An owner can
+deposit a supported asset, nominate a beneficiary and choose an inactivity period. If the owner
+stops checking in, the beneficiary may initiate a claim. A separate challenge period gives the
+owner time to veto before settlement.</p>
+<p>The browser interface is static and served from isolated Cloudflare Pages hosting. Contract
+source, tests, deployment records and the internal adversarial review are maintained in the
+<a href="https://github.com/vinothkannaongc-prog/inheritance-vault" rel="noopener">project repository</a>.</p>
+
+<h2>Where the project stands</h2>
+<ul>
+  <li>The Base deployment is live and its runtime bytecode matches the local compiler artifacts.</li>
+  <li>Sixty-three contract tests and a fourteen-step local watcher recovery scenario pass.</li>
+  <li>The contracts have an internal adversarial review but no completed independent audit.</li>
+  <li>A full-duration Base Sepolia inheritance lifecycle remains pending.</li>
+  <li>Paid reminder subscriptions are disabled and the retired billing contract should not be paid.</li>
+</ul>
+<p>Those limitations matter. The contract is immutable, so a serious contract finding would require
+a new deployment rather than an in-place patch. The website does not recommend using material
+value before independent review and testnet lifecycle work are complete.</p>
+
+<h2>How trust should be evaluated</h2>
+<p>Do not rely on a brand promise. Read the <a href="/how-it-works">mechanism explanation</a>, the
+<a href="/security">security and audit status</a>, the contract source and the deployed bytecode.
+Will &amp; Key aims to make its limits as visible as its features.</p>
+</main>
+
+<footer class="site"><div class="wrap">
+  <div>Will &amp; Key — self-custody inheritance. Not legal, tax, or investment advice.</div>
+  <div><a class="footer-link" href="/editorial-policy">Editorial policy</a> · <a class="footer-link" href="/authors">Authors</a> · <a class="footer-link" href="/privacy">Privacy</a> · <a class="footer-link" href="/terms">Terms</a></div>
+</div></footer>
+</body>
+</html>

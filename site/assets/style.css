@@ -166,6 +166,9 @@ input.f:focus, select.f:focus { outline: 2px solid var(--gold); border-color: va
 .article a { color: var(--gold); }
 .article .cta-box { background: var(--gold-soft); border: 1px solid #e4d5ae; border-radius: var(--radius); padding: 20px 24px; margin: 2em 0; }
 .article .cta-box p { margin: 0 0 12px; }
+.article .risk-box { background: #f6e4e4; border: 1px solid #e3c4c4; color: #6f2929; border-radius: var(--radius); padding: 18px 22px; margin: 1.5em 0; }
+.article .risk-box a { color: #6f2929; }
+.break-all { overflow-wrap: anywhere; word-break: break-word; }
 .article table { width: 100%; border-collapse: collapse; margin: 1.2em 0; }
 .article th, .article td { border: 1px solid var(--line); padding: 10px 14px; text-align: left; }
 .article th { background: var(--gold-soft); font-family: var(--serif); }
