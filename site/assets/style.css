@@ -208,3 +208,9 @@ input.f:focus, select.f:focus { outline: 2px solid var(--gold); border-color: va
   .hero { padding: 56px 0 40px; }
   nav.main a { margin-left: 12px; }
 }
+
+/* Guides hub lede — the section argument above the guide list. */
+.guides-lede { max-width: 66ch; margin-bottom: 32px; }
+.guides-lede p { color: var(--ink-soft); line-height: 1.65; margin-bottom: 14px; }
+.guides-lede p:last-child { margin-bottom: 0; }
+.guides-lede strong { color: var(--ink); }
