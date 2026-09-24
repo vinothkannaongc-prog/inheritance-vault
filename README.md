@@ -78,6 +78,10 @@ The immutable contracts are deployed on Base:
 - `InheritanceVault`: `0xC821849A1D74959753450409b594b23eCE7fEe2f`
 - Retired reminder billing contract: `0x60749aF621180de1DC05DB4f3d158D09dE979dC6`
 
+Admin (owner of both contracts) and fee recipient: hardware wallet
+`0x883C821103B5415C53B11E584D3592205B5CdCA3` since 2026-09-24, moved off the deploy key with
+`scripts/transfer-admin.ts` and a two-step accept. Transactions are in `deployments/base.json`.
+
 Paid reminder sales are disabled. The retired billing contract is immutable and cannot be paused,
 so do not send it funds or call it directly. The website is a static Cloudflare Pages deployment
 with locally hosted dependencies and a restrictive Content Security Policy.
