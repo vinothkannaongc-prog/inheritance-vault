@@ -18,6 +18,10 @@ Both deployed runtime bytecodes were compared byte-for-byte with the local Hardh
 artifacts on 2026-08-10 and matched exactly. The canonical public deployment record is
 `deployments/base.json`.
 
+Since 2026-09-24 both contracts are owned by, and claim fees accrue to, the hardware wallet
+`0x883C821103B5415C53B11E584D3592205B5CdCA3`; the deploy key `0x4306…d986` holds no admin power.
+The five handover transactions are listed in the deployment record.
+
 ## Source and configuration in scope
 
 - `contracts/InheritanceVault.sol`

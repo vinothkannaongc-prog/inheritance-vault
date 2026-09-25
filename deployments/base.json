@@ -3,8 +3,8 @@
   "chainId": 8453,
   "deployedAt": "2026-08-09T03:38:05.241Z",
   "deployer": "0x4306a8875a04c0FbaC76CE2FC860E0b3c7aAd986",
-  "admin": "0x4306a8875a04c0FbaC76CE2FC860E0b3c7aAd986",
-  "feeRecipient": "0x4306a8875a04c0FbaC76CE2FC860E0b3c7aAd986",
+  "admin": "0x883C821103B5415C53B11E584D3592205B5CdCA3",
+  "feeRecipient": "0x883C821103B5415C53B11E584D3592205B5CdCA3",
   "contracts": {
     "InheritanceVault": "0xC821849A1D74959753450409b594b23eCE7fEe2f",
     "NotifySubscription": "0x60749aF621180de1DC05DB4f3d158D09dE979dC6"
@@ -12,5 +12,18 @@
   "params": {
     "claimFeeBps": 50,
     "subPricePerMonth": "1000000000000000"
+  },
+  "adminHandover": {
+    "date": "2026-09-24",
+    "from": "0x4306a8875a04c0FbaC76CE2FC860E0b3c7aAd986",
+    "to": "0x883C821103B5415C53B11E584D3592205B5CdCA3",
+    "toKind": "hardware wallet (Ledger)",
+    "transactions": {
+      "vault.setFeeRecipient": "0x83f734ad7bf258d2d6daf64f64bb7562565d199ea0d506ae1e45fe2c5851e894",
+      "vault.transferOwnership": "0x29bc7cdd3ea9bc5b611645a231d22515d536e1bbf2ac42aa134041e875343f06",
+      "sub.transferOwnership": "0x556b174a26f670fe481d08d6fef92cdaae8b789ae728effc8c462d962ddd0527",
+      "vault.acceptOwnership": "0x5a0bb97d2d421eccc399b6727c49ea37c008a0a7bb782d53cf5a59d1ce85d532",
+      "sub.acceptOwnership": "0xff034fda9c4065a5dfa6579fa6afba3c6fb6be55da2c5b71ea323780077fd906"
+    }
   }
 }
