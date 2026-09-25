@@ -8,6 +8,8 @@
 <meta name="description" content="Create, check in to and manage a self-custody Will &amp; Key inheritance vault.">
 <meta name="robots" content="noindex,follow,noarchive">
 <link rel="canonical" href="https://willandkey.com/app">
+<link rel="preload" href="/assets/fonts/fraunces-normal-300-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/instrument-sans-normal-400-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
@@ -23,26 +25,27 @@
 </header>
 
 <div class="wrap">
+<main>
   <div class="app-head">
     <h1>Your vaults</h1>
     <span class="pill warn">Live on Base - no third-party audit</span>
   </div>
 
-  <div id="walletBanner" class="banner warn" hidden></div>
-  <div id="deployBanner" class="banner bad" hidden></div>
+  <div id="walletBanner" class="banner warn" aria-live="polite" hidden></div>
+  <div id="deployBanner" class="banner bad" aria-live="polite" hidden></div>
   <div class="banner warn">
     Paid reminder subscriptions are disabled. The vault contract and check-in functions continue
     to work normally; do not send funds directly to the retired reminder billing contract.
   </div>
 
-  <div class="tabs" id="tabs">
-    <button data-tab="mine" class="active">My vaults</button>
-    <button data-tab="create">Create a vault</button>
-    <button data-tab="heir">I'm an heir</button>
-    <button data-tab="credits">Payouts</button>
+  <div class="tabs" id="tabs" role="tablist" aria-label="Vault views">
+    <button data-tab="mine" class="active" id="tabbtn-mine" role="tab" aria-controls="tab-mine" aria-selected="true">My vaults</button>
+    <button data-tab="create" id="tabbtn-create" role="tab" aria-controls="tab-create" aria-selected="false">Create a vault</button>
+    <button data-tab="heir" id="tabbtn-heir" role="tab" aria-controls="tab-heir" aria-selected="false">I'm an heir</button>
+    <button data-tab="credits" id="tabbtn-credits" role="tab" aria-controls="tab-credits" aria-selected="false">Payouts</button>
   </div>
 
-  <div id="tab-mine" class="tab-pane">
+  <div id="tab-mine" class="tab-pane" role="tabpanel" aria-labelledby="tabbtn-mine">
     <div class="card" id="mineEmpty">
       <p>Connect your wallet to see your vaults. Every vault you own appears here with its
       countdown, and one click checks in on all of them at once.</p>
@@ -53,7 +56,7 @@
     <div id="vaultList"></div>
   </div>
 
-  <div id="tab-create" class="tab-pane" hidden>
+  <div id="tab-create" class="tab-pane" role="tabpanel" aria-labelledby="tabbtn-create" hidden>
     <div class="card">
       <h3>Create a vault</h3>
       <div class="grid2">
@@ -83,11 +86,11 @@
         </label>
       </div>
       <button class="btn primary" id="createBtn">Create vault</button>
-      <div class="txlog" id="createLog"></div>
+      <div class="txlog" id="createLog" role="status"></div>
     </div>
   </div>
 
-  <div id="tab-heir" class="tab-pane" hidden>
+  <div id="tab-heir" class="tab-pane" role="tabpanel" aria-labelledby="tabbtn-heir" hidden>
     <div class="card">
       <h3>Claim an inheritance</h3>
       <p class="muted-copy">Enter the vault owner's address. Vaults that name your connected
@@ -100,7 +103,7 @@
     </div>
   </div>
 
-  <div id="tab-credits" class="tab-pane" hidden>
+  <div id="tab-credits" class="tab-pane" role="tabpanel" aria-labelledby="tabbtn-credits" hidden>
     <div class="card">
       <h3>Payouts owed to you</h3>
       <p class="muted-copy">Settled inheritances and withdrawals land here as credits you pull
@@ -110,14 +113,17 @@
       </label>
       <button class="btn ghost" id="crCheckBtn">Check balance</button>
       <button class="btn primary" id="crPullBtn" hidden>Withdraw to my wallet</button>
-      <div class="txlog" id="crLog"></div>
+      <div class="txlog" id="crLog" role="status"></div>
     </div>
   </div>
+
+</main>
 
   <footer class="site app-footer">
     <div class="wrap app-footer-wrap">
       <div>Will &amp; Key - self-custody inheritance. Not legal, tax, or investment advice.</div>
       <div><a href="/security">Security</a> - <a href="/privacy">Privacy</a> - <a href="/terms">Terms</a></div>
+    <div class="footer-contract">Vault contract <a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821&hellip;fEe2f</a></div>
     </div>
   </footer>
 </div>

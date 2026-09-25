@@ -13,6 +13,8 @@
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A four-stage on-chain timeline showing check-in, inactivity, challenge and beneficiary access">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="https://willandkey.com/assets/social/dead-mans-switch.jpg">
+<link rel="preload" href="/assets/fonts/fraunces-normal-300-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/instrument-sans-normal-400-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
@@ -30,7 +32,7 @@
 It follows a timer, an heir's transaction and a challenge period that the owner can veto.</p>
 <p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Published 10 August 2026 · <a href="/security">Security status</a></p>
 
-<h2>1. The owner creates a vault</h2>
+<h2>The owner creates a vault</h2>
 <p>The owner connects a wallet, chooses a supported asset and names one beneficiary wallet. The
 owner also sets:</p>
 <ul>
@@ -41,24 +43,24 @@ owner also sets:</p>
 <p>Each vault covers one asset and one beneficiary. An owner can create multiple vaults for
 different assets or heirs. The contract does not receive or store a seed phrase.</p>
 
-<h2>2. The owner remains in control</h2>
+<h2>The owner remains in control</h2>
 <p>While the vault is active, the owner can check in, add funds, withdraw funds, change the
 beneficiary and adjust permitted timing settings. A check-in moves the inactivity deadline
 forward, subject to the absolute horizon. One batch transaction can refresh several owned vaults.</p>
 <p>A wallet signature is the authority. A stolen owner key can therefore control the vault; the
 contract is designed for absence and key loss, not for recovering from key compromise.</p>
 
-<h2>3. The deadline passes</h2>
+<h2>The deadline passes</h2>
 <p>Nothing moves automatically when the inactivity deadline passes. Funds remain in the contract.
 The named beneficiary must notice the condition and submit an on-chain claim from the nominated
 wallet address. A stranger cannot initiate the claim.</p>
 
-<h2>4. The beneficiary initiates a claim</h2>
+<h2>The beneficiary initiates a claim</h2>
 <p>A valid claim changes the vault from active to claim-pending and starts the challenge window.
 The effective settlement fee is locked when the claim begins and can only fall before settlement,
 never rise above the vault's creation-time ceiling.</p>
 
-<h2>5. The owner gets a veto window</h2>
+<h2>The owner gets a veto window</h2>
 <p>Before the absolute horizon, an authenticated owner action can cancel a pending claim and
 restart the clock. At or after the horizon, soft actions cannot create an endless denial loop.
 The owner must either close the vault by withdrawing everything or extend the horizon far enough
@@ -67,7 +69,7 @@ into the future to restore a meaningful cooldown.</p>
 claim, while the horizon protects the heir against an unattended automation loop or repeated
 last-second veto with no real extension.</p>
 
-<h2>6. Anyone can finalize after the challenge</h2>
+<h2>Anyone can finalize after the challenge</h2>
 <p>If the challenge period ends without a valid veto, anyone may call the finalization function.
 The heir does not depend on a Will &amp; Key server or employee being available. Settlement records
 the heir's entitlement in a pull-payment credit lane. The heir then withdraws that credit to an

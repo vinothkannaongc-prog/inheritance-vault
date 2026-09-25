@@ -315,6 +315,7 @@ async function vaultCard(vault, role) {
 
   const log = element("div", "txlog");
   log.id = `log-${role}-${id}`;
+  log.setAttribute("role", "status");
   card.append(log);
   return card;
 }
@@ -421,9 +422,10 @@ $("crCheckBtn").addEventListener("click", async () => {
 $("tabs").addEventListener("click", (event) => {
   const selected = event.target.closest("button");
   if (!selected) return;
-  document.querySelectorAll("#tabs button").forEach(
-    (candidate) => candidate.classList.toggle("active", candidate === selected),
-  );
+  document.querySelectorAll("#tabs button").forEach((candidate) => {
+    candidate.classList.toggle("active", candidate === selected);
+    candidate.setAttribute("aria-selected", String(candidate === selected));
+  });
   document.querySelectorAll(".tab-pane").forEach((pane) => { pane.hidden = true; });
   $(`tab-${selected.dataset.tab}`).hidden = false;
 });

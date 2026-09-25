@@ -20,6 +20,8 @@
 <meta name="twitter:title" content="Crypto inheritance without sharing your keys">
 <meta name="twitter:description" content="Open-source, self-custody crypto inheritance with check-ins and a protected claim process.">
 <meta name="twitter:image" content="https://willandkey.com/assets/social/willandkey-home.jpg">
+<link rel="preload" href="/assets/fonts/fraunces-normal-300-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/instrument-sans-normal-400-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
@@ -45,23 +47,96 @@
   </div>
 </header>
 
+<main>
 <section class="hero">
   <div class="wrap">
-    <h1>Your crypto should outlive you.</h1>
-    <p class="lead">
-      Crypto can become permanently inaccessible when the only signing key is lost. Will &amp; Key
-      is a self-custody vault with a dead man's switch: deposit, name your heir, and check in on a
-      schedule you choose. If you ever go silent, your heir inherits — automatically, on chain,
-      with no custodian and no one holding your seed phrase.
-    </p>
-    <div class="actions">
-      <a class="btn primary" href="/app">Open the app</a>
-      <a class="btn ghost" href="#how">See how it works</a>
+    <div class="hero-copy">
+      <p class="kicker">Self-custody inheritance &middot; Base</p>
+      <h1>Your crypto <br>should <em>outlive</em> <br>you.</h1>
+      <p class="lead">
+        Crypto can become permanently inaccessible when the only signing key is lost. Will &amp; Key
+        is a self-custody vault with a dead man's switch: deposit, name your heir, and check in on a
+        schedule you choose. If you ever go silent, your heir inherits &mdash; automatically, on chain,
+        with no custodian and no one holding your seed phrase.
+      </p>
+      <div class="actions">
+        <a class="btn primary" href="/app">Open the app</a>
+        <a class="btn ghost" href="#how">See how it works</a>
+      </div>
+      <p class="notice-wrap"><span class="notice"><strong>Live on Base, source verified.</strong>
+      The contract is deployed, running, and readable on Basescan. It has <strong>not</strong> had a
+      third-party security audit &mdash; only our own adversarial review, published in full. Treat it as
+      new software: start with an amount you could afford to lose.</span></p>
     </div>
-    <p class="notice-wrap"><span class="notice"><strong>Live on Base, source verified.</strong>
-    The contract is deployed, running, and readable on Basescan. It has <strong>not</strong> had a
-    third-party security audit — only our own adversarial review, published in full. Treat it as
-    new software: start with an amount you could afford to lose.</span></p>
+    <div class="hero-plate">
+      <svg class="plate" viewBox="0 0 520 640" role="img" aria-labelledby="plateT plateD">
+        <title id="plateT">Diagram of the vault mechanism: owner key, inactivity timer, challenge window, heir</title>
+        <desc id="plateD">An engraved dial. The owner's key stands at its centre. A gold arc around the dial measures the inactivity period, a hatched segment at the bottom marks the challenge window, and a dotted chain leads from the dial to the heir's seal. Callouts A to D label each part.</desc>
+        <defs>
+          <clipPath id="face"><circle cx="260" cy="300" r="190"/></clipPath>
+          <ellipse id="ros" cx="260" cy="300" rx="190" ry="60"/>
+          <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line class="pl-hatch" x1="0" y1="0" x2="0" y2="6"/></pattern>
+        </defs>
+        <g class="pl-ros" clip-path="url(#face)">
+          <use href="#ros"/>
+          <use href="#ros" transform="rotate(11.25 260 300)"/>
+          <use href="#ros" transform="rotate(22.5 260 300)"/>
+          <use href="#ros" transform="rotate(33.75 260 300)"/>
+          <use href="#ros" transform="rotate(45 260 300)"/>
+          <use href="#ros" transform="rotate(56.25 260 300)"/>
+          <use href="#ros" transform="rotate(67.5 260 300)"/>
+          <use href="#ros" transform="rotate(78.75 260 300)"/>
+          <use href="#ros" transform="rotate(90 260 300)"/>
+          <use href="#ros" transform="rotate(101.25 260 300)"/>
+          <use href="#ros" transform="rotate(112.5 260 300)"/>
+          <use href="#ros" transform="rotate(123.75 260 300)"/>
+          <use href="#ros" transform="rotate(135 260 300)"/>
+          <use href="#ros" transform="rotate(146.25 260 300)"/>
+          <use href="#ros" transform="rotate(157.5 260 300)"/>
+          <use href="#ros" transform="rotate(168.75 260 300)"/>
+        </g>
+        <circle class="pl-bezel" cx="260" cy="300" r="230"/>
+        <circle class="pl-tick pl-tick-min" cx="260" cy="300" r="220"/>
+        <circle class="pl-tick pl-tick-hour" cx="260" cy="300" r="220"/>
+        <path class="pl-window" d="M366,483.6 A212,212 0 0 1 154,483.6 L162,469.7 A196,196 0 0 0 358,469.7 Z"/>
+        <circle class="pl-arc" cx="260" cy="300" r="204" pathLength="100" transform="rotate(-90 260 300)"/>
+        <g class="pl-station">
+          <circle cx="260" cy="96" r="4"/>
+          <circle cx="362" cy="476.7" r="4"/>
+          <circle cx="158" cy="476.7" r="4"/>
+        </g>
+        <g class="pl-text">
+          <text x="260" y="50" text-anchor="middle">CHECK-IN</text>
+          <text x="392" y="524">CLAIM</text>
+          <text x="128" y="524" text-anchor="end">FINALIZE</text>
+        </g>
+        <line class="pl-hand" x1="260" y1="300" x2="260" y2="120"/>
+        <g class="pl-key">
+          <circle cx="260" cy="150" r="34"/>
+          <circle cx="260" cy="150" r="14"/>
+          <rect x="255.5" y="184" width="9" height="246" rx="2"/>
+          <rect x="264" y="396" width="26" height="12"/>
+          <rect x="264" y="418" width="16" height="12"/>
+        </g>
+        <circle class="pl-keyring" cx="260" cy="150" r="24"/>
+        <circle class="pl-pivot" cx="260" cy="300" r="3"/>
+        <line class="pl-chain" x1="158" y1="477" x2="151" y2="552"/>
+        <circle class="pl-orbit" cx="150" cy="590" r="50"/>
+        <circle class="pl-seal" cx="150" cy="590" r="38"/>
+        <path class="pl-leaf" d="M150,612 Q128,594 150,566 Q172,594 150,612 Z M150,566 L150,612"/>
+        <g class="pl-callouts">
+          <text x="24" y="36">FIG. 1</text>
+          <text x="132" y="96" text-anchor="end">A · OWNER KEY</text>
+          <path class="pl-lead" d="M140,92 L230,134"/><circle class="pl-dot" cx="230" cy="134" r="2"/>
+          <text x="496" y="66" text-anchor="end">B · INACTIVITY PERIOD</text>
+          <path class="pl-lead" d="M480,72 L410,148"/><circle class="pl-dot" cx="410" cy="148" r="2"/>
+          <text x="338" y="590">C · CHALLENGE WINDOW</text>
+          <path class="pl-lead" d="M330,585 L262,514"/><circle class="pl-dot" cx="262" cy="514" r="2"/>
+          <text x="210" y="596">D · HEIR</text>
+          <text class="pl-fine" x="496" y="628" text-anchor="end">WILL &amp; KEY — NON-UPGRADEABLE</text>
+        </g>
+      </svg>
+    </div>
   </div>
 </section>
 
@@ -197,6 +272,7 @@
     </details>
   </div>
 </section>
+</main>
 
 <footer class="site">
   <div class="wrap">
@@ -207,6 +283,7 @@
       <a class="footer-link" href="/about">About</a> ·
       <a class="footer-link" href="/privacy">Privacy</a> ·
       <a class="footer-link" href="/terms">Terms</a></div>
+    <div class="footer-contract">Vault contract <a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821&hellip;fEe2f</a></div>
   </div>
 </footer>
 
