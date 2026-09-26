@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
-{"@type":"Article","headline":"What Happens to Your Crypto When You Die?","description":"What happens to Bitcoin and other crypto after death, and the ways a family can inherit it.","image":"https://willandkey.com/assets/social/crypto-after-death.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-08-10T17:00:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/what-happens-to-your-crypto-when-you-die"},
+{"@type":"Article","headline":"What Happens to Your Crypto When You Die?","description":"What happens to Bitcoin and other crypto after death, and the ways a family can inherit it.","image":"https://willandkey.com/assets/social/crypto-after-death.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-09-24T06:30:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/what-happens-to-your-crypto-when-you-die"},
 {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://willandkey.com/guides/"},{"@type":"ListItem","position":3,"name":"What happens to crypto after death","item":"https://willandkey.com/guides/what-happens-to-your-crypto-when-you-die"}]}
 ]}
 </script>
@@ -48,11 +48,11 @@
 <h1>What happens to your crypto when you die?</h1>
 <p class="standfirst">The short, uncomfortable answer: if nobody has your keys, nothing happens.
 Your crypto sits at its address forever, visible to everyone and spendable by no one. Here is how
-that plays out in practice — and the four ways to prevent it.</p>
-<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 10 August 2026 · <a href="/editorial-policy">Editorial policy</a></p>
+that plays out in practice — and five ways to prevent it.</p>
+<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 24 September 2026 · <a href="/editorial-policy">Editorial policy</a></p>
 
 <div class="answer-box"><p><strong>Direct answer:</strong> custodial crypto may be released through an exchange's estate process, but self-custodied crypto does not move automatically at death. A valid private key, recovery method or pre-arranged smart-contract mechanism is still required. A will can decide who should inherit; it cannot make a blockchain accept a court order.</p></div>
-<p class="review-note"><strong>Review status:</strong> technically reviewed by the Will &amp; Key project team on 10 August 2026. No independent legal, tax or security reviewer has approved this guide.</p>
+<p class="review-note"><strong>Review status:</strong> technically reviewed by the Will &amp; Key project team on 24 September 2026. No independent legal, tax or security reviewer has approved this guide.</p>
 
 <section class="key-takeaways" aria-labelledby="takeaways">
 <h2 id="takeaways">Key takeaways</h2>
@@ -98,10 +98,11 @@ code. Legal authority and signing authority therefore need a bridge in the estat
 
 <h3>Crypto on an exchange</h3>
 <p><strong>Current provider evidence:</strong> <a href="https://help.coinbase.com/en/coinbase/managing-my-account/other/how-do-i-gain-access-to-a-deceased-family-members-coinbase-account" rel="noopener">Coinbase asks</a>
-for a death certificate, probate authority, identification and signed transfer instructions.
-<a href="https://support.kraken.com/hc/articles/360031279771-is-it-possible-to-set-a-beneficiary-or-nominee-" rel="noopener">Kraken publishes</a>
-a similar claim process and says it does not currently offer an account beneficiary feature.
-Requirements can change, so use the provider's current page rather than copying a checklist into a will.</p>
+for a death certificate, probate authority, identification and signed transfer instructions,
+submitted through its Executor Services form from a Coinbase account the claimant signs in to or creates.
+<a href="https://support.kraken.com/articles/deceased-client-account-claims" rel="noopener">Kraken publishes</a>
+a similar claim process. Neither currently lets an individual account holder name a beneficiary,
+so these accounts pass through the estate process. Requirements can change, so use the provider's current page rather than copying a checklist into a will.</p>
 <p>An exchange can respond to legal documents because it controls the account infrastructure and
 keys under its terms. That offers an estate process but retains provider, account-security and
 availability risk. An exchange account the family does not know exists can still be missed, so
@@ -119,8 +120,9 @@ slightly more slowly.</p>
 
 <h3>A seed phrase in a will</h3>
 <p>Probate visibility is jurisdiction-specific. As a concrete example, the official England and
-Wales service lets the public order a probate record including the will. California courts also
-classify wills and probate records within court public records. Confirm the rule where the estate
+Wales service lets the public order a probate record including the will, and new records go online
+about 14 days after probate is issued. California courts also list wills and probate records among
+superior court case records, and the public may request copies unless a record is confidential by law or sealed by a court order. Confirm the rule where the estate
 will actually be administered.</p>
 <p>Worse than it sounds, and covered in depth in
 <a href="/guides/never-put-seed-phrase-in-will">why you should never put your seed phrase in your
@@ -130,7 +132,7 @@ will is typically stored with people — lawyers, witnesses, relatives — any o
 your coins <em>while you are alive</em> if the phrase is written in it.</p>
 
 <h3>Nothing at all</h3>
-<p>The default, and the most common. The family knows "there was some Bitcoin" and finds
+<p>The default. The family knows "there was some Bitcoin" and finds
 nothing, or doesn't know at all. No customer support exists. No recovery process exists. This
 outcome is permanent.</p>
 
@@ -143,16 +145,15 @@ outcome is permanent.</p>
 <tr><td>Full seed shared now</td><td>Owner and every copy-holder can spend</td><td>Restore and move funds</td><td>None</td><td>Premature theft or exposed copy</td></tr>
 <tr><td>Multi-share backup</td><td>Recovery requires a threshold of shares</td><td>Find and combine valid shares</td><td>None after setup</td><td>Too few surviving shares or unclear instructions</td></tr>
 <tr><td>Multisig</td><td>A threshold of separate signers controls funds</td><td>Coordinate enough keys and wallet metadata</td><td>Usually low</td><td>Threshold, signer or configuration loss</td></tr>
-<tr><td>Smart-contract switch</td><td>Owner controls vault subject to fixed code</td><td>Claim after inactivity and challenge periods</td><td>Depends on design</td><td>Missed check-ins, bad beneficiary address or contract defect</td></tr>
+<tr><td>Smart-contract switch</td><td>Owner controls vault subject to fixed code</td><td>Claim after inactivity; settles after challenge window</td><td>Depends on design</td><td>Missed check-ins, bad beneficiary address or contract defect</td></tr>
 </table>
 </div>
 
-<p>The first three all share one structural weakness: they require either trusting an
+<p>The first four all share one structural weakness: they require either trusting an
 institution, trusting your heir with live spending power, or trusting your family to execute a
-multi-step cryptographic ceremony years from now under grief. The fourth — the
-<a href="/guides/dead-mans-switch-crypto">dead man's switch</a> — is the only one where your heir
-gets <em>nothing while you're alive</em> and everything when it matters, with no third party in
-between.</p>
+multi-step cryptographic ceremony years from now under grief. The fifth — the
+<a href="/guides/dead-mans-switch-crypto">dead man's switch</a> — is designed so your heir
+can claim after you stop checking in, and the claim settles only after a challenge window during which you can veto.</p>
 
 <h2 id="worked-example">Worked example: one family, three custody types</h2>
 <div class="process-flow" aria-label="Example inheritance flow">
@@ -173,7 +174,7 @@ legal instructions, secret storage, transfer mechanism and rehearsal so no singl
 <div class="cta-box">
 <p><strong>This is what Will &amp; Key does.</strong> A self-custody vault on Ethereum L2: deposit,
 name your heir's wallet, check in on your schedule. Go silent past your chosen period and your
-heir can claim; you keep a veto window; after it, the transfer is automatic and final. No
+heir can claim; you keep a veto window; after it, anyone can finalize the claim and the heir withdraws the settled funds. No
 custodian, no seed-phrase sharing, a 0.5% fee only when an inheritance actually settles.</p>
 <a class="btn primary" href="/how-it-works">See how it works</a>
 </div>
@@ -182,7 +183,7 @@ custodian, no seed-phrase sharing, a 0.5% fee only when an inheritance actually 
 <ol>
 <li><strong>Make the inheritance findable.</strong> Your family can't claim what they don't know
 exists. A sealed letter that says <em>what</em> you own and <em>where the instructions are</em> —
-without containing any secrets itself — solves the most common failure for free.</li>
+without containing any secrets itself — solves the discovery failure for free.</li>
 <li><strong>Keep custody cold.</strong> Whatever succession plan you pick, the coins themselves
 belong on a hardware wallet, not an exchange. (A <a href="https://www.ledger.com" rel="nofollow">Ledger</a>
 or <a href="https://trezor.io" rel="nofollow">Trezor</a> is under $200 — less than an hour of an
@@ -195,8 +196,13 @@ hypothesis.</li>
 <h2 id="legal-tax">The tax and legal boundary</h2>
 <p>Property, probate, fiduciary-access and tax rules are jurisdiction-specific. In the United
 States, the IRS treats digital assets as property for federal income-tax purposes and expects
-sufficient transaction records. That does not answer state probate, estate-tax or foreign-law
-questions. Ask a qualified professional to reconcile the on-chain transfer mechanism with your
+sufficient transaction records. Brokers must report certain digital-asset sales and exchanges on
+Form 1099-DA, starting with transactions on or after 1 January 2025. A 1099-DA or broker
+substitute statement in the owner's name can therefore point to an account the family did not know
+about; its absence does not rule out an account, because brokers report only sale transactions
+they effect for customers. None of that answers state
+probate, estate- or inheritance-tax, or foreign-law questions. Ask a qualified
+professional to reconcile the on-chain transfer mechanism with your
 will, beneficiary designations and local law.</p>
 
 <p>Next: <a href="/guides/crypto-inheritance-planning">a practical crypto inheritance plan you can
@@ -210,11 +216,13 @@ or tax consequences. Nothing here is legal, tax or investment advice.</div>
 <ul class="source-list">
 <li><a href="https://ethereum.org/developers/docs/accounts" rel="noopener">Ethereum.org - account and private-key control</a></li>
 <li><a href="https://help.coinbase.com/en/coinbase/managing-my-account/other/how-do-i-gain-access-to-a-deceased-family-members-coinbase-account" rel="noopener">Coinbase - claim a decedent's account</a></li>
-<li><a href="https://support.kraken.com/hc/articles/360031279771-is-it-possible-to-set-a-beneficiary-or-nominee-" rel="noopener">Kraken - deceased-client account claims</a></li>
+<li><a href="https://support.kraken.com/articles/deceased-client-account-claims" rel="noopener">Kraken - deceased-client account claims</a></li>
 <li><a href="https://trezor.io/guides/backups-recovery/general-standards/how-to-use-a-wallet-backup" rel="noopener">Trezor - how to use a wallet backup</a></li>
 <li><a href="https://www.ledger.com/academy/enter-the-trust-zone/why-the-twenty-four-words-phrase" rel="noopener">Ledger - why the recovery phrase controls wallet recovery</a></li>
 <li><a href="https://www.gov.uk/search-will-probate" rel="noopener">GOV.UK - search probate records and wills</a></li>
+<li><a href="https://courts.ca.gov/policy-administration/public-records" rel="noopener">California Courts - wills and probate records</a></li>
 <li><a href="https://www.irs.gov/individuals/international-taxpayers/frequently-asked-questions-on-digital-asset-transactions" rel="noopener">IRS - digital asset transaction FAQs</a></li>
+<li><a href="https://www.irs.gov/filing/frequently-asked-questions-about-broker-reporting" rel="noopener">IRS - broker reporting FAQs (Form 1099-DA)</a></li>
 </ul>
 </article>
 </main>
