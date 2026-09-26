@@ -1,6 +1,8 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
+import { deployVault } from "./helpers/deploy";
+import { step as chainStep } from "../scripts/checkin-chain";
 
 const DAY = 86_400;
 const PERIOD = 30 * DAY; // inactivity period used throughout
@@ -15,16 +17,22 @@ describe("InheritanceVault", () => {
   async function fixture() {
     const [admin, alice, bob, carol, dave, feeSink] = await ethers.getSigners();
 
-    const Vault = await ethers.getContractFactory("InheritanceVault", admin);
-    const vault = await Vault.deploy(admin.address, FEE_BPS, feeSink.address);
-
+    // v2 accepts only the ERC20s listed at deployment, so the tokens exist first.
     const Token = await ethers.getContractFactory("MintableToken", admin);
     const token = await Token.deploy();
-    await token.mint(alice.address, ethers.parseEther("1000"));
-    await token.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
-
     const FeeToken = await ethers.getContractFactory("FeeOnTransferToken", admin);
     const feeToken = await FeeToken.deploy();
+
+    const vault = await deployVault({
+      deployer: admin,
+      admin: admin.address,
+      feeBps: FEE_BPS,
+      feeRecipient: feeSink.address,
+      supported: [await token.getAddress(), await feeToken.getAddress()],
+    });
+
+    await token.mint(alice.address, ethers.parseEther("1000"));
+    await token.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
     await feeToken.mint(alice.address, ethers.parseEther("1000"));
     await feeToken.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
 
@@ -101,10 +109,15 @@ describe("InheritanceVault", () => {
     it("snapshots the claim fee at creation", async () => {
       const f = await loadFixture(fixture);
       await createNative(f);
+      // v2 (F06): a raise is scheduled, and a vault created before it takes effect keeps the
+      // rate in force as its ceiling.
       await f.vault.connect(f.admin).setClaimFee(100);
       await createNative(f);
+      await time.increase(Number(await f.vault.FEE_RAISE_DELAY()));
+      await createNative(f);
       expect((await f.vault.getVault(f.alice.address, 0)).feeBps).to.equal(50);
-      expect((await f.vault.getVault(f.alice.address, 1)).feeBps).to.equal(100);
+      expect((await f.vault.getVault(f.alice.address, 1)).feeBps).to.equal(50);
+      expect((await f.vault.getVault(f.alice.address, 2)).feeBps).to.equal(100);
     });
 
     it("caps the deadline at the horizon", async () => {
@@ -262,18 +275,30 @@ describe("InheritanceVault", () => {
   });
 
   describe("check-in hash chain", () => {
-    /** anchor = H(p1), p1 = H(p2): a 2-use S/KEY chain whose secrets are consumed newest-first. */
-    function makeChain() {
+    /**
+     * anchor = H(p1), p1 = H(p2): a 2-use S/KEY chain whose secrets are consumed newest-first.
+     * H is the v2 step (scripts/checkin-chain.ts), bound to this chain, contract, owner (alice),
+     * vault 0 and installation epoch 1, the vault's first installation.
+     */
+    async function makeChain(f: Awaited<ReturnType<typeof fixture>>) {
+      const ctx = {
+        chainId: (await ethers.provider.getNetwork()).chainId,
+        vault: await f.vault.getAddress(),
+        owner: f.alice.address,
+        vaultId: 0,
+        epoch: 1,
+      };
+      const H = (x: string) => chainStep("v2", ctx, x);
       const p2 = ethers.hexlify(ethers.randomBytes(32));
-      const p1 = ethers.keccak256(p2);
-      const anchor = ethers.keccak256(p1);
+      const p1 = H(p2);
+      const anchor = H(p1);
       return { anchor, p1, p2 };
     }
 
     it("validates installation", async () => {
       const f = await loadFixture(fixture);
       await createNative(f);
-      const { anchor } = makeChain();
+      const { anchor } = await makeChain(f);
       await expect(
         f.vault.connect(f.alice).setCheckInChain(0, ethers.ZeroHash, 2)
       ).to.be.revertedWithCustomError(f.vault, "InvalidCheckInChain");
@@ -294,7 +319,7 @@ describe("InheritanceVault", () => {
     it("accepts preimages newest-first from anyone, refuses replay and garbage, then exhausts", async () => {
       const f = await loadFixture(fixture);
       await createNative(f);
-      const { anchor, p1, p2 } = makeChain();
+      const { anchor, p1, p2 } = await makeChain(f);
       await f.vault.connect(f.alice).setCheckInChain(0, anchor, 2);
 
       await time.increase(10 * DAY);
@@ -386,7 +411,7 @@ describe("InheritanceVault", () => {
       await f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, f.bob.address);
       await expect(f.vault.connect(f.alice).setBeneficiary(0, f.carol.address))
         .to.emit(f.vault, "BeneficiaryChanged")
-        .withArgs(f.alice.address, 0, f.carol.address, f.bob.address);
+        .withArgs(f.alice.address, f.bob.address, f.carol.address, 0); // owner, old heir, new heir, id
       // The displaced heir has no authority left; the new one does once the clock re-expires.
       await time.increase(PERIOD + 1);
       await expect(
@@ -567,6 +592,12 @@ describe("InheritanceVault", () => {
       const f = await loadFixture(fixture);
       await createNative(f);
       await f.vault.connect(f.alice).withdraw(0, ONE, f.carol.address);
+      // v2 (F08): a third party may push only after PUSH_GRACE, so the account can route first.
+      const pushableAt = (await f.vault.creditedSince(NATIVE, f.carol.address)) + (await f.vault.PUSH_GRACE());
+      await expect(f.vault.connect(f.dave).pushCredit(NATIVE, f.carol.address))
+        .to.be.revertedWithCustomError(f.vault, "PushTooEarly")
+        .withArgs(pushableAt);
+      await time.increaseTo(pushableAt);
       await expect(f.vault.connect(f.dave).pushCredit(NATIVE, f.carol.address)).to.changeEtherBalance(
         f.carol,
         ONE

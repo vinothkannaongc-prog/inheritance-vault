@@ -56,17 +56,19 @@
       <p class="lead">
         Crypto can become permanently inaccessible when the only signing key is lost. Will &amp; Key
         is a self-custody vault with a dead man's switch: deposit, name your heir, and check in on a
-        schedule you choose. If you ever go silent, your heir inherits &mdash; automatically, on chain,
-        with no custodian and no one holding your seed phrase.
+        schedule you choose. If you ever go silent, your heir can claim on chain, with no custodian
+        and no one holding your seed phrase.
       </p>
       <div class="actions">
         <a class="btn primary" href="/app">Open the app</a>
         <a class="btn ghost" href="#how">See how it works</a>
       </div>
       <p class="notice-wrap"><span class="notice"><strong>Live on Base, source verified.</strong>
-      The contract is deployed, running, and readable on Basescan. It has <strong>not</strong> had a
-      third-party security audit &mdash; only our own adversarial review, published in full. Treat it as
-      new software: start with an amount you could afford to lose.</span></p>
+      The contract is deployed, running, and readable on Basescan. It has <strong>not</strong> had an
+      independent third-party audit. A <a href="/audit">preliminary audit</a> by AI auditing agents,
+      run at our request and not independent, found issues in the live contract. The contract is
+      immutable, so their fixes exist only as undeployed source for a future version. Treat it as new
+      software: start with an amount you could afford to lose.</span></p>
     </div>
     <div class="hero-plate">
       <svg class="plate" viewBox="0 0 520 640" role="img" aria-labelledby="plateT plateD">
@@ -147,23 +149,27 @@
       <div class="step">
         <div class="num">1</div>
         <h3>Lock</h3>
-        <p>Create a vault with ETH, BNB, or any ERC-20. Name your heir's wallet address, pick your
-        check-in schedule (7 days to 10 years), and set a challenge window. Your keys, your coins —
-        the contract is open source and non-upgradable.</p>
+        <p>Create a vault with ETH on Base or a <a href="/how-it-works#tokens">supported ERC-20
+        token</a> (plain, single-address tokens only). Name your heir's wallet address, pick your
+        check-in schedule (7 days to 10 years), and set a challenge window (we suggest 14 days or
+        more). Your keys, your coins — the contract is open source and non-upgradable.</p>
       </div>
       <div class="step">
         <div class="num">2</div>
         <h3>Check in</h3>
-        <p>One cheap transaction resets your timer. One click refreshes every vault you own. Miss a
-        check-in because life happened? Nothing fires instantly — your heir must wait out your full
-        inactivity period, and then a challenge window in which you can still veto.</p>
+        <p>One cheap transaction resets your timer, up to your horizon. One click refreshes every vault
+        you own that has no claim pending and has not reached its horizon. Miss a check-in because life happened? Nothing fires
+        instantly — your heir must wait out your inactivity period, and then a challenge window in
+        which you can still veto. Will &amp; Key sends no alerts of any kind: nobody will notify you
+        if your timer expires or a claim is filed, so open the app on your own schedule.</p>
       </div>
       <div class="step">
         <div class="num">3</div>
         <h3>They inherit</h3>
-        <p>If you truly go silent, your heir claims with their own wallet. After the challenge
-        window passes with no veto from you, anyone can finalize and the funds are theirs. No court,
-        no customer support, no company that needs to still exist.</p>
+        <p>If you truly go silent, your heir claims with their own wallet. Once the challenge window
+        has run, anyone can finalize and the funds are credited to them. Until a finalize transaction
+        is mined your key can still cancel, so heirs should finalize promptly. No court, no customer
+        support, no company that needs to still exist.</p>
       </div>
     </div>
   </div>
@@ -176,21 +182,34 @@
     <table class="trust">
       <tr><th>Scenario</th><th>What happens</th></tr>
       <tr><td>You lose your wallet</td>
-        <td>The vault expires on schedule and your heir inherits. This is the designed recovery
-        path. An optional paper-seed check-in chain can keep the vault alive while you coordinate.</td></tr>
+        <td>The vault expires on schedule and your heir can claim. This is the designed recovery
+        path. An optional paper-seed check-in chain (advanced, with no app support) can keep the vault
+        alive while you coordinate, but only check-ins mined strictly before the deadline count, and
+        whoever holds the seed can postpone your heir's claim.</td></tr>
       <tr><td>Your wallet is stolen</td>
         <td>A stolen owner key is a stolen vault. Will &amp; Key defends against absence and loss,
         not against a compromised key — nothing self-custodial can.</td></tr>
       <tr><td>Your heir loses their wallet</td>
         <td>While you're alive: change the heir address in one transaction. Keeping it current is
-        part of owning a vault.</td></tr>
+        part of owning a vault. After you're gone, a lost heir key leaves the vault stuck for good.</td></tr>
+      <tr><td>Nobody is watching</td>
+        <td>Will &amp; Key sends no alerts of any kind. Nobody will notify you if your timer expires
+        or a claim is filed, your wallet will not show a claim, and nobody notifies your heir either.</td></tr>
       <tr><td>We disappear</td>
         <td>Nothing changes. The contract keeps running without us. Claims can always be finalized
-        by anyone, and if our fee address is ever unset, no fee is taken at all.</td></tr>
+        by anyone, and if our fee address is unset at the moment a claim settles, no fee is taken.</td></tr>
       <tr><td>We turn evil</td>
-        <td>We can pause <em>new</em> vault creation. We cannot touch a wei of any vault, block a
-        withdrawal, block a claim, or raise your fee — those are arithmetic facts of the bytecode,
-        not promises.</td></tr>
+        <td>We can pause <em>new</em> vault creation, change the fee within the limits below, change
+        or unset the fee recipient, sweep surplus, and hand administration to a new address (in two
+        steps). For ETH and supported single-address tokens we cannot take a wei from any
+        vault or payout beyond the settlement fee, block a withdrawal, block a claim, or raise any
+        vault's fee above the rate in force when it was created. Those are facts of the bytecode, not
+        promises. They do not cover <a href="/how-it-works#tokens">unsupported tokens</a>.</td></tr>
+      <tr><td>A token issuer acts</td>
+        <td>All vaults in one token share one balance at the vault contract. An issuer that can pause,
+        blocklist or wipe balances (Circle can pause and blocklist USDC) could freeze that token for
+        every vault at once. Claims still settle on schedule; payouts wait until the freeze lifts,
+        and a wipe would be a loss the contract cannot prevent.</td></tr>
     </table>
     </div>
   </div>
@@ -205,8 +224,14 @@
         check-ins, and your own withdrawals are always free.</li>
         <li><strong>Hard-capped at 1% in the bytecode.</strong> No admin, present or future, can
         ever take more.</li>
-        <li><strong>Your rate is locked when you create the vault.</strong> It can go down if we
-        lower fees later; it can never go up.</li>
+        <li><strong>Your vault's fee can never exceed the rate in force when it was created.</strong>
+        That rate is fixed when your creation transaction is mined. Lower global rates apply only
+        while they are in force: a cut we later reverse does not stay with your vault.</li>
+        <li><strong>Capped when your heir claims.</strong> Starting a claim locks the lower of your
+        vault's rate and the global rate at that moment, and a later rise can never take the fee
+        above that. A cut helps your heir only if it is still in force when the claim settles. If no fee address is set when the claim settles, no fee
+        is taken; a claim that starts while none is set is still charged if one is set before it
+        settles. <a href="/how-it-works#fees">The exact rules</a>.</li>
         <li><strong>Open source.</strong> Read the contract; the fee logic is twelve lines.</li>
       </ul>
     </div>
@@ -224,39 +249,68 @@
     </details>
     <details class="faq">
       <summary>What if I'm in hospital and miss my check-in?</summary>
-      <p>Nothing fires instantly. Your heir must first wait out your full inactivity period, then
-      claim, then wait a challenge window of at least 7 days — during which any action from your
-      wallet cancels the claim and resets the clock. Choose a schedule that fits your life; most
-      people pick 60–180 days.</p>
+      <p>Nothing fires instantly. Your heir must first wait out your inactivity period, then claim,
+      then wait a challenge window of at least 7 days. Before your horizon, you cancel the claim with
+      <strong>Veto claim</strong> in the app, or by changing the heir, changing the check-in period,
+      installing a new check-in chain (advanced), extending the horizon or making any withdrawal. A
+      check-in or a top-up does <strong>not</strong>
+      cancel a claim, and neither does ordinary activity in your wallet: only transactions sent to
+      the vault contract count. At or after your horizon, only extending the horizon (at least one
+      check-in period ahead) or withdrawing everything stops a claim. Will &amp; Key sends no alerts
+      of any kind: nobody will notify you if your timer expires or a claim is filed. Choose a
+      schedule that fits your life; most people pick 60–180 days, and a challenge window of 14 days
+      or more leaves room for a slow network.</p>
     </details>
     <details class="faq">
       <summary>Can Will &amp; Key or a hacker take my funds?</summary>
-      <p>The contract lets exactly two addresses move funds: yours (anywhere, any time) and your
-      heir's (only to a claim, only after your timer expires, only through the challenge window).
-      The admin's power is limited to pausing new vault creation and sweeping accidental transfers
-      — the accounting makes vault balances arithmetically unreachable.</p>
+      <p>Only two people decide where a vault's funds go: you (anywhere, any time) and your heir
+      (only through a claim, only after your timer expires and the challenge window has run). Anyone
+      may call finalize or push a payout, but those only move value to the person already entitled
+      to it. The admin is a single Ledger hardware-wallet key. It can pause new vault creation,
+      change the global claim fee (up to 1%, immediately; a vault is never charged more than its
+      creation-time rate), change or unset the fee recipient, transfer administration in two steps,
+      and sweep surplus: value above the accounted vault balances and payouts for the same token
+      address. For ETH and supported single-address tokens, that
+      accounting keeps every vault balance and payout out of the admin's reach, apart from the
+      settlement fee. For
+      <a href="/how-it-works#tokens">unsupported tokens</a> it does not, and a token's issuer can
+      freeze its own token whatever we do. A stolen owner key is a stolen vault.</p>
     </details>
     <details class="faq">
       <summary>What does my heir need to know?</summary>
-      <p>Three things: that the vault exists, which wallet address you named for them, and that
-      they should keep that wallet safe. They pay nothing until they claim, and claiming costs
-      cents on an L2. Our guides walk them through it step by step when the time comes.</p>
+      <p>More than you might think. Put these in your sealed letter or estate papers: the chain
+      (Base) and the vault contract address below; your own public wallet address and the vault
+      number; which of their wallet addresses you named, and that they must keep that wallet safe;
+      the app address, willandkey.com/app; and your check-in period and horizon date, so they know
+      roughly when they could claim. Tell them plainly that nobody will notify them when the time
+      comes: they have to check the app themselves. Claiming costs cents on Base. They should trust only a vault whose owner
+      address they recognise, because anyone can create a vault naming any address; they should check
+      the payout address carefully when they start a claim, because it cannot be changed afterwards;
+      and they should never type a seed phrase anywhere or accept unsolicited "recovery help". The
+      <a href="/guides/crypto-inheritance-planning">planning checklist</a> covers the letter.</p>
     </details>
     <details class="faq">
       <summary>Which chains?</summary>
-      <p>Base (Ethereum L2) first, BNB Chain next. Check-ins cost about a cent on Base, and the
-      contract needs to outlive you by decades — Ethereum's security inheritance matters more for
-      an inheritance product than for anything else in crypto.</p>
+      <p>Base (Ethereum L2) today. BNB Chain is planned; nothing is deployed there yet. Check-ins
+      cost about a cent on Base, and the contract needs to outlive you by decades — Ethereum's
+      security inheritance matters more for an inheritance product than for anything else in
+      crypto.</p>
     </details>
     <details class="faq">
       <summary>Has it been audited?</summary>
-      <p>Not by a third party — and we will say so plainly until that changes. What exists is a
-      documented adversarial review we ran ourselves: five independent passes over the contract,
-      then a second round aimed at the fixes from the first, which found that two of them were
-      incomplete. Twelve defects were found and fixed, every one reproduced as a failing test
-      before it was believed. The full report and the tests are in the repository. That is real
-      evidence and it is not the same thing as an outside audit. An inheritance product earns
-      trust slowly or not at all.</p>
+      <p>Not by an outside audit firm — and we will say so plainly until that changes. Two reviews
+      exist, and neither is third-party. In August 2026 the same system that wrote the code ran an
+      internal adversarial review: five review passes with different focuses, then a second round
+      aimed at the fixes from the first, which found that two of them were incomplete. Ten
+      defects were found and fixed in the contract before deployment (3 high, 3 medium, 4 low); the
+      <a href="https://github.com/vinothkannaongc-prog/inheritance-vault/blob/main/AUDIT-2026-08-09.md" rel="noopener">report</a>
+      is public. In September 2026 a <a href="/audit">preliminary audit</a> was performed by AI
+      auditing agents at our request. It reported 47 findings in the live contract, the app, the
+      retired reminder watcher and our documentation (5 medium, 21 low, 21 informational). The live
+      contract is immutable, so its contract fixes exist only as undeployed source for a future
+      version; for the live contract they are handled by disclosure and app changes. A third-party
+      audit is still pending. That is real evidence and it is not the same thing as an outside
+      audit. An inheritance product earns trust slowly or not at all.</p>
     </details>
     <details class="faq">
       <summary>Where is the contract?</summary>
@@ -268,7 +322,12 @@
       <a href="https://basescan.org/address/0x60749aF621180de1DC05DB4f3d158D09dE979dC6" rel="noopener">0x60749aF621180de1DC05DB4f3d158D09dE979dC6</a><br>
       Both contracts are <strong>source-verified on Basescan with an exact bytecode match</strong>, so you can
       read the code that is actually running rather than taking our word for it. The contract is not
-      upgradeable: what is deployed there is what will run forever.</p>
+      upgradeable: what is deployed there is what will run forever, including the limits the
+      preliminary audit found. Reminder sales were switched off on the billing contract itself on
+      26 September 2026: the admin set its price to the maximum possible value, so every payment now
+      reverts, and only the admin could reverse that
+      (<a href="https://basescan.org/tx/0xf3485b1b4ec0f887838a2eec5181c3815e68913bc23b68570c3b635693a56cca" rel="noopener">transaction</a>).
+      Do not send it funds.</p>
     </details>
   </div>
 </section>
@@ -280,6 +339,7 @@
     <div><a class="footer-link" href="/guides/">Guides</a> ·
       <a class="footer-link" href="/how-it-works">How it works</a> ·
       <a class="footer-link" href="/security">Security</a> ·
+      <a class="footer-link" href="/audit">Audit</a> ·
       <a class="footer-link" href="/about">About</a> ·
       <a class="footer-link" href="/privacy">Privacy</a> ·
       <a class="footer-link" href="/terms">Terms</a></div>

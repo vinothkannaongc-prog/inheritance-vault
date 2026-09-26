@@ -7,6 +7,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
+import { deployVault } from "./helpers/deploy";
 
 const DAY = 86_400;
 const PERIOD = 30 * DAY;
@@ -19,8 +20,12 @@ const FEE_BPS = 50;
 describe("Audit 2026-08-09 regressions", () => {
   async function fixture() {
     const [admin, alice, bob, carol, dave, feeSink] = await ethers.getSigners();
-    const Vault = await ethers.getContractFactory("InheritanceVault", admin);
-    const vault = await Vault.deploy(admin.address, FEE_BPS, feeSink.address);
+    const vault = await deployVault({
+      deployer: admin,
+      admin: admin.address,
+      feeBps: FEE_BPS,
+      feeRecipient: feeSink.address,
+    });
     return { vault, admin, alice, bob, carol, dave, feeSink };
   }
 
@@ -36,23 +41,31 @@ describe("Audit 2026-08-09 regressions", () => {
 
   describe("A-01 cross-function reentrancy during the deposit measurement", () => {
     async function reentrantFixture() {
-      const f = await loadFixture(fixture);
-      const Tok = await ethers.getContractFactory("ReentrantToken", f.admin);
+      const [admin, alice, bob, carol, dave, feeSink] = await ethers.getSigners();
+      // v2 accepts only listed ERC20s, so the hook token exists before the vault and is listed.
+      const Tok = await ethers.getContractFactory("ReentrantToken", admin);
       const token = await Tok.deploy();
-      const vaultAddr = await f.vault.getAddress();
+      const vault = await deployVault({
+        deployer: admin,
+        admin: admin.address,
+        feeBps: FEE_BPS,
+        feeRecipient: feeSink.address,
+        supported: [await token.getAddress()],
+      });
+      const vaultAddr = await vault.getAddress();
       await token.setVault(vaultAddr);
       // The token owns a vault, so its receive-hook runs as that vault's owner.
       await token.mint(await token.getAddress(), ethers.parseEther("100"));
       const horizon = (await time.latest()) + 730 * DAY;
-      await token.openVault(f.bob.address, PERIOD, WINDOW, horizon, ethers.parseEther("100"));
+      await token.openVault(bob.address, PERIOD, WINDOW, horizon, ethers.parseEther("100"));
       // A well-meaning third party funds the same vault.
-      await token.mint(f.dave.address, ethers.parseEther("50"));
-      await token.connect(f.dave).approve(vaultAddr, ethers.MaxUint256);
-      return { ...f, token, vaultAddr };
+      await token.mint(dave.address, ethers.parseEther("50"));
+      await token.connect(dave).approve(vaultAddr, ethers.MaxUint256);
+      return { vault, admin, alice, bob, carol, dave, feeSink, token, vaultAddr };
     }
 
     it("a hook that closes the vault mid-topUp cannot strand the deposit", async () => {
-      const f = await reentrantFixture();
+      const f = await loadFixture(reentrantFixture);
       await f.token.arm(1, ethers.parseEther("100"), f.carol.address); // re-enter withdraw
 
       // Pre-fix: this succeeded and wrote 50e18 onto a CLOSED vault, unreachable forever.
@@ -67,7 +80,7 @@ describe("Audit 2026-08-09 regressions", () => {
     });
 
     it("a hook that starts a claim mid-topUp cannot move funds under the heir", async () => {
-      const f = await reentrantFixture();
+      const f = await loadFixture(reentrantFixture);
       await time.increase(PERIOD + 1); // deadline passed, so a claim would be legal
       await f.token.arm(2, 0, f.carol.address); // re-enter initiateClaim
       await expect(
@@ -259,7 +272,10 @@ describe("Audit 2026-08-09 regressions", () => {
 
       // The admin sandwiches the settlement, restoring the creation-time ceiling.
       await f.vault.connect(f.admin).setClaimFee(100);
-      await time.increase(WINDOW + 1);
+      // v2 (F06): a raise waits FEE_RAISE_DELAY, which outlasts this 14-day window. Wait it out
+      // so the raise really is in force at settlement and the lock, not the delay, is tested.
+      await time.increase(Math.max(WINDOW + 1, Number(await f.vault.FEE_RAISE_DELAY())));
+      expect(await f.vault.claimFeeBps()).to.equal(100);
       // Pre-fix: fee was 1% of 10 ETH = 0.1 ETH, invisibly.
       await expect(f.vault.finalizeClaim(f.alice.address, 0))
         .to.emit(f.vault, "ClaimSettled")
@@ -276,7 +292,10 @@ describe("Audit 2026-08-09 regressions", () => {
       await f.vault.connect(f.alice).abortClaim(0); // owner is alive after all
       await f.vault.connect(f.admin).setClaimFee(FEE_BPS); // promotion ends
 
-      await time.increase(PERIOD + 1);
+      // v2 (F06): the end of the promotion is a raise, in force FEE_RAISE_DELAY later. Wait
+      // for both it and the new deadline, so the re-lock really sees the restored rate.
+      await time.increase(Math.max(PERIOD + 1, Number(await f.vault.FEE_RAISE_DELAY())));
+      expect(await f.vault.claimFeeBps()).to.equal(FEE_BPS);
       await f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, f.bob.address); // re-locks 50
       await time.increase(WINDOW + 1);
       const fee = (DEPOSIT * BigInt(FEE_BPS)) / 10_000n;
@@ -302,16 +321,37 @@ describe("Audit 2026-08-09 regressions", () => {
   // ---------------------------------------------------------------- A-05
 
   describe("A-05 revert data must name the value that actually failed", () => {
+    // F39 (2026-09 preliminary audit): this used to assume the next block lands at latest + 1,
+    // which the node's clock does not promise, so it failed by a second under load. The pending
+    // block's timestamp is now pinned, 60 s ahead so a clock that has drifted forward cannot make
+    // setNextBlockTimestamp refuse it, and the assertion stays an exact equality. The pre-fix
+    // contract reported block.timestamp (t) as the first argument and still fails it.
     it("createVault reports the minimum horizon, not the current time", async () => {
       const f = await loadFixture(fixture);
-      const now = await time.latest();
-      await expect(
+      // A reverted transaction is still mined here, so every call gets its own pinned block.
+      const pin = async () => {
+        const t = (await time.latest()) + 60;
+        await time.setNextBlockTimestamp(t);
+        return t;
+      };
+      const create = (horizon: number) =>
         f.vault
           .connect(f.alice)
-          .createVault(NATIVE, DEPOSIT, f.bob.address, PERIOD, WINDOW, now + PERIOD - DAY, { value: DEPOSIT })
-      )
+          .createVault(NATIVE, DEPOSIT, f.bob.address, PERIOD, WINDOW, horizon, { value: DEPOSIT });
+
+      let t = await pin();
+      await expect(create(t + PERIOD - DAY))
         .to.be.revertedWithCustomError(f.vault, "HorizonTooSoon")
-        .withArgs(now + 1 + PERIOD, now + PERIOD - DAY);
+        .withArgs(t + PERIOD, t + PERIOD - DAY);
+      // The boundary: the minimum is inclusive.
+      t = await pin();
+      await expect(create(t + PERIOD - 1))
+        .to.be.revertedWithCustomError(f.vault, "HorizonTooSoon")
+        .withArgs(t + PERIOD, t + PERIOD - 1);
+      t = await pin();
+      await create(t + PERIOD);
+      expect(await time.latest()).to.equal(t);
+      expect((await f.vault.getVault(f.alice.address, 0)).absoluteDeadline).to.equal(t + PERIOD);
     });
   });
 });

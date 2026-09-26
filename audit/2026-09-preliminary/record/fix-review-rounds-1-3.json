@@ -1,0 +1,835 @@
+{
+ "contract": [
+  {
+   "round": 1,
+   "issues": [
+    {
+     "lens": "regression",
+     "title": "Switching the fee recipient back on is not delayed for claims already pending: an admin can undo a cut to zero in the same block as finalizeClaim",
+     "severity": "low",
+     "location": "contracts/InheritanceVault.sol:1137-1138 (finalizeClaim fee line); compare initiateClaim :1061 and setFeeRecipient :1248-1255",
+     "problem": "v2 treats removing the fee recipient as a cut to zero that applies at once. Setting a recipient after a period with none is supposed to be a 'raise from zero' that waits FEE_RAISE_DELAY (feeRecipientActiveAt). Only initiateClaim applies that delay. finalizeClaim checks `feeTo == address(0)` and never checks feeRecipientActiveAt. Scenario: a claim locks 50 bps while a recipient is in force. The admin then removes the recipient, so fees are publicly off and, per the NatSpec, 'a cut during the challenge window still reaches the heir'. The admin can re-set the recipient in the same block, just before finalizeClaim (which is permissionless, so the admin can send it), and the heir is charged the full locked fee. The claimFeeBps channel does not have this hole: a re-raise after setClaimFee(0) is only scheduled and never reaches the pending claim. This breaks the FEES header guarantee at :79-80 ('no rate a user pays can be raised in the same block as, and just before, that user's transaction') and :91-92. It also contradicts setFeeRecipient's NatSpec at :1245-1247. The heir never pays more than the lockedFeeBps visible at claim start (at most the ceiling, at most 1%), so no value beyond the lock is at risk. v1 finalize has the same line, so this is an incomplete F05/F06 fix, not a newly introduced defect. CHANGELOG-v2.md:239-243 closes this sandwich one step earlier, at initiateClaim, but not at settlement.",
+     "evidence": "Sandbox poc/REV1-regression, test/rev1-fee-recipient.ts (contracts/InheritanceVault.sol there is byte-identical to the repo; checked with diff -q). Command: `cd .../poc/REV1-regression && npx hardhat test test/rev1-fee-recipient.ts` gives 1 passing, 1 failing. The control passes: a cut to 0 via setClaimFee followed by setClaimFee(50) in the same block as finalizeClaim leaves feeSink credit 0. The failing test: setFeeRecipient(0) mid-window, then in one block setFeeRecipient(feeSink) [higher tip] and finalizeClaim. It asserts feeRecipientActiveAt() > block time (the contract itself says the recipient is not in force), yet `fee re-imposed by a recipient switched on in the settlement block: expected 0, actual 500000000000000000` (50 bps of 100 ETH). The code at :1138 is `uint256 fee = feeTo == address(0) ? 0 : (amt * bps) / BPS_DENOMINATOR;`. In initiateClaim :1061 the check is `if (feeRecipient != address(0) && block.timestamp >= feeRecipientActiveAt)`.",
+     "fix": "In finalizeClaim, treat a recipient that is not yet in force as no recipient: `uint256 fee = feeTo == address(0) || block.timestamp < feeRecipientActiveAt ? 0 : (amt * bps) / BPS_DENOMINATOR;`. Verified in the sandbox (patched copy saved as poc/REV1-regression/InheritanceVault.sol.fixed): the PoC passes and AuditPrelim2026-09 + Audit + InheritanceVault + rev1 give 185 passing, 0 failing. Runtime size 20,338 bytes (+21). Add the failing test above to the F05 block in test/AuditPrelim2026-09.ts. It fails on v2 as written and on v1 (v1 has no delay at all)."
+    },
+    {
+     "lens": "closure",
+     "title": "F09 partially closed: the payee rule is address-based, so a non-canonical wrap-and-return contract or a SELFDESTRUCT bounce still turns a credited payout into admin-sweepable surplus",
+     "severity": "low",
+     "location": "contracts/InheritanceVault.sol:639-642 _checkPayee, :650-663 _payout (NATIVE branch), :1284-1291 sweepSurplus; guarantee at :53-56 (T4) and :106-111 (PAYOUT ADDRESSES)",
+     "problem": "v2 refuses only address(this), the immutable wrappedNative and listed tokens as a payee. The F09 mechanism is really about the class: a native payout to a contract that sends value back to msg.sender, i.e. the vault. Any contract whose receive() wraps the coin and forwards a LISTED token to the sender, or bounces the coin back with SELFDESTRUCT, is still accepted as the initiateClaim recipient, the withdraw `to` and the withdrawCredit `to`. After PUSH_GRACE anyone pushes; the credit is retired and the value lands outside every lane (WETH surplus, or native surplus), and sweepSurplus hands it to the admin. This is narrower than the original F09, which needed the canonical WETH address. But it is the same impact, and it breaks the T4 claim that the admin cannot reach 'any credited payout. That is arithmetic'.",
+     "evidence": "Failing tests in C:/Users/Vinoth/AppData/Local/Temp/claude/C--Users-Vinoth-OneDrive-Claude-claude-code/005aaa32-3c49-4f96-8428-bacda0a96f78/scratchpad/poc/REV1-closure/test/poc-REV1-closure.ts (mocks WrapAndReturnGateway and SelfdestructBouncer in contracts/test/Rev1Closure.sol). The deployment is Base-like: WETH is both wrappedNative and listed. Run: `npx hardhat test test/poc-REV1-closure.ts`. Output: \"credited to heir's payee: 9950000000000000000; surplus(WETH) after push: 9950000000000000000; admin swept: 9950000000000000000\" -> AssertionError 'the admin swept the heir's credited payout' (expected 0). \"credited: 9950000000000000000; surplus(NATIVE) after push: 9950000000000000000\" -> AssertionError. Code: InheritanceVault.sol:641 `if (isSupportedToken[to] || (to == wrappedNative && to != NATIVE)) revert ForbiddenPayoutAddress(to);` is the only payee test. :53 'The admin cannot reach a wei of any vault's balance or any credited payout.'",
+     "fix": "Preferred, class-level and cheap because the list is immutable and short: in _payout's NATIVE branch, snapshot address(this).balance and balanceOf(this) for each _supportedTokens entry before the call. After it, require address(this).balance == before - amount and every listed balance unchanged, otherwise revert, and the credit is kept. That is at most about 5 staticcalls, and only on native payouts. If bytecode or gas rules this out, scope T4 and PAYOUT ADDRESSES instead: a payout to a contract that sends value back to this contract (a wrap-and-forward helper, a SELFDESTRUCT bounce) becomes sweepable surplus. The APP disposition should also warn on any payee with code, not only on the known WETH and token addresses."
+    },
+    {
+     "lens": "closure",
+     "title": "F33 partially closed: totalLocked/totalCredited public getters still expose the half-applied deposit, contrary to the VIEWS NatSpec",
+     "severity": "informational",
+     "location": "contracts/InheritanceVault.sol:300-301 (public mappings totalLocked/totalCredited), :622-635 _pull called before the lanes are written in createVault :698/:720 and topUp :748/:754; NatSpec :132-136",
+     "problem": "The plan's four views (surplus, getVault, getOpenVaults, creditOf) now revert mid-transaction. But the public mapping getters totalLocked and totalCredited cannot take the modifier, and still answer inside a token callback. A proof-of-reserve integrator computes balanceOf(vault) - totalLocked - totalCredited, which is exactly what surplus() does. Inside the deposit window it therefore still reads a phantom surplus equal to the in-flight deposit, which is the original F33 symptom. The header now claims 'code called back from inside such a call can never read a half-applied state', which is false. This follows the plan literally (the REACH-FIX suggested making these internal with guarded getters), so it is a partial closure plus an inaccurate NatSpec claim, not a fund risk.",
+     "evidence": "Failing test 'a token callback inside the deposit window reads a phantom surplus from totalLocked/totalCredited' in .../poc/REV1-closure/test/poc-REV1-closure.ts (mock LaneProbeToken). Output: \"lanesOk=true balance=150000000000000000000 locked=100000000000000000000 credited=0 => phantom surplus 50000000000000000000\". surplusOk is false, so the guard works on surplus(). The failure is AssertionError 'totalLocked/totalCredited expose the half-applied deposit'. NatSpec InheritanceVault.sol:134: 'or calls out -- so code called back from inside such a call can never read a half-applied'.",
+     "fix": "Either make totalLocked and totalCredited internal and add `function totalLocked(address) external view nonReentrantView` and `totalCredited(address)` getters with the same names and selectors, so the ABI is unchanged (the F33 REACH-FIX). Or narrow the NatSpec to the four guarded views, and state that the public lane getters show pre-deposit lanes against the post-transfer balance while a deposit is in flight."
+    },
+    {
+     "lens": "closure",
+     "title": "F15 residual: an all-skipped checkInMany reverts a bare NothingCheckedIn(), so for a one-vault owner a running claim is indistinguishable from a harmless no-op",
+     "severity": "informational",
+     "location": "contracts/InheritanceVault.sol:793-825 checkInMany (:824 `if (refreshed == 0) revert NothingCheckedIn();`), :435 error NothingCheckedIn(), NatSpec :786-791",
+     "problem": "The success masquerade is closed: a mined batch logs CheckedIn or CheckInSkipped for every id. When no id moves, though, the batch reverts, so the CheckInSkipped logs are rolled back and the error carries no reason. For the most common keeper (one owner, one vault), 'claim pending' (SKIP_CLAIM_PENDING, the case F15 exists for) returns the same revert data as an unknown id, an id already moved in this block (SKIP_REPEATED, see the existing test at AuditPrelim2026-09.ts:2161) or a pinned vault. A keeper that treats NothingCheckedIn as 'already done, retry later' misses the claim. The NatSpec 'every id in the call gets exactly one log' does not hold on that path.",
+     "evidence": "Failing test 'a one-vault keeper cannot tell ...' in .../poc/REV1-closure/test/poc-REV1-closure.ts. Output: \"claim pending -> 0x0a2ce31a; unknown id -> 0x0a2ce31a\" (0x0a2ce31a = keccak('NothingCheckedIn()')[:4], verified), followed by AssertionError 'the revert must say a claim is pending'.",
+     "fix": "Carry the reasons in the error, for example `error NothingCheckedIn(uint256 firstId, uint8 firstReason)` or a bitmask of the SKIP_* reasons seen. Then a one-vault batch with a pending claim reverts with SKIP_CLAIM_PENDING visible in the revert data. Keeper docs and the APP should also treat any NothingCheckedIn as 'read getVault now', never as a harmless duplicate."
+    },
+    {
+     "lens": "closure",
+     "title": "F20 side effect: beneficiaryCancelClaim lets a stolen heir key redirect a pending payout; the NatSpec says it gives nobody new power",
+     "severity": "informational",
+     "location": "contracts/InheritanceVault.sol:1074-1098 beneficiaryCancelClaim and its NatSpec (:1080)",
+     "problem": "In v1 the claim recipient is frozen at initiateClaim, so an heir key compromised during the challenge window cannot move the payout. The F20 severity reviewer called this the frozen-recipient protection and suggested keeping it with a short re-point grace. The plan chose an unrestricted cancel. Now the beneficiary key alone can cancel and re-initiate to any address until finalizeClaim is mined. With the owner gone, which is the product's main case, a heir key phished on day 13 of a 14-day window redirects the whole estate, at the cost of one more window. This is a deliberate plan trade-off, not a broken fix. But the NatSpec claim is inaccurate, and neither the heir docs nor the APP disclose it.",
+     "evidence": "Failing test 'once a claim is pending, the beneficiary key alone cannot redirect the payout' in .../poc/REV1-closure/test/poc-REV1-closure.ts. Output: \"credited to the address chosen after the key was stolen: 10000000000000000000\", followed by AssertionError 'the payout fixed at claim start was redirected by the beneficiary key'. NatSpec InheritanceVault.sol:1080: 'It gives nobody new power over the funds.' digest F20 SEV-FIX: 'It also keeps the frozen-recipient protection: a thief who steals the heir key after initiation still cannot redirect the payout.'",
+     "fix": "A lead decision is needed. Either (a) limit the cancel to a short grace after claimInitiatedAt (for example 24-72 h), which is enough to fix a typo but closes the late-theft window; or (b) keep it, correct the NatSpec to say a compromised beneficiary key can redirect a pending payout until finalization, and tell heirs in the docs and APP to finalize promptly and to treat the heir key as hot for the whole window."
+    },
+    {
+     "lens": "tests",
+     "title": "F05 fee-recipient switch-on rules are only half-tested: three plausible fee-path bugs pass the whole suite",
+     "severity": "low",
+     "location": "test/AuditPrelim2026-09.ts:707-803 (F05 describe); contracts/InheritanceVault.sol:1061 (initiateClaim lock), :1248-1255 (setFeeRecipient)",
+     "problem": "The F05 tests cover only the first fee holiday (recipient set to 0, then turned back on once). Three behaviours the NatSpec promises have no test. (1) Replacing one live recipient with another must not delay fees ('Replacing one recipient with another is neither'). (2) The recipient is in force AT feeRecipientActiveAt, not a second later. (3) A SECOND holiday must also wait FEE_RAISE_DELAY when fees switch back on. Without (3), the front-run of initiateClaim that F05 test 4 guards against is open again from the second holiday on.",
+     "evidence": "Mutation run in sandbox poc/REV1-tests-mut (mutate.js; results in mutants-result.txt). The full suite (AuditPrelim2026-09.ts + Audit.ts + InheritanceVault.ts) passes all 183 tests on each of these mutants. M2: `if (feeRecipient == address(0)) feeRecipientActiveAt = ...` changed to an unconditional write -> SURVIVED pass=183 fail=0. M3: `block.timestamp >= feeRecipientActiveAt` changed to `>` -> SURVIVED. M30: `if (feeRecipient == address(0) && feeRecipientActiveAt == 0) feeRecipientActiveAt = ...` (no delay on a second switch-on) -> SURVIVED. Each is killed by one test in poc/REV1-tests/test/rev1-gaps.ts (G2, G3 and G5 respectively; batch3: 'M2 KILLED pass=6 fail=1', etc.). All of G1-G7 pass on the current v2 (7 passing).",
+     "fix": "Add rev1-gaps.ts G2 (live->live setFeeRecipient leaves feeRecipientActiveAt == 0, and a claim right after locks 50), G3 (setNextBlockTimestamp(s + FEE_RAISE_DELAY), then initiateClaim locks 50) and G5 (a second off/on cycle sets activeAt = s2 + FEE_RAISE_DELAY, and a claim inside it locks 0) to the F05 describe."
+    },
+    {
+     "lens": "tests",
+     "title": "F38 ERC777 test's 'refused before its sender hook can run' is unprovable: it reads state after a reverted tx (vacuous assertion)",
+     "severity": "low",
+     "location": "test/AuditPrelim2026-09.ts:2374-2382 (also :229 facade.lastAmount and :189 dbl.balanceOf(admin), read after a reverted sweep)",
+     "problem": "The test asserts hookCalls is unchanged after dep.deposit reverts with UnsupportedToken. A revert rolls back every state change made inside it, including the hook's hookCalls += 1, so this assertion cannot fail whether or not the vault called the token before refusing it. The title's ordering claim is therefore untested. The same self-confirming pattern appears in F01, where facade.lastAmount and the admin's dbl balance are read after a reverted sweep. There the revertedWithCustomError assertion carries the test, but the comments present these values as independent measurements.",
+     "evidence": "Mutant M40 moves `if (!isSupportedToken[token]) revert UnsupportedToken(token);` in _pull to AFTER safeTransferFrom and the second balanceOf, so an unlisted token IS called (and its hook runs) before the refusal. Result: 'M40 SURVIVED pass=183 fail=0', and the F38 hook test still passes (poc/REV1-tests-mut/mutants-result.txt, batch2).",
+     "fix": "Make the ordering observable without relying on post-revert state. For example, arm the unlisted HookToken (or give it a transferFrom) so that it reverts with its own distinctive reason when called, then assert the revert is UnsupportedToken, which can only happen if the vault refused it before the call. Drop or relabel the post-revert state reads (hookCalls, lastAmount, the admin balance), or say in a comment that they only restate the revert."
+    },
+    {
+     "lens": "tests",
+     "title": "F01 (guard) test cannot detect an admin function that edits the 'immutable' allowlist unless its name matches a keyword regex",
+     "severity": "low",
+     "location": "test/AuditPrelim2026-09.ts:271-278",
+     "problem": "The guard for F01's central V2 property (no admin add after the constructor) lists the non-view ABI functions and fails only if a name matches /support|allow|list|token/i. Any other name slips through, for example addAsset, enable or setWhitelisted. No behavioural test covers the property either, because adding a function changes no existing behaviour.",
+     "evidence": "Mutant M42 adds `function addAsset(address t) external onlyOwner { isSupportedToken[t] = true; _supportedTokens.push(t); }`. Result: 'M42 SURVIVED pass=183 fail=0' (poc/REV1-tests-mut/mutants-result.txt, batch2).",
+     "fix": "Assert on storage writes, not names: read contracts/InheritanceVault.sol, and require that every `isSupportedToken[` assignment and every `_supportedTokens.push` sits inside the constructor body (slice between `constructor(` and the constructor's closing brace). Keep the ABI name check as a second layer."
+    },
+    {
+     "lens": "tests",
+     "title": "Header claim 'every non-control test fails on v1 for its finding's reason' is false for two F02 generator tests",
+     "severity": "low",
+     "location": "test/AuditPrelim2026-09.ts:1816-1838 and :1676-1697 (header claim at :7-9)",
+     "problem": "Test 1816 ('the reference generator's v2 values work on their own vault only...') installs v2-step chains even under VAULT_IMPL=v1. On v1, every negative assertion (loop at :1829-1833) passes, because v1 refuses all v2-built values. The test fails only at :1835, the positive 'accepted where it belongs' line, because v1 cannot verify a v2-step value on the value's OWN vault. So on v1 it demonstrates nothing about F02's defect (cross-vault/cross-chain reuse); the comment at :1823 half-admits this. Test 1676 ('...v2 chain runs end to end') fails on v1 only on a missing selector (the 4-argument setCheckInChain). Both are SCRIPT/generator tests, not V2 regression tests. The real F02 regressions (1568, 1583, 1598, 1613, 1630, 1796) fail on v1 for the right reason. Several other tests also fail on v1 only because a new selector is missing (F01 list readable; F04 partial exit; F06 applyClaimFee; F08 partial-withdrawal grace; F20 three cancel tests; F02 hbStep/hbEpoch/epoch overload; F38 transfer cap). That is acceptable where the new function IS the fix, but it is not 'v1 semantics failing'.",
+     "evidence": "VAULT_IMPL=v1 run in poc/REV1-tests (v1-run.txt): 33 passing, 94 failing; all 33 passing are (control)/(guard). Failure 70: \"reverted with custom error 'BadCheckIn(0)'\" at test\\AuditPrelim2026-09.ts:1835:7 (vault 0 is the value's own vault). Failure 66: 'function selector was not recognized' at test\\AuditPrelim2026-09.ts:1681:7.",
+     "fix": "Relabel 1816 and 1676 as (guard) (they check the generator and v2 step), or rewrite 1816 to build values with IMPL. Also state in the header that tests of new API (hbStep, the epoch overload, applyClaimFee, beneficiaryCancelClaim, the 3-argument withdrawCredit) fail on v1 because the function is absent."
+    },
+    {
+     "lens": "tests",
+     "title": "F38 remediation leaves out classes the digest named: no-bool (USDT-style) token, pausable token, NotifySubscription boundary tests",
+     "severity": "low",
+     "location": "test/AuditPrelim2026-09.ts:2285-2552 (F38 describe); contracts/test/TestHelpers.sol; test/NotifySubscription.ts:46-57",
+     "problem": "The digest's REC, REACH-FIX and SEV-FIX for F38 explicitly ask for a no-bool (USDT-style) mock and a pausable token in the matrix, plus exact NotifySubscription boundary tests (385,802,469 wei reverts and 385,802,470 wei buys 1 s; a purchase exactly at the cap; minSecondsAdded == added; withdraw(address(0)); a non-payable withdraw target; plain-transfer rejection; the Ownable2Step handover). None were added: SenderBlocklistToken is 'Tether-like' but inherits OZ ERC20 and returns bool, and test/NotifySubscription.ts only had its comment corrected. v2 itself handles both token classes. This is a coverage gap, not a contract bug.",
+     "evidence": "grep for no-bool/pausable/zero-value mocks in TestHelpers.sol and AuditPrelim2026-09.ts finds none, and the NotifySubscription diff is comment-only. poc/REV1-tests/test/rev1-nobool.ts, with contracts/test/Rev1Mocks.sol (a no-return transfer/transferFrom/approve token that is also pausable), runs create, topUp, withdraw, withdrawCredit, claim, finalize, a pause and an unpause on v2 with the lanes covered at each step: '1 passing'.",
+     "fix": "Add a no-bool and a pausable token to the F38 matrix (Rev1Mocks.sol plus rev1-nobool.ts can be adopted as they are). Add the NotifySubscription exact-boundary tests from the digest, or record in the plan that they were dropped because the contract is retired (F35)."
+    },
+    {
+     "lens": "tests",
+     "title": "_credit's 'at least as large' push-grace restart is untested at the boundary",
+     "severity": "informational",
+     "location": "contracts/InheritanceVault.sol:583; test/AuditPrelim2026-09.ts:967-1089 (F08 describe)",
+     "problem": "The grace clock must restart when a new credit is at least as large as what is owed. The F08 tests use only strictly larger credits (the 1-wei plant) and strictly smaller ones (the fee recipient), so changing >= to > goes unnoticed.",
+     "evidence": "Mutant M1 (`amount >= owed` changed to `amount > owed`): 'SURVIVED pass=183 fail=0'. Killed by rev1-gaps.ts G1 (two equal withdrawals to carol 20 days apart; creditedSince must equal the second block's time): batch3 'M1 KILLED pass=6 fail=1'.",
+     "fix": "Add G1 to the F08 describe."
+    },
+    {
+     "lens": "tests",
+     "title": "TokenSupported event is never asserted",
+     "severity": "informational",
+     "location": "contracts/InheritanceVault.sol:489; test/AuditPrelim2026-09.ts:260-300",
+     "problem": "The constructor emits TokenSupported once per listed token, which is the only on-chain log of the allowlist. No test checks it.",
+     "evidence": "Mutant M4 removes `emit TokenSupported(t);`: 'SURVIVED pass=183 fail=0'. Killed by rev1-gaps.ts G4 (parses the deployment receipt and expects [a, b] in order): 'M4 KILLED pass=6 fail=1'.",
+     "fix": "Add G4 (or an equivalent assertion on the deployment receipt) to the F01 describe."
+    },
+    {
+     "lens": "tests",
+     "title": "F27 (guard) regex misses deadline writes through an indexed expression",
+     "severity": "informational",
+     "location": "test/AuditPrelim2026-09.ts:2270-2280",
+     "problem": "The guard 'the deadline is written in exactly one place' matches `\\b\\w+\\.deadline\\s*=`, which needs a word character right before `.deadline`. A write such as `_vaults[o][id].deadline = ...` escapes it, and so would bypass DeadlineReset.",
+     "evidence": "Mutant M43 adds `_vaults[vaultOwner][vaultId].deadline = v.deadline;` in topUp: 'SURVIVED pass=183 fail=0'. It is a value-preserving write, so only the guard could catch it, and the guard does not.",
+     "fix": "Match `/\\.deadline\\s*=[^=]/` (drop the `\\b\\w+` prefix) and keep the `o.deadline` exclusion."
+    },
+    {
+     "lens": "tests",
+     "title": "F09 control title claims 'a zero fee recipient still means no fee' but asserts no settlement",
+     "severity": "informational",
+     "location": "test/AuditPrelim2026-09.ts:391-400",
+     "problem": "The test sets the fee recipient to 0 and starts a claim, but never finalizes it or checks the fee. Only 'setFeeRecipient(0) is accepted' and the claim recipient are asserted.",
+     "evidence": "The test body ends at `expect((await f.vault.getVault(f.alice.address, 0)).claimRecipient).to.equal(f.carol.address);` with no finalizeClaim or ClaimSettled assertion.",
+     "fix": "Finalize after WINDOW + 1 and assert ClaimSettled(..., DEPOSIT, 0), or shorten the title."
+    }
+   ]
+  },
+  {
+   "round": 2,
+   "issues": [
+    {
+     "lens": "regression",
+     "title": "Round-1 fix #2 (_holdings) lets any listed token freeze every NATIVE payout: a returndata bomb or gas-burning balanceOf defeats the 'reads as max' tolerance",
+     "severity": "low",
+     "location": "contracts/InheritanceVault.sol:701-711 (_holdings loop, lines 705-709); called from _payout at 683 and 686; false NatSpec at 697-700",
+     "problem": "Round 1 made every native payout read balanceOf on every listed token, twice. The read uses a Solidity low-level staticcall, which forwards 63/64 of the remaining gas and copies the WHOLE returndata into memory. The tolerance ('A balanceOf that fails reads as type(uint256).max ... so a listed token that stops answering cannot also freeze native payouts') holds only for a token that reverts cheaply. A listed token whose balanceOf returns a returndata bomb, or burns the gas it is given, makes every native withdrawCredit, pushCredit and sweepSurplus(NATIVE) run out of gas at ANY gas limit up to the 16,777,216 transaction cap. The bomb's callee gets 63x the gas the caller keeps, so the caller can never afford to copy the returndata. v1 had no cross-asset dependency: a native payout read no token. This is issuer-level (or compromised-upgrade-key, or buggy-upgrade) exposure. On the proposed lists, Base USDC, EURC and cbBTC and BNB USDC are upgradeable proxies. So one listed issuer can now freeze every ETH/BNB heir's inheritance, every owner's native withdrawal, and the native sweep. Nothing is lost: the credit is intact and pays once the token behaves (control test). But it is a new denial of service on assets the token has nothing to do with, and it contradicts the fix's own NatSpec.",
+     "evidence": "Sandbox scratchpad/poc/REV2-regression. Mock contracts/test/Rev2Mocks.sol Rev2BalanceModeToken (mode 1 revert, 2 gas burn, 3 returndata bomb sized to gasleft()). Test test/rev2-regression.ts, describe 'REV2-A'. Command: npx hardhat test test/rev2-regression.ts.\n\nOn v2, mode 3:\n- withdrawCredit at gas 1,000,000, 5,000,000 and 16,777,216: \"Transaction ran out of gas\".\n- pushCredit by the account, at 16.7M: out of gas.\n- pushCredit by a keeper after PUSH_GRACE, at 16.7M: out of gas.\n- sweepSurplus(NATIVE), at 16.7M: out of gas.\n\nMode 2 (gas burn): withdrawCredit runs out of gas at all three limits.\n\nThe control (mode 1, revert) passes, which is the only case round 1 handled.\n\nThe same file with VAULT_IMPL=v1: 7 passing. The same payouts succeed at 37,690 to 40,274 gas while the token bombs or burns, so this is a regression.\n\nThe control '(control) the frozen native credit is intact and pays once the listed token behaves again' passes: the payout is frozen, not lost.",
+     "fix": "Bound the read in _holdings, keeping round 1's fail-open 'reads as max' rule. Use an explicit gas cap and a 32-byte output buffer, so no returndata is copied beyond one word. Proven in the sandbox (InheritanceVault.sol.fixed next to the sandbox):\n\n    address t = _supportedTokens[i]; uint256 b = type(uint256).max;\n    assembly (\"memory-safe\") { let ptr := mload(0x40) mstore(ptr, shl(224, 0x70a08231)) mstore(add(ptr, 4), address()) let ok := staticcall(100000, t, ptr, 0x24, ptr, 0x20) if and(ok, gt(returndatasize(), 0x1f)) { b := mload(ptr) } }\n    held[i] = b;\n\nResults with the patch:\n- the full original suite passes: 211/211, including round 1's wrap-and-return and SELFDESTRUCT F09 tests;\n- the bomb and burner probes pay at about 226k to 248k gas;\n- runtime size falls from 20,992 to 20,845 bytes.\n\nA caller still cannot starve the capped read to mask a return. It would keep less than 1/64 of ~10k gas and could not finish the transaction.\n\nOne residual, unchanged from round 1's design: a return INTO a listed token whose reads are failing goes undetected, and becomes sweepable once that token recovers. It needs a listed-token malfunction AND a payee that converts the payout into that very token. Say so in the NatSpec.\n\nAdd the bomb, burner and revert cases as a regression test."
+    },
+    {
+     "lens": "regression",
+     "title": "wrappedNative is not required to be a listed token, so a wrap-and-return payee silently turns a native payout into stranded wrapped coin (no PayoutReturned)",
+     "severity": "informational",
+     "location": "contracts/InheritanceVault.sol:499-525 (constructor accepts any wrappedNative_); _holdings 701-711 measures only _supportedTokens; scripts/deploy.ts tokenConfig() has the same gap under the SUPPORTED_TOKENS/WRAPPED_NATIVE overrides",
+     "problem": "PAYOUT ADDRESSES says the wrap-on-receive rule is 'enforced by measurement': a native payout that sends value back reverts PayoutReturned and the credit stays, so the account can pick another destination. The measurement covers only listed tokens. The constructor accepts a wrappedNative_ that is not in `supported`, and the deploy script's overrides can produce one. In that configuration, withdrawCredit(NATIVE, helper) through a wrap-and-forward helper succeeds. The credit is retired, and the returned WETH sits in the vault outside every lane. sweepSurplus refuses it (UnsupportedToken), so it is stranded for good. T4 still holds, since the admin gains nothing. But the account loses the payout, where a listed WETH would have reverted and let it retry. The proposed tables list WETH/WBNB on every network, so the default deploys are not affected.",
+     "evidence": "Test: test/rev2-regression.ts, describe 'REV2-B' (sandbox REV2-regression). Setup: deployVault({ supported: [], wrappedNative: WrappedNativeMock }) and the WrapAndReturnGateway mock. Output:\n- withdrawCredit via wrap-and-return: {\"ok\":true,\"gas\":114731};\n- vault WETH now: 1.0, bob's credit: 0.0;\n- admin sweep of the WETH: reverted with custom error 'UnsupportedToken(...)'.\n\nThe test asserts the payout should have reverted, and fails on v2. With WETH listed, round 1's own F09 test shows PayoutReturned.",
+     "fix": "In the constructor, add: if (wrappedNative_ != address(0) && !isSupportedToken[wrappedNative_]) revert InvalidTokenConfig(wrappedNative_). This also puts it in _holdings. Alternatively, include wrappedNative in the _holdings digest even when it is unlisted. Mirror the check in scripts/deploy.ts before sending."
+    },
+    {
+     "lens": "regression",
+     "title": "beneficiaryCancelClaim is not atomic with re-initiation: the ACTIVE gap re-opens powers the pending claim had shut (past the horizon the owner can re-point the heir at once; before it, any holder of a chain value can push the heir back a full period)",
+     "severity": "informational",
+     "location": "contracts/InheritanceVault.sol:1151-1159 (beneficiaryCancelClaim) and its NatSpec 1127-1150",
+     "problem": "The F20 remedy for a mistyped recipient is cancel, then re-initiate: two transactions, with the vault ACTIVE in between. ClaimCancelled announces the gap publicly. In the gap, everything a pending claim blocks works again:\n\n(a) Past the horizon, setBeneficiary and setInactivityPeriod revert HorizonReached while the claim is pending. After the cancel they succeed. The owner can re-point the heir with no cooldown, and the new heir claims at once, because the deadline is clamped to the past horizon. Doing the same through extendHorizon would cost a full inactivity period.\n\n(b) Before the horizon, checkInByChain reverts VaultNotActive while the claim is pending. After the cancel, anyone holding an unspent chain value (a bearer credential, F17) or the owner's check-in automation can check in. That pushes the heir's re-initiate back a whole inactivity period (NotYetExpired).\n\nThe NatSpec mentions only that the owner or a chain relayer 'may check in'. It says nothing on (a), and it does not say that the relayer is anyone holding a value. This is not a loop, since each cancel is the heir's own choice, and T1 makes the owner the authority. But the heir's typo fix carries a hidden cost. Round 1's documented abortClaim front-run grief comes from the same gap.",
+     "evidence": "Tests: test/rev2-regression.ts, describe 'REV2-C' (sandbox REV2-regression). Both pass on v2, demonstrating the behaviour.\n\n(a) The sequence:\n1. Past the horizon, bob initiates to a typo address.\n2. alice.setBeneficiary(carol) reverts HorizonReached.\n3. bob cancels.\n4. alice.setBeneficiary(carol) succeeds.\n5. bob's re-initiate reverts NotTheBeneficiary.\n6. carol.initiateClaim succeeds at once. Log: 'new heir claimed at 1798387176 deadline 1798300770 horizon 1798300770'.\n\n(b) The sequence:\n1. A chain value is armed with the 4-arg setCheckInChain.\n2. A claim is pending, and mallory's checkInByChain(x0) reverts VaultNotActive.\n3. bob cancels.\n4. mallory's checkInByChain(x0) succeeds.\n5. bob's initiateClaim reverts NotYetExpired. Log: 'heir now waits ... 29.99 days'.",
+     "fix": "This is a lead decision, because the plan's F20 text says the cancel 'returns the vault to ACTIVE'. The preferred option is an atomic beneficiaryReplaceRecipient(vaultOwner, vaultId, newRecipient), callable only by the current beneficiary while CLAIM_PENDING, which:\n- runs _checkPayee(newRecipient);\n- keeps the state CLAIM_PENDING;\n- sets claimRecipient;\n- restarts claimInitiatedAt, so a full window and the owner's veto time is never shortened;\n- re-locks lockedFeeBps as min(old lock, rate in force, recipient-in-force rule), so the fee can only fall;\n- emits an event.\n\nThis closes (a) and (b), and it also removes round 1's documented abortClaim front-run grief, because abortClaim always finds a claim. The stolen-heir-key cost from round 1 #5 is unchanged either way. Keep or drop the plain cancel. If the design stays as it is, extend the NatSpec and the heir docs. Past the horizon, cancelling lets the owner change the heir before you re-initiate. Before it, anyone holding a chain value, or the owner's automation, can check in and delay you by a full period."
+    },
+    {
+     "lens": "closure",
+     "title": "The round-1 F09 fix lets the issuer of any listed ERC20 freeze every native payout and native sweep",
+     "severity": "low",
+     "location": "contracts/InheritanceVault.sol: _payout native branch (lines 682-686) and _holdings (lines 701-711); the NatSpec above _holdings (697-700) and CHANGELOG-v2.md Review round 1, item 2",
+     "problem": "Review round 1 made every native payout (withdrawCredit, pushCredit, sweepSurplus(NATIVE)) read balanceOf(vault) twice on every listed token and compare the two readings. A native payout therefore depends on how each listed ERC20 answers. v1 native payouts call no ERC20 at all. An issuer upgrade of any listed token breaks the comparison for every payee, including plain EOA heirs. Four listed tokens are upgradeable proxies: Base USDC, EURC and cbBTC, and BNB USDC (pass 4 records this). Three upgraded behaviours freeze the lane. First, a returndata bomb: the vault copies the whole return with `bytes memory ret`, and the callee holds 63/64 of the gas, so it can always return more data than the caller can afford to copy. Second, a balanceOf that burns all its gas. Third, a balanceOf that answers differently on its two reads, which gives PayoutReturned. The code handles only a balanceOf that reverts. So an issuer action on USDC can lock heirs who chose native coin precisely to avoid issuer risk. F12 accepts issuer risk only for that token's own vaults. The NatSpec says 'a listed token that stops answering cannot also freeze native payouts', and round 1 says 'the new revert lets a payee grief only its own payout'. Both claims are false as written.",
+     "evidence": "Sandbox scratchpad/poc/REV2-closure. The mock is contracts/rev2/Rev2Tokens.sol (Rev2IssuerToken, whose setMode stands in for a proxy upgade). The test is test/poc-REV2-closure.ts. Setup: a native estate settled to heir bob (an EOA), with IUSD listed next to WETH and a plain token. `npx hardhat test test/poc-REV2-closure.ts` on the current v2 source (byte-identical to the repo, checked with diff) gives 4 failing: '[v2] heir withdrawCredit(NATIVE) with 16777216 gas: FAILED: Transaction ran out of gas' (mode 2, bomb); \"owner withdrawCredit(NATIVE) under mode 3: FAILED: ... reverted with custom error 'PayoutReturned(0x7099...79C8)'\"; 'mode 4 at 16777216 gas: FAILED: Transaction ran out of gas'; 'sweepSurplus(NATIVE) under mode 2: FAILED: Transaction ran out of gas'. 16,777,216 is the most gas any transaction may use: hardhat refuses 29M with 'exceeds transaction gas cap of 16777216'. The unrelated plain-token lane still pays, so the freeze is native-specific. Contract payees fail in modes 2, 3 and 4 as well (the logging test). The control passes: mode 0 pays, and mode 1 (revert) is handled. `VAULT_IMPL=v1 npx hardhat test test/poc-REV2-closure.ts` gives 5 passing ('[v1] ... paid' in every mode).",
+     "fix": "1. In _payout's native branch, measure only when the payee has code: `bool measured = to.code.length != 0;`. Take _holdings before and compare after only if measured. A codeless payee runs nothing during the call, so it cannot send value back. A 7702-delegated EOA has code and stays measured. 2. In _holdings, read each balance with an assembly staticcall capped at a fixed amount of gas (for example 50,000) that copies at most 32 bytes: `staticcall(50000, t, ptr, 36, ptr, 32)`, with a success-and-returndatasize>=32 check and type(uint256).max otherwise. This removes the bomb and the gas-burn cases. 3. Correct the NatSpec (T4, PAYOUT ADDRESSES, _holdings) and the changelog. The residual to disclose: a listed token that answers balanceOf inconsistently within one transaction can still block native payouts to CONTRACT payees. Those payees can route through withdrawCredit(NATIVE, eoa). I trial-applied 1+2 in the sandbox (trialfix.js) and then restored the source. With the fix, all 211 existing tests pass, all 5 PoC tests pass, and a contract payee is paid under modes 2 and 4 (mode 3 still gives PayoutReturned, as disclosed). Runtime size is 20,874 bytes, against 20,992 now. Add the PoC as a regression test in the F09 block."
+    },
+    {
+     "lens": "closure",
+     "title": "F09 residual: a native payout to Base's L2ToL1MessagePasser passes the address rule and the measurement, and credits the vault's own address on Ethereum L1",
+     "severity": "informational",
+     "location": "contracts/InheritanceVault.sol _checkPayee (663-666) and _payout (682-686); PAYOUT ADDRESSES NatSpec (111-127)",
+     "problem": "F09's class is a destination whose code credits msg.sender. The v2 rule refuses by address (the vault, wrappedNative, the listed tokens) and measures only same-chain, same-call returns. Base's predeploy 0x4200000000000000000000000000000000000016 has a receive() that starts a withdrawal to msg.sender. A native payout there is accepted: the native balance falls by exactly `amount` and no listed balance moves. The credit is retired, and the ETH becomes withdrawable on Ethereum to the vault's own address. The deploy uses plain CREATE (scripts/deploy.ts:283-284), so only code deployed at that address on L1 can move it, which means the deployer key at the same nonce. Otherwise it is lost. The deployer is not the admin (F31), so T4 still holds, but this is a privileged recovery path the NatSpec says does not exist. It is identical in v1. The L2StandardBridge (0x4200..0010) is not affected: its receive() refuses contract senders.",
+     "evidence": "Read-only in-process fork of Base, nothing broadcast. Sandbox test/poc-REV2-closure-fork.ts: 1 passing. It prints 'MessagePassed: sender=0xAf8E...d136 target=0xAf8E...d136 value=1000000000000000000', where target is the v2 vault. creditOf(NATIVE, passer) is 0 afterwards and surplus(NATIVE) is 0. A read-only eth_call on mainnet.base.org from the v1 vault address sending 1 ETH to 0x4200..0016 returns '0x' (success). The same call to 0x4200..0010 reverts 'StandardBridge: function can only be called from an EOA'.",
+     "fix": "APP/DOC (v1 and v2): refuse the OP-stack predeploy range (0x4200000000000000000000000000000000000000 to ...07FF) as a payout, withdraw or claim-recipient address on Base, and warn on any address with code. Add the case to the PAYOUT ADDRESSES NatSpec. Optional for v2 on OP-stack chains: `_checkPayee` refuses that range (one shift-and-compare, a few bytes). Deployment: record the deployer's nonce, so it is clear the L1 address cannot later be claimed by anyone."
+    },
+    {
+     "lens": "tests",
+     "title": "The per-vault fee ceiling at initiateClaim is untested: removing the clamp survives the whole suite",
+     "severity": "medium",
+     "location": "contracts/InheritanceVault.sol:1116 (initiateClaim: `locked = current < v.feeBps ? current : v.feeBps;`). The gap is in test/AuditPrelim2026-09.ts (F05, F06 and F25 blocks) and test/Audit.ts A-04.",
+     "problem": "No test starts a claim while the rate in force is ABOVE the vault's creation ceiling. v2 rewrote this line (it is now nested inside the F05 recipient/feeRecipientActiveAt condition). CHANGELOG F06 relies on it for its documented residual: a claim locks the new rate only 'up to the vault's creation ceiling'. finalizeClaim does not clamp to v.feeBps again. So if this clamp regressed, a vault created at 50 bps whose claim starts after a matured raise to 100 would settle at 100 bps, and no test would notice.",
+     "evidence": "Sandbox scratchpad/poc/REV2-tests, mutant MX3 (`locked = current;`), run by mutate.js. Repo suite (AuditPrelim2026-09.ts + Audit.ts + InheritanceVault.ts): 198 passing, 0 failing, so the mutant SURVIVES (mut-MX3.log, mutants-result-MX1-4.txt). The new test G3 in test/rev2-gaps.ts passes on the real v2. Under MX3 it fails: `Error in \"ClaimInitiated\" event: Error in the 5th argument assertion: expected 100 to equal 50.`",
+     "fix": "Add G3 to the F06 block: create at 50, setClaimFee(100), wait max(PERIOD+1, FEE_RAISE_DELAY), assert claimFeeBps()==100, assert ClaimInitiated's lockedFeeBps == 50, then assert ClaimSettled takes 50 bps."
+    },
+    {
+     "lens": "tests",
+     "title": "beneficiaryCancelClaim is never tried on a SETTLED or CLOSED vault; an inverted state check that resurrects terminal vaults survives",
+     "severity": "medium",
+     "location": "contracts/InheritanceVault.sol:1153; test/AuditPrelim2026-09.ts:1470-1489 ('only the current beneficiary may cancel, and only a pending claim')",
+     "problem": "The test's title claims 'only a pending claim', but the only non-pending state it tries is ACTIVE (plus NoSuchVault). The mutant `if (v.state == STATE_ACTIVE) revert NoClaimPending(vaultId);` therefore passes every test. That mutant lets the heir flip a SETTLED or CLOSED vault back to ACTIVE. The vault would then sit outside _openIds with a stale openIndex, and a later topUp followed by a closing withdraw corrupts or underflows the open set. This is a missing negative case for a function v2 adds.",
+     "evidence": "Sandbox REV2-tests, mutant MX2. Repo suite: 198 passing, 0 failing, so it SURVIVES (mut-MX2.log). The new test G2 in test/rev2-gaps.ts settles vault 0 and closes vault 1 under a pending claim, then expects NoClaimPending(id) for both. It passes on the real v2. Under MX2 it fails: `Expected transaction to be reverted with custom error 'NoClaimPending', but it didn't revert`.",
+     "fix": "Extend the F20 access test (or add G2) with a cancel attempt on a SETTLED vault and on a vault CLOSED while a claim was pending. Assert NoClaimPending(id) and an unchanged state (3 and 4)."
+    },
+    {
+     "lens": "tests",
+     "title": "Round-1 fix #2: the tolerant balanceOf read in _holdings is untested; a reverting read (which freezes native payouts) survives",
+     "severity": "low",
+     "location": "contracts/InheritanceVault.sol:701-711 (_holdings, lines 706-708). Test gap in test/AuditPrelim2026-09.ts (F09 round-1 tests and the F38 matrix).",
+     "problem": "Every native payout in v2 now calls balanceOf on every listed token. The NatSpec, and CHANGELOG review round 1 item 2, promise that 'a listed token that stops answering cannot also freeze native payouts'. No test makes a LISTED token's balanceOf fail during a native payout. The F38 fixture lists HookToken, which has the tripwire, but only the unlisted copy is ever tripped. Replacing the low-level staticcall with a plain IERC20.balanceOf call would let one broken or upgraded listed token (the proposed lists include upgradeable USDC, EURC and cbBTC) block every native withdrawal and push, and the suite would stay green.",
+     "evidence": "Sandbox REV2-tests, mutant MX1 (`held[i] = IERC20(_supportedTokens[i]).balanceOf(address(this));`). Repo suite: 198 passing, 0 failing, so it SURVIVES (mut-MX1.log). The new test G1 in test/rev2-gaps.ts lists a HookToken, arms its tripwire, and pays a native credit. It passes on the real v2. Under MX1 it fails: `reverted with custom error 'TokenCalled()'`.",
+     "fix": "Add G1 to the F09 round-1 tests or to F38 (h.hookListed.setTripwire(true), then a native withdrawCredit/pushCredit with changeEtherBalance). Optionally also assert that sweepSurplus of that token reverts, as the NatSpec says."
+    },
+    {
+     "lens": "tests",
+     "title": "The constructor's own-address fee recipient check is untested",
+     "severity": "low",
+     "location": "contracts/InheritanceVault.sol:518; test/AuditPrelim2026-09.ts:426-438 ('the constructor applies the rule to the initial fee recipient')",
+     "problem": "v2 spells the payout rule out in the constructor, because _checkPayee cannot read the immutable there. The F09 constructor test covers only wrappedNative and a listed token, never the CannotPayToSelf branch. Removing it would let a deployment credit fees to the vault itself, where they are stranded for good (withdrawCredit can never be called from the vault). The branch is inherited from v1, but v2 re-wrote this block.",
+     "evidence": "Sandbox REV2-tests, mutant MX4 (the `initialFeeRecipient == address(this)` line deleted). Repo suite: 198 passing, 0 failing, so it SURVIVES (mut-MX4.log). The new test G4 in test/rev2-gaps.ts predicts the address with ethers.getCreateAddress. It passes on the real v2. Under MX4 it fails: `Expected transaction to be reverted with custom error 'CannotPayToSelf', but it didn't revert`.",
+     "fix": "Add the self case to the F09 constructor test, using the nextAddr pattern the F01 constructor test already uses."
+    },
+    {
+     "lens": "tests",
+     "title": "The TokenSupported test fails on v1 inside the test harness, not on the finding, and the header's list of API-absent tests omits it",
+     "severity": "informational",
+     "location": "test/AuditPrelim2026-09.ts:309-327 and header lines 7-15; test/helpers/deploy.ts:48-53 (v1 mode returns `new Contract(...)`)",
+     "problem": "In VAULT_IMPL=v1 mode, deployVault returns a Contract built from an address, so deploymentTransaction() is null. The test dies on `.wait()` before any assertion about TokenSupported. The header says every non-control test fails on v1 because of its finding, or because a listed v2 API is absent. TokenSupported is on neither footing.",
+     "evidence": "scratchpad/poc/REV2-tests/v1-run.txt, failure #7, 'the constructor logs TokenSupported once per listed token, in list order': `TypeError: Cannot read properties of null (reading 'wait')`",
+     "fix": "Have deployVault keep the deployment receipt (for example, return it on the Contract, or read it via ethers.provider for the v1 deploy tx), so that on v1 the test fails on 'no TokenSupported logs'. Alternatively, add TokenSupported to the header's list of v2-only API."
+    }
+   ]
+  },
+  {
+   "round": 3,
+   "issues": [
+    {
+     "lens": "regression",
+     "title": "R3-1: checkInByChain NatSpec and the chain doc say check-ins stop one inactivity period before the horizon; the first one in that period still works and spends a value",
+     "severity": "informational",
+     "location": "contracts/InheritanceVault.sol:1009-1011 (checkInByChain NatSpec); also the T3 header parenthetical at :42-44 and docs/CHECKIN-CHAIN.md:34-37",
+     "problem": "The F18 text says that in the last inactivity period before the horizon a chain check-in reverts DeadlinePinnedAtHorizon and keeps the value unspent. The doc adds \"Check-ins stop at the horizon, and in v2 one period earlier.\" The code only reverts once the stored deadline already equals the horizon. The first check-in inside the last period still moves the deadline (clamped to the horizon, up to almost a full period later) and spends a value. Only the check-ins after it revert. The chain feature exists for a keyless owner. A relayer that follows the text and stops at horizon minus one period leaves the deadline short of the horizon, so the heir can claim up to nearly one period earlier than the chain could have prevented. The contract logic is correct: the generator (scripts/checkin-chain.ts:297, `deadline >= absoluteDeadline`) and checkIn's own comment (:865-867) describe it correctly. Only the prose is wrong.",
+     "evidence": "Sandbox test scratchpad/poc/REV3-regression/test/rev3-pinned-natspec.ts (`npx hardhat test test/rev3-pinned-natspec.ts`). Setup: a vault with horizon = t0 + 1.5 periods and an armed 3-value chain, then one check-in at t0 + PERIOD - 1 day, which is inside the last period. Result: 1 passing, 1 failing. The test that asserts the documented behaviour fails: \"AssertionError: Expected transaction to be reverted with custom error 'DeadlinePinnedAtHorizon', but it didn't revert\" (rev3-pinned-natspec.ts:44). The companion test passes: CheckedIn(alice, 0, horizon, true), the deadline moves to the horizon (more than 14 days of extra liveness), hbLeft goes from 3 to 2 (a value was spent), and only the next value reverts DeadlinePinnedAtHorizon. Quotes: InheritanceVault.sol:1009-1011 \"A value is spent only when it moves the deadline: in the last inactivity period before the horizon (DeadlinePinnedAtHorizon), or a second time in one second (CheckInAlreadyUsed), this reverts and the value stays unspent.\" docs/CHECKIN-CHAIN.md:34 \"Check-ins stop at the horizon, and in v2 one period earlier.\"",
+     "fix": "NatSpec only; no code change. In checkInByChain, say: a value is spent only when it moves the deadline; once the deadline sits at the horizon (DeadlinePinnedAtHorizon), or a second time in one second (CheckInAlreadyUsed), the call reverts and the value stays unspent; the first check-in within one inactivity period of the horizon still moves the deadline to the horizon, so keep the relayer running until warnings bit 4 (pinned) is set. Change the T3 parenthetical \"(the last inactivity period before it)\" to \"(which the first check-in within one inactivity period of it brings about)\". In docs/CHECKIN-CHAIN.md, replace \"and in v2 one period earlier\" with the same pinned-deadline wording the generator already uses. A (guard) test could pin the corrected wording."
+    },
+    {
+     "lens": "regression",
+     "title": "R3-2: the ACCOUNTING header still names two live-balance measurement paths; native payouts to payees with code have been a third since review round 1",
+     "severity": "informational",
+     "location": "contracts/InheritanceVault.sol:64-69 (ACCOUNTING header)",
+     "problem": "The header says accounting reads live balances only in surplus() and in two measurement paths, deposits and ERC20 payouts. Since review round 1, a native payout to an address with code also reads the native balance and every listed token's balance, twice (_holdings, called from _payout at :712 and :715). This is the check that the PAYOUT ADDRESSES section and T4 rely on. The header is the stated place to verify \"without reading the state machine\", so it should list every place a live balance is read.",
+     "evidence": "InheritanceVault.sol:64-65: \"Accounting never reads live balances except in surplus() and the two measurement paths: deposits, ... and ERC20 payouts\". Versus :710-715: `bool measured = to.code.length != 0; ... if (measured) expected = _holdings(amount); ... if (measured && _holdings(0) != expected) revert PayoutReturned(to);` and :742 `held[n] = address(this).balance - less;` plus the per-token staticcall at :754.",
+     "fix": "Say \"three measurement paths: deposits (the only one that feeds a lane, capped at the amount sent), ERC20 payouts (exact debit), and native payouts to an address with code (_holdings: native down by exactly the amount, every listed token unchanged)\". NatSpec only."
+    },
+    {
+     "lens": "closure",
+     "title": "F15 partially closed: past the horizon, a pending claim is reported as SKIP_CLAIM_PENDING, whose documented remedy (abortClaim) reverts HorizonReached",
+     "severity": "low",
+     "location": "contracts/InheritanceVault.sol:205-206 (SKIP_CLAIM_PENDING NatSpec), :909-911 (checkInMany tests claim state before the horizon), :859 (checkIn reverts ClaimPendingUseAbort before its horizon check), :1230 (abortClaim reverts HorizonReached)",
+     "problem": "The F15 reason codes are meant to name the remedy (\"why checkInMany did not refresh an id, and so what fixes it\"). Suppose a vault is past its horizon with a claim pending. checkInMany then logs CheckInSkipped(reason 3), or reverts NothingCheckedIn(8) for a one-vault batch. That is byte-identical to a pending claim before the horizon. The constant's NatSpec says the fix is abortClaim, and at or after the horizon abortClaim always reverts HorizonReached. There, only extendHorizon (to at least now + inactivityPeriod) or a full withdrawal stops the claim. A v2 keeper or app that maps the reason to its documented remedy sends a Veto that fails, while a challenge window of as little as 7 days runs out. This is the F03/F19 trap, reintroduced through the new API. checkIn's ClaimPendingUseAbort points the same wrong way past the horizon (inherited from v1).",
+     "evidence": "Sandbox scratchpad/poc/REV3-closure/test/poc-REV3-closure.ts. Command: cd scratchpad/poc/REV3-closure && npx hardhat test test/poc-REV3-closure.ts. Failing tests (log in scratchpad/poc/REV3-closure/poc-run.log):\n1) \"BYPASS: a pending claim past the horizon is reported as SKIP_CLAIM_PENDING, whose documented remedy (abortClaim) reverts HorizonReached\". The receipt gives [[1, 3]]; the output prints `SKIP_CLAIM_PENDING NatSpec: /// @dev A claim is pending. A check-in never ends one: abortClaim (the veto) does.`, `getVault: state 2, horizonReached true`, `abortClaim (the named remedy): HorizonReached`, then `AssertionError: Expected transaction NOT to be reverted` at poc-REV3-closure.ts:93.\n2) \"BYPASS (one-vault keeper): NothingCheckedIn(8) past the horizon ...\". checkInMany([id]) reverts NothingCheckedIn(8), the same data as before the horizon, and abortClaim then reverts (poc-REV3-closure.ts:104).\nSource: InheritanceVault.sol:205 `/// @dev A claim is pending. A check-in never ends one: abortClaim (the veto) does.`; :909 `if (s == STATE_CLAIM_PENDING) skip = SKIP_CLAIM_PENDING;` comes before :911 `else if (block.timestamp >= v.absoluteDeadline) skip = SKIP_HORIZON_REACHED;`.",
+     "fix": "Add a distinct reason, e.g. SKIP_CLAIM_PENDING_PAST_HORIZON = 7 (bit 1<<7 = 128 still fits the uint8 mask), chosen when state == CLAIM_PENDING && block.timestamp >= absoluteDeadline. Its NatSpec should name the real remedies: extendHorizon to at least now + inactivityPeriod, or withdraw(id, type(uint256).max, to). At minimum, scope SKIP_CLAIM_PENDING's NatSpec to \"before the horizon\" and say that NothingCheckedIn(8) must be read together with getVault().horizonReached. Optional and cheap: in checkIn, test the horizon before the claim state, so a past-horizon owner gets HorizonReached rather than ClaimPendingUseAbort. The F18 control that pins ClaimPendingUseAbort past the horizon would then need updating. Add a regression test in the F15 block, and have any v2 app or watcher map the reason to the remedy."
+    },
+    {
+     "lens": "closure",
+     "title": "F08 closed as specified, but a credit smaller than what the account already owes gets no grace of its own: a stranger can settle and push it in one transaction",
+     "severity": "informational",
+     "location": "contracts/InheritanceVault.sol:626-631 (_credit restarts creditedSince only if amount >= owed), :1267 (finalizeClaim credits the recipient), :145-152 (THE CREDIT LANE), :1297-1302 (pushCredit @dev)",
+     "problem": "The push grace is kept per (token, account), not per credit. Take an heir whose payout address still holds an older credit at least PUSH_GRACE old. That can be their own first inheritance from a split estate, a lifetime gift from the owner, or a second estate from another relative. A later, smaller inheritance joins the expired clock. finalizeClaim is permissionless, so a stranger can settle that claim and push the whole balance in one transaction (the original F08 SettleAndPush attack). The new inheritance then has zero seconds of grace. The round-2 deviation argued that exposing an inheritance costs a plant \"at least as large as the inheritance\". That holds for attacker-funded plants, but here the heir's own stale credit is the plant, and it costs the attacker nothing. The NatSpec overstates the guarantee: \"so the account always has that long to route it elsewhere first\" and \"a credited account that CAN act always gets to route its credit first\". The header discloses the effect only for the fee recipient. The rule itself is deliberate: the suite pins \"one wei smaller does not\" restart.",
+     "evidence": "Sandbox test scratchpad/poc/REV3-closure/test/poc-REV3-closure.ts, \"BYPASS: an heir's SMALLER second inheritance rides on the clock of an older credit and is settled-and-pushed in one transaction\". Setup: two SenderBlocklistToken vaults (100 and 10) name bob; both claims start together; vault 0 is finalized; 30 days pass without a pull; the issuer blocklists bob. A stranger's SettleAndPush.run(vault 1) then prints `stranger settle-and-push of the second inheritance: WENT THROUGH` and `after destroyBlackFunds bob holds 0 (both inheritances)`, and the test fails with `the second inheritance had zero seconds of grace: expected true to equal false` (poc-REV3-closure.ts:153). The control in the same file, \"a fresh inheritance on an account that owes nothing cannot be settled-and-pushed\", passes with PushTooEarly, so the older credit is the only difference.",
+     "fix": "No code change recommended. Restarting on every credit, or restarting once the old clock has expired, would let a griefer postpone the push to a passive account (an exchange deposit address) indefinitely for 1 wei every 30 days, which is the cost the >= rule exists to prevent. Correct the NatSpec instead, in THE CREDIT LANE and on pushCredit. Say the grace runs per account balance: a credit smaller than what is already owed joins the older clock, and once that clock has run out it can be settled and pushed in one transaction. Add heir DOC/APP guidance: withdraw any older credit before settling another claim into the same address, or name a fresh recipient per claim (before settlement, beneficiaryCancelClaim can still change it)."
+    },
+    {
+     "lens": "tests",
+     "title": "The round-1 F01 source guard is bypassed by a storage alias: an owner-only function that adds a token passes the whole suite",
+     "severity": "low",
+     "location": "test/AuditPrelim2026-09.ts:288-313 (the guard \"(guard) the list is written only in the constructor\"), protecting contracts/InheritanceVault.sol:364-365 (isSupportedToken, _supportedTokens)",
+     "problem": "Round 1 replaced a name-only guard with a regex over the source that looks for direct writes such as `isSupportedToken[..] =`, `delete isSupportedToken` or `_supportedTokens.push(`. A write made through a local storage alias is not matched. The second layer only checks function names against /support|allow|list|token|asset/, so a function called `enable` passes it too. No behavioural test can catch such a function, because no test calls it. So the property F01 rests on (\"no admin can list a ledger's second entry point and then sweep it\") is unguarded against exactly the kind of change the guard exists for. This is an incomplete round-1 fix (M42/M42b were direct writes).",
+     "evidence": "Mutant T10 in sandbox scratchpad/poc/REV3-tests (runner rev3-mutate.js, log mut-T10.log) adds this before supportedTokens():\n`function enable(address t) external onlyOwner { mapping(address => bool) storage m = isSupportedToken; address[] storage l = _supportedTokens; m[t] = true; l.push(t); }`\nIt compiles, and the vault suite (AuditPrelim2026-09.ts + Audit.ts + InheritanceVault.ts) gives \"210 passing / 0 failing -> SURVIVES\" (rev3-mutants-result-main.txt).",
+     "fix": "Whitelist the reads instead of blacklisting the writes. Outside the constructor body, allow `isSupportedToken` and `_supportedTokens` only in known read forms: `isSupportedToken[<expr>]` not followed by an assignment operator, `_supportedTokens.length`, `_supportedTokens[i]` as an rvalue, and `return _supportedTokens`. Fail on anything else, including `= isSupportedToken;` or `= _supportedTokens;` (a storage alias) and any `.slot` of either inside assembly. Keep the check that the constructor has exactly two writes, and add T10 to the mutation table."
+    },
+    {
+     "lens": "tests",
+     "title": "New F06 fee-schedule branches are untested at their boundaries: three mutants survive the whole suite",
+     "severity": "low",
+     "location": "contracts/InheritanceVault.sol:1362 (applyClaimFee), :651 (_recordMaturedRaise), :1346 (setClaimFee cut branch); F06 block of test/AuditPrelim2026-09.ts:1337-1402",
+     "problem": "The F06 tests pin claimFeeBps() at the exact second of pendingClaimFeeAt, but not the three other new branches that share that boundary.\n(T1) applyClaimFee `<` changed to `<=`: it would refuse FeeRaiseNotDue at the very second claimFeeBps() already reports the raise. The test uses time.increaseTo(at), so the call lands at at+1.\n(T2) _recordMaturedRaise `>=` changed to `>`: a setClaimFee at exactly pendingClaimFeeAt would be measured from the old recorded rate. The rate in force would drop from the matured raise back to the recorded one, and a ClaimFeeChanged would be missing from the event history. The changelog calls this rule 'a cut measured from a matured-but-unapplied raise'.\n(T3) every cut emits ClaimFeeRaiseCancelled(0) even when no raise is pending, which an indexer would read as a cancelled raise.\nNone of these can raise a user's fee (T2 only lowers it). They are gaps in the tests of new code that the changelog describes as tested.",
+     "evidence": "rev3-mutants-result-main.txt in sandbox scratchpad/poc/REV3-tests:\n\"T1 ... vault suite 210 passing / 0 failing -> SURVIVES\"\n\"T2 ... 210 passing / 0 failing -> SURVIVES\"\n\"T3 ... 210 passing / 0 failing -> SURVIVES\"\nEach is killed by a sandbox test in scratchpad/poc/REV3-tests/test/rev3-probe.ts, and all of them pass on unmutated v2:\n- B1 \"applyClaimFee succeeds AT pendingClaimFeeAt\" kills T1 (and T2);\n- B2 \"setClaimFee AT pendingClaimFeeAt measures from the matured raise (a cut from 90 to 70)\" kills T2;\n- B3 \"a cut with no raise pending logs no ClaimFeeRaiseCancelled\" kills T3.\nThe existing test at test/AuditPrelim2026-09.ts:1381 is `await time.increaseTo(at);`, then applyClaimFee in the next block.",
+     "fix": "Add B1, B2 and B3 (sandbox rev3-probe.ts, describe 'B') to the F06 block. Pin the second with time.setNextBlockTimestamp(at), as the first F06 test already does for claimFeeBps()."
+    },
+    {
+     "lens": "tests",
+     "title": "The reference generator's safety refusals and its whole `next` command have no test",
+     "severity": "low",
+     "location": "scripts/checkin-chain.ts:258 (`--epoch` disagrees with the vault), :294 (\"do not lead to the anchor installed on chain; do not submit\"), :297-302 (pinned warning), plus the zero-seed, zero-value and epoch-range guards; tests at test/AuditPrelim2026-09.ts:2483-2515",
+     "problem": "F02 is Medium, and its SCRIPT disposition is the generator a keyless owner relies on. The tests drive only `cli([\"anchor\", ...])` offline, plus the exported helpers. No test runs `next`, and no test reaches any `--rpc` branch: the epoch cross-check, the refusal to print a value that does not lead to the installed anchor, and the pinned warning. The changelog says these were 'rehearsed on a local node', which is a manual check, not a regression test. A change that disables them goes unnoticed.",
+     "evidence": "In sandbox scratchpad/poc/REV3-tests, both refusals were disabled (`if (false && state && state.hbAnchor !== step(...))` and `if (false && given !== undefined && Number(given) !== onChain)`). `npx hardhat test test/AuditPrelim2026-09.ts` then gives \"154 passing\" and 0 failing, and the generator was restored afterwards. grep: the only cli invocation in test/AuditPrelim2026-09.ts is `[\"anchor\", \"--mode\", mode, ...]` (line 2488).",
+     "fix": "Let `cli` take an injected provider (a 4th parameter, or used when `--rpc` is given in tests) so tests can pass `ethers.provider`. Then add these cases:\n- `anchor --rpc` with a stale `--epoch` throws;\n- `next --rpc` with the wrong seed, or after a re-arm, throws \"do not submit\";\n- `next --rpc` on a pinned vault prints the warning;\n- `next` after a disarm or exhaustion throws;\n- a zero seed throws;\n- `next` offline with `--left` prints the value that checkInByChain accepts."
+    },
+    {
+     "lens": "tests",
+     "title": "Other new branches with surviving mutants: lockedFeeBps after settlement or supersession, and the rising-balance payout",
+     "severity": "informational",
+     "location": "contracts/InheritanceVault.sol:1471 (getVault lockedFeeBps), :720 (_payout ERC20 debited); tests at test/AuditPrelim2026-09.ts:1979-1988 (F25) and the F10/F38 blocks",
+     "problem": "(T7) The F25 rule is 'lockedFeeBps is shown only while a claim is pending, 0 otherwise', but the test checks only the abort path. A getVault that also shows the lock for a SETTLED vault survives, and so would one for a superseded claim or a CLOSED vault.\n(T6) `_payout` computes `debited = before > afterBal ? before - afterBal : 0` so that a listed token whose vault balance rises on a transfer out reverts PayoutShortfall. Replacing it with a checked subtraction (a Panic instead) survives, because no mock's balance rises on a payout. Both are small gaps: nothing is lost.",
+     "evidence": "rev3-mutants-result-main.txt:\n\"T7 (getVault shows lockedFeeBps for a SETTLED vault too ...): vault suite 210 passing / 0 failing -> SURVIVES\"\n\"T6 (_payout ERC20: debited computed with checked subtraction ...): vault suite 210 passing / 0 failing -> SURVIVES\"",
+     "fix": "In the F25 test, also assert lockedFeeBps == 0 after finalizeClaim (SETTLED), after a superseding owner action such as setBeneficiary, and after a closing withdraw. Optionally add to the F38 matrix a listed mock whose balanceOf(vault) rises during transfer, and assert PayoutShortfall(token, 0, amount) with the credit kept."
+    },
+    {
+     "lens": "tests",
+     "title": "Five 'pins' of v2 costs are counted as v1 failures, and two of them fail on v1 because v1 behaves better",
+     "severity": "informational",
+     "location": "test/AuditPrelim2026-09.ts:1-19 (header), :709, :923, :1791, :1840, :1856; CHANGELOG-v2.md:11-15 and :1336-1337",
+     "problem": "The header and the changelog read the v1 run as evidence: every test fails on v1 except '(control)' and '(guard)', and most fail for their finding's reason, the rest because a v2 function is absent. Five tests are neither. They are titled 'pins the documented ...' and record costs v2 introduced.\n- Line 709 (the inconsistent-balanceOf residual) and line 923 (a receive() that reads a guarded view is not paid) fail on v1 because v1 pays: the finding's direction is reversed.\n- Lines 1791, 1840 and 1856 fail only because beneficiaryCancelClaim is absent.\nSo '113 failing on v1' overstates the regression evidence by 5, and 2 of those 5 would pass under any correct reading of 'v1 has the defect'.",
+     "evidence": "VAULT_IMPL=v1 run in sandbox REV3-tests (v1-run.txt / v1-fail-summary.txt):\n\"19) pins the documented residual ... => Expected transaction to be reverted with custom error 'PayoutReturned', but it didn't revert\"\n\"29) pins the documented cost: a recipient whose receive() reads a guarded view ... => Expected ... 'NativeTransferFailed', but it didn't revert\"\n\"65)/67)/68) pins ... => function selector was not recognized\"\nHeader line 7: \"Every test here FAILS against v1, except the ones whose title starts with \"(control)\" ... or \"(guard)\"\".",
+     "fix": "Prefix these five with '(pin)', and define that label in the header and the changelog intro: it records a documented v2 cost and is expected to fail on v1 because v1 lacks that cost. Better, for lines 709 and 923, branch on VAULT_IMPL and assert that v1 pays, so the v1 run shows the regression v2 accepted."
+    },
+    {
+     "lens": "tests",
+     "title": "The F20 hostile-heir control checks its known limitation only conditionally and never asserts the block order",
+     "severity": "informational",
+     "location": "test/AuditPrelim2026-09.ts:1761-1780",
+     "problem": "The documented limitation (the heir cancels in front of abortClaim, the abort reverts, and the heir re-initiates behind it) is asserted only `if ((await statusOf(cancel)) === 1)`, and the block order is never checked. On v2, if the ordering or the cancel ever changed, the assertion would be skipped and the test would still pass, so the NatSpec claim it pins could go stale silently. It runs today: I checked.",
+     "evidence": "Sandbox probe P1 (scratchpad/poc/REV3-tests/test/rev3-probe.ts), same transactions and tips on v2: \"block order: [ 'cancel', 'abort', 'initiate' ]\", \"statuses [cancel, abort, initiate]: [ 1, 0, 1 ]\". Test code: `if ((await statusOf(cancel)) === 1) { expect(await statusOf(abort)).to.equal(0); }`.",
+     "fix": "Under VAULT_IMPL === \"v2\", assert the block's transactions equal [cancel, abort, initiate] and the statuses equal [1, 0, 1] unconditionally, as P1 does. Keep the v1 branch as it is."
+    }
+   ]
+  }
+ ],
+ "app": {
+  "issues": [
+   {
+    "title": "A mined transaction is reported as FAILED when the refresh after it fails, and Sign is re-enabled, so a second click creates a second funded vault",
+    "severity": "medium",
+    "location": "site/assets/app.js:483-511 runTx (the post-mine `await refreshMine()` at :491 sits inside the same try as send/wait); callers that re-enable on `false`: signCreate :1779-1782, heirForm sign :925-927, actHorizon sign :1045-1047, actWithdrawAll :783-785, actClaim :1152-1154",
+    "problem": "runTx awaits refreshMine() inside the try block that wraps the transaction. refreshMine makes loadFee (2 eth_calls), getOpenVaults and getBlock calls. If any of those reads fails after the transaction is mined, the catch block overwrites the log with '<label> failed: ...' and returns false. A rate-limited public RPC right after mining is exactly the case the app documents elsewhere. The new callers treat false as 'not sent' and re-enable their Sign button. In the create flow the review (with its Sign button) also stays on screen. The user is told a successful deposit failed and is invited to sign it again. ethers turns an RPC error on eth_call into CALL_EXCEPTION 'missing revert data', so the catch branch's second refreshMine also runs. The pattern existed at 5bbad6e, but the new re-enable logic makes it actionable.",
+    "evidence": "Harness C:/Users/Vinoth/AppData/Local/Temp/claude/C--Users-Vinoth-OneDrive-Claude-claude-code/005aaa32-3c49-4f96-8428-bacda0a96f78/scratchpad/rev-app/adversarial.cjs (real site/app.html served by scripts/serve-site.js :8941 with the production CSP; v1 byte-identical to 5bbad6e on an isolated chain-id-8453 node :8581). It fails the first getOpenVaults eth_call after createVault is sent. Output: `R1 log after first sign: \"Create vault failed: missing revert data\"` / `R1 vaultCount before/after first sign: 1 2 | sign button present: true enabled: true` / `R1 vaultCount after second click: 3 | createVault txs sent: 2`.",
+    "fix": "In runTx, isolate the post-mine refresh: `renderTx(confirmed)`, then `try { await refreshMine(); } catch (e) { append 'confirmed; the view could not be refreshed: ...' }`, and always return the receipt once wait() has resolved. Only errors from send()/wait() should return false. In signCreate, clear #cReview as soon as a receipt exists, before any refresh."
+   },
+   {
+    "title": "The look-alike (address-poisoning) check silently runs against an empty heir list when the connect-time read fails",
+    "severity": "low",
+    "location": "site/assets/app.js:562-564 connect (S.contract is set before `await refreshMine()`, and a failure there is an unhandled rejection); :1443 S.heirs is set only by a successful refreshMine; :1708 reviewCreate and :905 heirForm review use S.heirs",
+    "problem": "If the first refreshMine after connect throws (any read failure), S.contract stays set but S.heirs stays []. No error is shown: the page keeps the 'Connect your wallet to see your vaults' card and logs an uncaught pageerror. The Create tab still works, and heirProblem then compares a new heir only with the owner's own wallet. A look-alike of an existing heir, the exact F41 attack, passes review and gets a Sign button. The same staleness applies whenever S.heirs is out of date. Separately, per the F41 SEV-FIX, heirs of the owner's closed vaults are never in the known list. The app's own remedy ('withdraw everything and create a new one') therefore drops that heir from both the picker and the look-alike list.",
+    "evidence": "C:/Users/Vinoth/AppData/Local/Temp/claude/C--Users-Vinoth-OneDrive-Claude-claude-code/005aaa32-3c49-4f96-8428-bacda0a96f78/scratchpad/rev-app/adversarial2.cjs uses the same input twice, a look-alike 0x90f711111111111111111111111111111111b906 of the existing heir 0x90F79bf6...E93b906. Control: `cards shown 3 | blocked true | sign button 0`. With the first getOpenVaults failing: `cards shown 0 | blocked false | sign button 1 | page errors [\"pageerror: missing revert data (... code=CALL_EXCEPTION ...)\"]`.",
+    "fix": "In reviewCreate and in heirForm's review(), read getOpenVaults(S.account) fresh and build the known list from that read. If it cannot be read, refuse to review ('could not load your existing heirs; try again'). Wrap connect()'s refreshMine in try/catch and show the error in #mineEmpty or a banner. Optionally add heirs from the owner's own VaultCreated/BeneficiaryChanged logs (owner = topic1) so closed vaults count."
+   },
+   {
+    "title": "Double-clicking 'Review vault' renders two reviews with two live 'Sign and create vault' buttons",
+    "severity": "low",
+    "location": "site/assets/app.js:1674-1765 reviewCreate (`out.replaceChildren()` at :1677, then several awaits, then `out.append` at :1747) with no in-flight guard; the same pattern applies to heirForm review() :891 and actClaim review() :1095",
+    "problem": "Each review clears #cReview only at its start and appends after several async reads (hasCode, meta, chainNow, loadFee). Two quick clicks both clear the container, then both append. Signing one disables only that button, so the second stays enabled while the first wallet prompt is open or pending, and a second createVault can be sent. For Change heir, the duplicate re-sends the same setBeneficiary. For a claim, the duplicate reverts harmlessly.",
+    "evidence": "adversarial.cjs R2 (two synchronous createBtn.click() calls, eth_getCode delayed 300 ms): `R2 double click on Review: review blocks 2 sign buttons 2`.",
+    "fix": "Disable the Review button while a review is running, or use a generation counter: `const gen = ++reviewGen;` at the start, and `if (gen !== reviewGen) return;` before appending. Apply the same to the heirForm and actClaim reviews."
+   },
+   {
+    "title": "Review notes are built from the vault as it was when the panel opened; a claim filed (or a horizon passed) since then is not disclosed",
+    "severity": "low",
+    "location": "site/assets/app.js:856-939 heirForm (captures `vault` at open; notes at :910-916 use vault.state / vault.horizonReached); actHorizon review :1006-1011 (same); actWithdrawAll re-reads only the balance (:773-782)",
+    "problem": "The pre-sign review exists to state exactly what the signature does. The notes read the state captured when the panel opened, not the state at review time. If the heir files a claim while the panel is open, the Change heir review omits 'This also cancels the claim that is pending on this vault', and signing silently cancels the heir's claim. If the horizon passes while the panel is open, the review still says 'Changing the heir restarts your check-in timer', which is then false: the new heir can claim at once and cannot be vetoed.",
+    "evidence": "adversarial.cjs R3: the panel is opened on an active vault #0, then the heir calls initiateClaim on chain. Output: `R3 state after heir files: 2`, then `R3 review notes mention the claim: false | notes: \"Changing the heir restarts your check-in timer.Read the new address...\"`, then after signing `R3 chain after sign: state 1 heir 0x9965507D...`.",
+    "fix": "Re-read getVault(S.account, id) inside review() (heirForm and actHorizon) and build the notes and the past-horizon branch from the fresh read. At sign time, re-read state and horizonReached. If either changed since the review, refuse and ask the owner to review again, as actWithdrawAll already does for the balance."
+   },
+   {
+    "title": "'Inactivity period: can be changed later' is promised, but the app has no way to change it",
+    "severity": "informational",
+    "location": "site/app.html:110 hint 'Can be changed later.'; site/assets/app.js:1752 summary tag { tone: 'ok', text: 'can be changed later' }",
+    "problem": "setInactivityPeriod exists in v1, but neither the old nor the new app exposes it (grep finds 0 uses). An owner told in the pre-sign summary that the period can be changed later has no in-app path; they would have to use the explorer's Write Contract. By contrast, the Heir tag is backed by the Change heir panel.",
+    "evidence": "`grep -n setInactivityPeriod site/assets/app.js | wc -l` returns 0.",
+    "fix": "Either say 'can be changed later on chain (setInactivityPeriod; not in this app yet)', or add an owner-card action with the same in-card review. Note that on v1 it also cancels a pending claim before the horizon."
+   },
+   {
+    "title": "chainNow() takes max(device clock, chain time), so a fast device clock drives state decisions",
+    "severity": "informational",
+    "location": "site/assets/app.js:152-153, 207-215 chainNow; used by checkInBlocker :1478, claimBlock `open` :1211, horizonFloor",
+    "problem": "The comment says 'the device clock can be wrong', yet max() trusts the device whenever it runs ahead. For floors (the earliest valid horizon) that is conservative and fine. For decisions it is not: a vault near its horizon can be pre-filtered out of Check in (all) as 'past its horizon', and the owner's claim block can say 'Anyone can finalize this claim now' early. Buttons still key off the chain flags (finalizable, horizonReached), so nothing reverts.",
+    "evidence": "Code: checkInBlocker computes `past = Boolean(vault.horizonReached) || now >= Number(vault.absoluteDeadline)` with now = chainNow().",
+    "fix": "Use the block timestamp alone for state decisions and countdowns. Keep max(local, chain) + HORIZON_MARGIN only for floors."
+   },
+   {
+    "title": "isRateLimited can match ethers' embedded JSON-RPC request id ('\"id\":429')",
+    "severity": "informational",
+    "location": "site/assets/app.js:1885 isRateLimited (/\\b429\\b/ over safeText, which includes error.message and error.info)",
+    "problem": "For a failed eth_getLogs through BrowserProvider, ethers 6.17 builds 'could not coalesce error (error=..., payload={... \"id\":N ...})' (provider-jsonrpc.js:749). When N is 429, a range-too-large error is classified as a rate limit and costs one extra backoff attempt (1 s). The retry has a new id, so the scan then shrinks the range normally. The effect is negligible, but the check is looser than intended.",
+    "evidence": "node_modules/ethers/lib.commonjs/providers/provider-jsonrpc.js:749 `makeError(\"could not coalesce error\", \"UNKNOWN_ERROR\", { error, payload })`; provider-browser.js:53-62 keeps payload.id.",
+    "fix": "Test error.status === 429, the code (-32016, -32005 with 'rate' in the message), or the provider's own error message, not the whole stringified error."
+   },
+   {
+    "title": "The privacy page does not disclose that the heir search sends the connected address to mainnet.base.org from the browser",
+    "severity": "informational",
+    "location": "site/privacy.html 'Wallet and blockchain data' (DOC scope; the disclosure exists only in site/app.html)",
+    "problem": "Before this change, the page only talked to the chain through the wallet. The heir search now fetches the public Base endpoint directly, with the wallet address as a log topic. app.html says so next to the button, but the privacy notice still describes only wallet-mediated reads.",
+    "evidence": "`grep -i 'mainnet.base.org|public endpoint|heir search' site/privacy.html` finds no match.",
+    "fix": "DOC agent: add one sentence to privacy.html's 'Wallet and blockchain data' section."
+   },
+   {
+    "title": "scripts/validate-site.js exits 1, but only on '/audit' links in pages outside the app",
+    "severity": "informational",
+    "location": "scripts/validate-site.js run on the working tree",
+    "problem": "The site gate currently fails. All 12 failures are 'broken internal route: /audit', in guides, how-it-works, index, security and terms. They presumably wait on another agent's site/audit.html. None are in app.html, which passes every check (noindex, no inline style or handler, no innerHTML).",
+    "evidence": "node scripts/validate-site.js gives exit=1, and every one of the 12 lines is 'broken internal route: /audit' (e.g. 'index.html: broken internal route: /audit').",
+    "fix": "The lead must confirm that site/audit.html lands (or that the links change) before the gate is re-run. No app change is needed."
+   },
+   {
+    "title": "Some action handlers can throw outside any try, and fail silently",
+    "severity": "informational",
+    "location": "site/assets/app.js actTopUp :726-731 and actWithdraw :748-753 (ethers.parseUnits on prompt text, pre-existing); actFinalize :1177 and the getVault at the top of actHeir, actHorizon and actClaim",
+    "problem": "An invalid amount such as '1,5' in Top up or Withdraw, or a failed getVault, rejects the click handler's promise. Nothing is written to the card log, and the user sees no reaction.",
+    "evidence": "Code inspection. The R4 run shows the same class of uncaught pageerror from connect().",
+    "fix": "Wrap each act* body in try/catch and write errorText(error) to the card's log."
+   }
+  ],
+  "checked_ok": [
+   "node --check site/assets/app.js and site/assets/abi.js pass. I changed no repo files (git status is the same 36 entries as before).",
+   "site/assets/abi.js and site/_headers are unchanged since 5bbad6e (git diff --stat is empty), so the app still uses the v1 ABI.",
+   "Every contract call matches the v1 signature and argument order. The calls are checkIn(id), abortClaim(id), topUp(owner,id,amount,{value}), withdraw(id,amount,to), setBeneficiary(id,addr), extendHorizon(id,uint64), initiateClaim(owner,id,recipient), finalizeClaim(owner,id), checkInMany(ids), createVault(token,amount,beneficiary,period,window,horizon,{value}), withdrawCredit(token,to) (the v1 2-arg form, not the v2 overload), creditOf, claimFeeBps, feeRecipient, getVault and getOpenVaults. There are no v2-only calls and no lockedFeeBps or hbEpoch reads.",
+   "Event decodes match v1. CheckedIn uses owner/vaultId/newDeadline, ClaimSettled uses recipient/amount, and VaultCreated uses vaultId/feeBps/beneficiary. The heir-search filter puts the connected account in topic3, which is VaultCreated.beneficiary and BeneficiaryChanged.newBeneficiary. The topic hashes I computed match (0x19109680... and 0xb2722bfc...).",
+   "No innerHTML, outerHTML, insertAdjacentHTML, eval or element.style in app.js. All chain-derived and typed text goes through textContent, and hrefs are built from the fixed explorer prefix. app.html has no inline style, script or handler. The [hidden]{display:none!important} rule keeps hidden label.f elements hidden. Every CSS variable used by the new rules exists, and no size utility sets a colour (.btn.small sets size only).",
+   "CSP: the only origin the page fetches directly is chain().rpc (mainnet.base.org), which is in connect-src. In a live headless-Chrome run of the heir search under the production CSP, the page sent 1,052 POSTs to mainnet.base.org and nothing to other hosts, with no CSP violation or page error.",
+   "Real Base preflight gives 204 with ACAO * / POST / content-type. A burst of 50 eth_getLogs calls got 25 HTTP 429 responses, which carry ACAO * and the body {code:-32016, message:'over rate limit'}. The browser therefore sees the status, and the backoff path works for real.",
+   "Live in-browser heir search (scratchpad/rev-app/live-scan.cjs; the mock wallet refuses eth_getLogs and every transaction) ran against the real v1 contract. Connected as heir 0x75f47eb3..., it fell back to the public endpoint, searched blocks 49,728,661-51,827,800 completely in 322 s with no 429s, showed no card, and reported the closed vault's record as 'no longer applies'. A vault whose current beneficiary is not the connected account is never shown. That holds both in the code (showFound filters beneficiary==account and state 1/2; lookupOwner filters the same way) and in the live result.",
+   "logsFrom 49,728,661 is correct: the contract has no code at 49,728,660 and 32,328 hex chars of code at 49,728,661. logCanary 49,730,575 holds exactly one VaultCreated log. mainnet.base.org accepted a 2,000-block range, and today a 2,001-block range too, so the 2,000-block span is within limits.",
+   "Known-token list verified read-only on chain (code, symbol, decimals). Base: USDC 0x8335...2913 (USDC/6, name 'USD Coin'), WETH 0x4200...0006 (18), cbBTC 0xcbB7...33Bf (8), EURC 0x60a3...db42 (6). Base Sepolia: WETH 0x4200...0006. BSC: USDT 0x55d3...7955, USDC 0x8AC7...580d, WBNB 0xbb4C...095c, BTCB 0x7130...ad9c, ETH 0x2170...33F8, all 18 decimals. BSC testnet: WBNB 0xae13...a7cd.",
+   "State branches checked against the v1 source (_clearPending, checkIn, abortClaim, withdraw, setBeneficiary, extendHorizon, topUp). Active pre-horizon offers Check in / Top up / Withdraw / Change heir / Extend. A pending claim pre-horizon offers Veto / Withdraw / Change heir / Extend, all of which cancel the claim, and hides Check in and Top up, which revert. A pending claim past the horizon offers only extend, withdraw everything and partial withdraw; the prompt correctly says a partial withdraw does not stop the claim. Active past the horizon hides Check in and routes Change heir through the extend-first guidance. Settled and closed vaults never appear. The heir sees Initiate only when active and expired, and Finalize only when finalizable. No offered action reverts in its own state.",
+   "Address-poisoning controls: both entries are parsed and compared after ethers.getAddress normalisation, and a bad mixed-case checksum is rejected. Picker entries go through the same heirProblem check. The look-alike check matches the first OR last 4 hex characters, case-insensitive, and skips exact matches. Zero, the vault contract, wrapped native and known tokens are refused as heir and as payout. The claim payout defaults to the connected wallet, and any other address needs two entries, an acknowledgement and an extra acknowledgement for a contract.",
+   "Date round trip: parseUtcDate rejects rollovers such as 2046-02-30 and malformed input. The date input has min and max, with min = the first UTC midnight at or after max(horizon+1, now+period+1h). The floor is re-checked at sign time, a jump of more than 10 years needs the year retyped, and the summary shows UTC current vs new and '+N years N days'.",
+   "Regressions: the Payouts tab (creditOf/withdrawCredit to self), approve-then-create for ERC-20s, top-up, partial withdraw and lookup by owner all behave as at 5bbad6e or better. Unknown tokens with unreadable decimals are now refused instead of throwing.",
+   "The implementer's e2e suites (scratchpad/apptest e2e-p1-adapted: 79 passed; e2e-p2: 76 passed; negative control on the old app: 37 failed) ran at 12:24, after the last app.js edit at 12:22. I also re-verified the v1 source used by that harness: apptest/contracts/InheritanceVault.sol is identical to 5bbad6e."
+  ]
+ },
+ "docs": {
+  "issues": [
+   {
+    "title": "F23 status is stale in 7 files: docs say the billing contract is still on sale, but sales were switched off on chain on 2026-09-26",
+    "severity": "high",
+    "location": "site/index.html:323-324; site/security.html:46-51; site/terms.html:62-66; README.md:199-204; SECURITY.md:53-57; AUDIT_SCOPE.md:117-121; notify/README.md:14-18",
+    "problem": "The binding plan marks F23 as DONE: the Ledger signed setPrice(type(uint256).max) in tx 0xf3485b1b…6cca at block 51823544, and it is recorded in deployments/base.json as subscriptionSalesDisabled. The plan's DOC disposition says the docs must state that sales are disabled ON CHAIN, cite the tx, and give status Resolved. Every doc still says the opposite, quotes the old price, and in two places promises the tx 'will be published when it is signed'. The tx hash is cited nowhere except deployments/base.json.",
+    "evidence": "On-chain check (read-only, https://mainnet.base.org): tx 0xf3485b1b4ec0f887838a2eec5181c3815e68913bc23b68570c3b635693a56cca has from 0x883c…cdca3, to 0x60749af6…dc6, input 0x91b7f5ed ffff…ff (setPrice(max)), status 0x1, block 51823544 (2026-09-26T15:27:15Z). pricePerMonth() = 115792…639935 (2^256-1). eth_call subscribe() with 1 wei and with 1 ETH both revert with data 0x1f2a2005 (ZeroAmount). The contract balance is 0. Grep for 'f3485b1b' finds only deployments/base.json. Stale quotes: index.html:323 \"The billing contract has not yet been switched off on chain and still accepts payments\"; security.html:46-51 \"has not yet been switched off on chain. It still accepts payments, at 0.001 ETH per 30 days … that transaction will be published here when it is signed. Until then a payment buys nothing.\"; terms.html:63-64 \"has not yet been switched off on chain, so it still accepts a direct payment\"; README.md:200-201 \"has **not** yet been switched off on chain: it still accepts payments (0.001 ETH per 30 days)\"; SECURITY.md:54-57 \"**not** yet been switched off on chain … that transaction will be published when it is signed.\"; AUDIT_SCOPE.md:118-119 \"has not yet been switched off on chain and remains directly callable at 0.001 ETH per 30 days\"; notify/README.md:15 \"**not** yet been switched off on chain. It still accepts payments (0.001 ETH per 30 days)\".",
+    "fix": "In all seven places, say that reminder sales were disabled on chain on 26 September 2026: the admin set pricePerMonth to the maximum (2^256-1), so every subscribe() now reverts, and only the admin could reverse it. Cite tx 0xf3485b1b4ec0f887838a2eec5181c3815e68913bc23b68570c3b635693a56cca (block 51823544), with a Basescan link on security.html. Remove '0.001 ETH per 30 days', 'still accepts payments' and 'will be published when it is signed'. Keep 'do not send funds' and the refund pointer. Do not say it 'cannot be switched off'."
+   },
+   {
+    "title": "validate-site fails: /audit is a broken internal route (12 links)",
+    "severity": "medium",
+    "location": "site/index.html:68,304; site/how-it-works.html:208; site/security.html:33,119,145; site/terms.html:41,84; site/guides/crypto-inheritance-planning.html:162; site/guides/dead-mans-switch-crypto.html:56,176; site/guides/never-put-seed-phrase-in-will.html:179",
+    "problem": "Every page links to /audit, but there is no site/audit.html, no _redirects entry and no sitemap entry. The site gate fails, and the live https://willandkey.com/audit returns HTTP 200 with the homepage (the Pages SPA fallback), so every 'preliminary audit' link on the live site would silently land on the homepage. The workflow expects a later Report phase to create the page, but the documentation must not ship before it exists. README.md:27, SECURITY.md:13, AUDIT_SCOPE.md:16 and AUDIT-2026-08-09.md:24 also cite https://willandkey.com/audit.",
+    "evidence": "`node scripts/validate-site.js` exits 1 with: \"guides\\crypto-inheritance-planning.html: broken internal route: /audit\" … \"terms.html: broken internal route: /audit\" (12 failures, and no other failure). `curl -L https://willandkey.com/audit` gives 200, and the body's <title> is \"Crypto Inheritance Without Sharing Keys | Will & Key\" (the homepage).",
+    "fix": "Do not deploy the doc changes until site/audit.html exists with a /audit.html -> /audit 301 in _redirects and a sitemap entry, and validate-site passes. The docs fixer should keep the links and record this as a dependency on the report author, not remove them."
+   },
+   {
+    "title": "README and AUDIT_SCOPE point readers and auditors to contracts/InheritanceVault.sol, which is now the undeployed v2 source",
+    "severity": "medium",
+    "location": "README.md:21, README.md:188-190; AUDIT_SCOPE.md:54",
+    "problem": "The working-tree contracts/InheritanceVault.sol is v2 (FEE_RAISE_DELAY, supported-token allowlist, DeadlinePinnedAtHorizon, 'the only assets a vault can hold'). Once committed, the README's 'Lineage' link sends readers to v2's trust-model header 'for exactly what that trades away', and that header describes v2 behaviour as the contract's. AUDIT_SCOPE's objective is to 'review the immutable Base deployment', yet its 'Source and configuration in scope' list names contracts/InheritanceVault.sol with no commit qualifier, so an independent auditor following it would review v2, not the deployed code. README:21 qualifies with 'at commit 5bbad6e', but contracts/v1/InheritanceVaultV1.sol says the deployed source is 'at git tag v1-base (commit b8baf34)', and no tag exists (`git tag` is empty). The two commits have identical contracts/, so both are right, but the docs disagree.",
+    "evidence": "README.md:189: \"trust-model header in [`contracts/InheritanceVault.sol`](contracts/InheritanceVault.sol) for exactly what that trades away.\" v2 header lines 47-57: \"raise it only after FEE_RAISE_DELAY of public notice … the supported tokens, which are the only assets a vault can hold\". AUDIT_SCOPE.md:54: \"- `contracts/InheritanceVault.sol`\". contracts/v1/InheritanceVaultV1.sol:6: \"contracts/InheritanceVault.sol at git tag v1-base (commit b8baf34)\". `git diff --stat b8baf34 5bbad6e -- contracts/` is empty.",
+    "fix": "In README (Lineage and Security status) and in AUDIT_SCOPE's in-scope list, name the live source explicitly: contracts/v1/InheritanceVaultV1.sol (identical except for the name and header), or contracts/InheritanceVault.sol at commit 5bbad6e/b8baf34. Label contracts/InheritanceVault.sol as 'v2, undeployed'. Use one commit reference everywhere, and create the v1-base tag or stop citing it."
+   },
+   {
+    "title": "Corrected AUDIT-2026-08-09 headline still miscounts: '10 defects fixed' while its own parenthesis lists 10 on-chain plus 16 off-chain fixes",
+    "severity": "low",
+    "location": "AUDIT-2026-08-09.md:12-15",
+    "problem": "F24 required the headline to match the itemised list. The on-chain tally is now right: HIGH A-02, B-01, B-02; MEDIUM A-01, A-03, B-03; LOW A-04, A-05, B-04, B-05. But the sentence gives the total as 10 and then lists 6 critical plus 2 high plus 2 medium off-chain findings and six more watcher fixes inside the same parenthesis. A reader sees '10 defects fixed' followed by about 26 items.",
+    "evidence": "AUDIT-2026-08-09.md:12-14: \"**Result:** 10 defects fixed (3 high, 3 medium, 4 low on chain; 6 critical, 2 high off chain itemised as W-01..W-05, B-06, B-07 and B-08, plus 2 medium off chain, B-09 and B-10, and the six round-one watcher fixes described without individual severities).\" The itemised headings (lines 30-173) confirm 10 on chain (3H/3M/4L) and 10 itemised off chain (W-01..05 and B-06 critical; B-07, B-08 high; B-09, B-10 medium), plus 'six high/medium' at line 97.",
+    "fix": "Reword it as: \"10 on-chain defects fixed (3 high, 3 medium, 4 low: …); off chain, 10 itemised watcher defects fixed (6 critical: W-01..W-05, B-06; 2 high: B-07, B-08; 2 medium: B-09, B-10) plus six further round-one watcher fixes without individual severities.\" The index FAQ's 'Ten defects … in the contract' already matches the on-chain count."
+   },
+   {
+    "title": "F29 incomplete: the index 'We turn evil' row and the FAQ do not list every admin power",
+    "severity": "low",
+    "location": "site/index.html:202-206; site/index.html:267-271",
+    "problem": "The plan's F29 disposition requires 'the full list of admin functions everywhere the admin is described'. The trust-table row names pause, fee change and sweep, but omits changing or unsetting the fee recipient and transferring administration. The FAQ omits two-step ownership transfer. how-it-works, security.html, the dead-man guide, README, SECURITY.md and AUDIT_SCOPE all list all five, so the homepage is inconsistent with them.",
+    "evidence": "index.html:202-203: \"We can pause <em>new</em> vault creation, change the fee within the limits below, and sweep surplus.\" (no setFeeRecipient, no ownership transfer). index.html:267-271: \"It can pause new vault creation, change the global claim fee …, change or unset the fee recipient, and sweep surplus\" (no transferOwnership). v1 admin functions: setClaimFee :757, setFeeRecipient :765, setCreationPaused :771, sweepSurplus :789, plus Ownable2Step transferOwnership.",
+    "fix": "Add 'change or unset the fee recipient' and 'hand administration to a new address (two-step)' to the row, and 'transfer administration in two steps' to the FAQ."
+   },
+   {
+    "title": "how-it-works says 'the other actions above stop working' at the horizon, which contradicts the next sentence",
+    "severity": "low",
+    "location": "site/how-it-works.html:107-110",
+    "problem": "The 'actions above' (line 103-106) include extending the horizon and withdrawing, and those are exactly the two things the next sentence says still end a claim. The sentence also overstates the v1 behaviour. Past the horizon a partial withdraw still succeeds, but it does not cancel the claim (withdraw :589-593). setBeneficiary and setInactivityPeriod still work when no claim is pending, because _clearPending reverts only in CLAIM_PENDING (:328-331).",
+    "evidence": "how-it-works.html:107-108: \"<strong>At or after the horizon</strong>, the ordinary veto and the other actions above stop working. Only two things end a claim: extending the horizon … or withdrawing the entire balance\". v1 :329: `if (block.timestamp >= v.absoluteDeadline && action != ACT_EXTEND_HORIZON) revert HorizonReached` applies only when state == CLAIM_PENDING. withdraw :581-593 closes on a full withdrawal and skips _clearPending past the horizon.",
+    "fix": "Replace it with: \"At or after the horizon, while a claim is pending, Veto claim, changing the heir, changing the inactivity period and installing a chain are refused, and a partial withdrawal no longer cancels the claim (the heir simply inherits less). Only two things end a claim: …\""
+   },
+   {
+    "title": "'the remaining values are void' is wrong: unused chain values work again if the owner key cancels the claim",
+    "severity": "low",
+    "location": "README.md:76-77; site/how-it-works.html:196-197",
+    "problem": "checkInByChain reverts only while state != ACTIVE (:552). If the owner's key later cancels the claim (abortClaim or another cancelling action), the vault returns to ACTIVE and every unused value, including a leaked one, is usable again. Calling them 'void' understates the F17 bearer-credential risk that the same paragraph tries to disclose. It also contradicts docs/CHECKIN-CHAIN.md, which correctly says a pending claim only 'holds them off'. (That wording is v2-specific there, but the same holds on v1 after an owner cancel.)",
+    "evidence": "README.md:76-77: \"Once the heir has started a claim the chain cannot stop it and the remaining values are void; only your wallet key can.\" how-it-works.html:197: \"the chain cannot stop it and its remaining values are void\". v1 :552: `if (v.state != STATE_ACTIVE) revert VaultNotActive` (a state check, not a burn). abortClaim :687-690 sets STATE_ACTIVE without touching hbAnchor or hbLeft.",
+    "fix": "Say: \"…the chain cannot stop it and its values cannot be used while the claim is pending. If your wallet key later cancels the claim, unused values work again, so a leaked seed stays dangerous until you install a new chain.\""
+   },
+   {
+    "title": "about.html and authors.html still describe review status without the preliminary audit",
+    "severity": "low",
+    "location": "site/about.html:63-73; site/authors.html:40-51",
+    "problem": "The docs task said 'wherever the site mentions audits or security status' it should mention the preliminary audit, not independent. about.html's 'Where the project stands' and the authors page's 'Current independent-review status' table were not updated. editorial-policy.html:59-60 says reviewer status 'is maintained on the authors and reviewers page', and that page does not list the September review, so it now disagrees with index, security, terms and the guides. Both files are outside the docs engineer's listed ownership, so this needs the lead's call.",
+    "evidence": "about.html:67: \"The contracts have an internal adversarial review but no completed independent audit.\" authors.html:47: \"<tr><td>Internal adversarial review</td><td>Completed and published, but not independent.</td></tr>\", with no row for the 2026-09 preliminary audit. Neither page links /audit.",
+    "fix": "Add a line to about.html and a row to authors.html: \"Preliminary audit (September 2026) | Performed by AI auditing agents at the project's request; not independent; 47 findings; /audit\". Keep 'Independent smart-contract audit: Not completed.'"
+   },
+   {
+    "title": "GitHub links will 404 or show pre-correction text until the branch reaches main",
+    "severity": "low",
+    "location": "site/how-it-works.html:195; site/index.html:303",
+    "problem": "how-it-works links to docs/CHECKIN-CHAIN.md on the main branch. That file is untracked locally, and origin/main is at eac6567, so the link 404s. The index FAQ links AUDIT-2026-08-09.md on main, which still shows the uncorrected 'five independent reviewers' and '12 defects' until the correction is merged. If the site deploys before the merge, the FAQ says 'Ten defects' and links to a report that says 12 and 'independent'.",
+    "evidence": "`curl -o /dev/null -w %{http_code} https://github.com/vinothkannaongc-prog/inheritance-vault/blob/main/docs/CHECKIN-CHAIN.md` gives 404. `git ls-remote origin` shows refs/heads/main at eac6567. AUDIT-2026-08-09.md on main returns 200 with the old text.",
+    "fix": "Merge the branch (with docs/, audit/ and the corrected report) to main before deploying the site, or link to the release tag (e.g. audit-2026-09-prelim) instead of blob/main. Record the order in the deploy checklist."
+   },
+   {
+    "title": "Admin fee power is worded as if the global rate itself cannot exceed a vault's ceiling",
+    "severity": "informational",
+    "location": "site/index.html:268; README.md:121",
+    "problem": "setClaimFee accepts any value up to 100 bps regardless of existing vaults' ceilings (:757-760). What the ceiling bounds is the rate charged to a given vault. The parenthesis attaches 'never above a vault's creation-time rate' to the global fee.",
+    "evidence": "index.html:268: \"change the global claim fee (never above 1%, and never above a vault's creation-time rate)\". README.md:121: \"change the global claim fee (≤ 1%, immediately, never above a vault's creation ceiling)\".",
+    "fix": "\"change the global claim fee (up to 1%, immediately); a vault is never charged more than its creation-time rate\"."
+   },
+   {
+    "title": "Cancel-action lists omit 'installing a check-in chain' on three surfaces",
+    "severity": "informational",
+    "location": "site/index.html:252-255; site/guides/dead-mans-switch-crypto.html:101-103; notify/watcher.js:163-165",
+    "problem": "Plan F03 lists 'set chain' among the actions that cancel a claim before the horizon (setCheckInChain :527-528 calls _clearPending). how-it-works.html:103-106, README.md:224-225 and the watcher's own comment include it, but the homepage FAQ, the dead-man guide and the ownerRemedy text do not, so the lists disagree. This is defensible because there is no app support, but it is inconsistent.",
+    "evidence": "dead-mans-switch-crypto.html:102-103: \"the cancelling actions are Veto claim, changing the heir, changing the check-in period, extending the horizon or any withdrawal.\" how-it-works.html:104-106: \"…changing the inactivity period, installing a check-in chain, extending the horizon, or withdrawing any amount.\"",
+    "fix": "Either add 'installing a new check-in chain (advanced)' to the three short lists, or say 'for example' so they are not read as exhaustive."
+   },
+   {
+    "title": "Check-in copy ignores the horizon cap and the past-horizon skip",
+    "severity": "informational",
+    "location": "notify/watcher.js:256-258; site/index.html:160-161",
+    "problem": "F18 requires saying that check-ins cannot extend past the horizon. The unchanged reminder still promises a full period, and the homepage says one click refreshes every vault with no pending claim. In v1, _resetClock clamps the deadline to the horizon (:302-306), and checkInMany also skips vaults at or past their horizon (:507).",
+    "evidence": "watcher.js:258: \"One transaction resets it for another ${inactivityPeriod/DAY} days\". index.html:160-161: \"One click refreshes every vault you own that has no claim pending.\"",
+    "fix": "watcher: \"…resets it, up to your horizon on <date>\". index: \"…every vault you own that has no claim pending and has not reached its horizon.\""
+   },
+   {
+    "title": "'The inactivity period can be raised at any time' overstates what a raise can do",
+    "severity": "informational",
+    "location": "site/how-it-works.html:91",
+    "problem": "setInactivityPeriod reverts past the horizon while a claim is pending (_clearPending :329), and a raise can never move the deadline beyond the horizon (_resetClock clamp). So 'raise it later' is not always available as a remedy, and it is capped.",
+    "evidence": "how-it-works.html:91: \"The inactivity period can be raised at any time; the challenge window cannot.\"",
+    "fix": "\"The inactivity period can be changed later (but a longer period never moves the deadline past the horizon); the challenge window can never be changed.\""
+   },
+   {
+    "title": "Unchanged overclaims left in the dead-man guide",
+    "severity": "informational",
+    "location": "site/guides/dead-mans-switch-crypto.html:50, :100, :189",
+    "problem": "The page was re-dated 'Last verified 26 September 2026' but keeps wording that the audit corrected elsewhere. 'your crypto goes to the person you chose' is the same automatic-inheritance implication the homepage hero dropped. 'weaker long-stop guarantee' calls the horizon a guarantee, contrary to F21. 'typically 30' days is an unsupported usage claim that sits next to the new '14 days or more' recommendation.",
+    "evidence": ":50 \"When the signals stop, your crypto goes to the person you chose.\" :189 \"The beneficiary has a weaker long-stop guarantee\". :100 \"minimum seven days, typically 30\".",
+    "fix": ":50 \"…the person you chose can claim it.\" :189 \"The beneficiary's long-stop comes later\". :100 \"minimum seven days; we suggest 14 or more\"."
+   },
+   {
+    "title": "sitemap lastmod not updated for the substantively revised pages",
+    "severity": "informational",
+    "location": "site/sitemap.xml:4-13",
+    "problem": "index, how-it-works, security, terms, privacy and three guides now show 26 September 2026 dates in their bylines or JSON-LD dateModified, but the sitemap keeps lastmod 2026-08-10. This is not a validate failure, but it disagrees with the pages. The sitemap is owned by the report fixer.",
+    "evidence": "sitemap.xml: \"<loc>https://willandkey.com/security</loc><lastmod>2026-08-10</lastmod>\" against security.html:30 \"Status checked 26 September 2026\". how-it-works JSON-LD has \"dateModified\":\"2026-09-26\".",
+    "fix": "Set lastmod 2026-09-26 for the pages that were revised (not for unchanged pages), in the same pass that adds /audit."
+   }
+  ],
+  "checked_ok": [
+   "Recomputed from eth_getCode on https://mainnet.base.org: InheritanceVault is 16,163 bytes, keccak 0x26a231771f3b5e7de6a09b3cd5a3e0d03fb5985d69b9bc4973db5f1e41af9733, SHA-256(raw bytes) 89ca53b6aaea87fba5e3e0df7019b316f8a44304ef64569ea5a4978c4f9e4d60. NotifySubscription is 2,108 bytes, keccak 0x67f23ec7…aec1, SHA-256 f2c577fd…bb61. All match security.html and AUDIT_SCOPE.md. SHA-256 of the hex text gives different values (9c1f51bc…, 1e7a100b…), consistent with the 'hash the bytes' warning.",
+   "All five handover tx hashes (security.html, README, deployments/base.json) exist with status 1. The from/to addresses and selectors match their labels (setFeeRecipient 0xe74b981b, transferOwnership 0xf2fde38b ×2 from the deployer, acceptOwnership 0x79ba5097 ×2 from the Ledger). Blocks 51709828-51710263 fall on 2026-09-24 UTC.",
+   "Live state: owner() = 0x883C821103B5415C53B11E584D3592205B5CdCA3 on both contracts, pendingOwner 0, feeRecipient = the Ledger, claimFeeBps = 50 (0.5%), creationPaused = false. The '0.5%' and 'fee recipient currently set to the hardware wallet' claims are correct.",
+   "The cancel and no-cancel lists (README, how-it-works, index FAQ, security, watcher) match v1: abortClaim, setBeneficiary, setInactivityPeriod, setCheckInChain, extendHorizon and withdraw call _clearPending or close the vault. checkIn reverts ClaimPendingUseAbort. checkInByChain and topUp revert VaultNotActive. checkInMany skips. Past the horizon, only extendHorizon (>= now + inactivityPeriod) or a full withdrawal ends a claim.",
+   "Horizon, long-stop and finalization wording (F13, F21) matches v1: the claim needs block.timestamp >= deadline, deadline is clamped to the horizon, finalizeClaim is permissionless after claimInitiatedAt + challengeWindow, and until it is mined the owner's cancelling actions still work.",
+   "Fee semantics (F05/F06/F07) match v1: the creation snapshot has no slippage bound, initiateClaim locks min(global, ceiling), finalize takes min(locked, current), there is no fee when feeRecipient == 0 at settlement, and a claim started with no recipient is charged if one is set before settlement.",
+   "Admin powers and pause scope (F32) in how-it-works, security, README, SECURITY.md, AUDIT_SCOPE and the dead-man guide match v1 (creationPaused is checked only in createVault; renounceOwnership reverts). The 'single Ledger key, not a multisig' disclosure is present, and 'planned multisig' is now only a recommendation.",
+   "Supported-token and unsupported-behaviour text (F01/F04/F10/F11/F12) matches v1 (_pull measures deposits, surplus() is per address, credit withdrawal is all-or-nothing, pooled balance). Scoped 'cannot take a wei' claims are qualified to ETH and supported single-address tokens everywhere.",
+   "Constants: inactivity 7 days to 3650 days, challenge window 7 to 365 days with no setter.",
+   "v1 build settings at 5bbad6e are Solidity 0.8.28, optimizer 200 runs, evmVersion cancun (hardhat.config.ts), as stated on security.html and AUDIT_SCOPE. Neither contract declares an immutable, so 'no immutable variables' holds.",
+   "Internal-review tallies: 3 high, 3 medium, 4 low on chain; 6 critical, 2 high and 2 medium itemised off chain. 'Two round-one fixes were incomplete' matches AUDIT-2026-08-09.md:106. The index FAQ's 'Ten defects … (3 high, 3 medium, 4 low)' is correct for the contract.",
+   "No page or doc describes v2 behaviour as live, or says the live contract is fixed. Every mention of the preliminary audit says 'AI auditing agents, at the project's request, not independent' and that an independent third-party audit is pending. The finding counts 47 (5/21/21) are consistent everywhere.",
+   "CSP: no inline style attributes, <style> blocks, inline executable scripts or event handlers in the changed pages. Only JSON-LD data blocks are present, and they parse. Anchors #tokens, #veto, #horizon, #fees (how-it-works) and #admin (security) exist.",
+   "notify/watcher.js passes node --check. LOG_PAGE = 9000 (about 5 h on Base at 2 s, under 2 h on BNB at 0.75 s) and HORIZON_WARN_DAYS = 30 match notify/README. The ownerRemedy texts match v1 before and after the horizon. The 'renew for you from any wallet' text is gone. 'no users' is consistent with a zero balance and no Subscribed events (digest F23 log scan).",
+   "Base forced inclusion 'up to about 12 hours' and the recommended challenge window of 14 days or more (F37) are stated consistently in README, how-it-works, security, index and the watcher.",
+   "The 'No alerts' disclosure (F40) is present in README, how-it-works, index, security, terms, privacy and the guides. The heir FAQ (F44/F36/F20) lists chain, contract, owner address, vault id, app URL, horizon, no-notification, 'trust only a known owner address' and 'payout address fixed at claim start'.",
+   "The GitHub repository vinothkannaongc-prog/inheritance-vault is public (HTTP 200), so repository links work once the files are on main."
+  ]
+ },
+ "report": [
+  {
+   "title": "Every GitHub evidence link and the reproduce steps point at tags that do not exist",
+   "severity": "high",
+   "location": "audit/2026-09-preliminary/REPORT.md:51, :78, :80, :108, :242-1382 (all 47 poc links), :1537; site/audit.html (56 unique github.com URLs, e.g. line 36 byline 'Evidence on GitHub')",
+   "problem": "The report cites tag `v1-base` and links every piece of evidence (47 PoCs, RESULTS-v1.md, CHANGELOG-v2.md, docs/CHECKIN-CHAIN.md, scripts/checkin-chain.ts, v2 InheritanceVault.sol, AUDIT-2026-08-09.md) under `blob/audit-2026-09-prelim/`. Neither tag exists locally or on origin. The remote branch agent/willandkey-hardening is at b8baf34; 5bbad6e and 90a7b83 are unpushed. Every linked file is untracked (??) or modified (M) in the working tree. The repo is PUBLIC, so published links would 404, and 'git checkout audit-2026-09-prelim' in Reproduce fails.",
+   "evidence": "`git tag -l` prints nothing. `git ls-remote --tags origin` prints nothing. `git ls-remote --heads origin` shows refs/heads/agent/willandkey-hardening = b8baf34fe53a... REPORT.md:51 says \"at commit [`b8baf34`](.../tree/b8baf34) (tag `v1-base`)\". REPORT.md:1537 says \"git checkout audit-2026-09-prelim\". Link-target check: all 55 tag paths exist only as working-tree files, e.g. OK[??] audit/2026-09-preliminary/poc/F01.ts, OK[??] CHANGELOG-v2.md, OK[ M] contracts/InheritanceVault.sol. `gh repo view` reports visibility PUBLIC.",
+   "fix": "Before publishing: commit every referenced file (audit/, contracts/v1/, contracts/audit/, test/helpers/, docs/, scripts/checkin-chain.ts, CHANGELOG-v2.md and the modified files). Create `v1-base` at b8baf34 and `audit-2026-09-prelim` at the release commit, push both tags and the branch, then click-test a sample of the links. Otherwise, rewrite the links to refs that exist."
+  },
+  {
+   "title": "The 35 'Mitigated on the live site' statuses describe changes that willandkey.com does not serve yet",
+   "severity": "high",
+   "location": "REPORT.md:25, :139, :161 and every 'On the live site and app' paragraph; site/audit.html same text; README.md 'published at https://willandkey.com/audit'",
+   "problem": "Every site, app and documentation mitigation exists only in the working tree. The live site still serves the pre-audit app and pages, and https://willandkey.com/audit returns the home page. If the report or the tag goes public before the site is deployed, all 35 'Mitigated on the live site' claims are false, and so is the In-short line 'the app shows full addresses ... and warns that no alerts are sent'.",
+   "evidence": "curl on 2026-09-27: https://willandkey.com/app contains \"Horizon - guaranteed inheritance date, even if check-in bots run fo[rever]\" (the working tree has \"Horizon (UTC date) - the long-stop ...\", site/app.html:116). A grep for \"no alerts\" matches 0 times across the live /, /app, /how-it-works, /security and /assets/app.js. https://willandkey.com/audit returns 200 with 16,668 bytes, the same size as the home page.",
+   "fix": "Release the site deploy (Cloudflare Pages) together with, or before, the tag and push. As a fallback, word the status as 'Mitigated in the site source (deployment pending)' until the deploy is verified live, for example by grepping the live /app for 'sends no alerts' and the live /audit for the report title."
+  },
+  {
+   "title": "F21 claims v2 corrected T3, but T3's over-promises are unchanged in v2",
+   "severity": "medium",
+   "location": "REPORT.md:748; site/audit.html:729; contracts/InheritanceVault.sol:34-41",
+   "problem": "F21 found that T3 over-promises in three ways. (1) 'The ONLY way past the date is extendHorizon' omits the full withdrawal. (2) 'at a cost of one full inactivity period per override' ignores that the owner can first cut the period to 7 days. (3) 'nothing can do it ... without bound' ignores that one call can move the horizon 100 years. v2 lines 34-41 match v1 lines 34-41 word for word. v2 only appended an F18 paragraph (lines 42-46). setInactivityPeriod still works past the horizon on an ACTIVE vault in v2 (lines 1136-1144), so the 7-day override the F21 PoC measured still holds there.",
+   "evidence": "REPORT.md:748: \"**In v2 source:** The contract comment (T3) was corrected; no behaviour change.\" v2 InheritanceVault.sol:37-41: \"The ONLY way past the date is extendHorizon, which needs the live owner key ... So a living owner can still override the date deliberately -- at a cost of one full inactivity period per override -- and nothing can do it silently or without bound.\" This text is identical to b8baf34:contracts/InheritanceVault.sol:37-41.",
+   "fix": "Either correct T3 in v2: name the full withdrawal, say 'at least one current inactivity period (min 7 days) per override, up to 100 years per call', and drop 'without bound'. Or change the report line to 'No change in v2; T3 still overstates, and the README and site carry the corrected wording'."
+  },
+  {
+   "title": "F29 claims v2's source comments were corrected, but three of the flagged comments are unchanged",
+   "severity": "medium",
+   "location": "REPORT.md:946; site/audit.html:920; contracts/InheritanceVault.sol:31, :603, :998",
+   "problem": "F29 flagged these NatSpec items: T1, T2 ('stuck until the horizon'; it should say permanently), T4, the _clearPending comment 'Any owner action supersedes a running claim' (false for checkIn, checkInMany and topUp), and the setCheckInChain comment 'would take a fee'. In v2 only T4 was rewritten; T1 was left alone by design. T2, _clearPending and the 'would take a fee' comment are verbatim v1.",
+   "evidence": "REPORT.md:946: \"**In v2 source:** The v2 source comments were corrected.\" v2 :31: \"lost beneficiary key means the funds are stuck until the horizon\". v2 :603: \"Any owner action supersedes a running claim: the owner acting IS the liveness proof\". v2 :998: \"checkInByChain reverts past the horizon, so installing a chain there would take a fee\". v2 setCheckInChain has no fee path, and checkIn still reverts ClaimPendingUseAbort before the horizon (v2 :891).",
+   "fix": "Fix the three comments in v2: T2 → 'stuck permanently; nothing is released at the horizon'; scope the _clearPending sentence to withdraw, setBeneficiary, setInactivityPeriod, setCheckInChain and extendHorizon; delete 'would take a fee'. Otherwise, reword the report to 'T4 was corrected; T2, the _clearPending NatSpec and the setCheckInChain comment still carry the old wording'."
+  },
+  {
+   "title": "The completeness-critic passes are misnumbered",
+   "severity": "low",
+   "location": "REPORT.md:104 and :1520; site/audit.html:128 and :1480",
+   "problem": "The workflow runs at most two critic passes: round 2 and round 3. The round-2 critic (the first pass) produced the 4 leads. The critic that failed three times on the session limit was critic:r3, the SECOND pass. The report calls it the third pass and says coverage rests on the second pass, when it actually rests on the first. There was never a third critic pass to skip.",
+   "evidence": "REPORT.md:104: \"Later, the third completeness-critic pass failed on an account session limit on all three attempts ... That third pass was not run again: the completeness check rests on the second critic pass alone.\" REPORT.md:1520: \"Its third completeness pass did not run\". audit-wf.js:252: `for (let round = 2; round <= 3; round++)`. audit-result.json logs: \"Critic round 2: 4 leads\" ... \"[critic:r3] failed: You've hit your session limit\" x3 ... \"Critic round 3: no leads, coverage judged complete\".",
+   "fix": "Say: 'the second and final critic pass (round 3) failed on an account session limit on all three attempts ... the completeness check rests on the first critic pass (round 2) alone', and in Limitations: 'Its second completeness pass did not run'."
+  },
+  {
+   "title": "F09 and Recommendation 8 say nobody could collect a message-passer payout, but the changelog says the deployer key could",
+   "severity": "low",
+   "location": "REPORT.md:448 and :1502; site/audit.html:441 and :1463",
+   "problem": "The report's own source says that value sent to Base's L2ToL1MessagePasser becomes collectable by code at the vault's address on L1, which the deployer key, sending from the deployment nonce, could create. That deployer is a hot key (0x4306…d986), not nobody. 'Nobody could collect it' understates who could take the value.",
+   "evidence": "REPORT.md:448: \"which would start a withdrawal to the vault's own address on Ethereum where nobody could collect it.\" REPORT.md:1502: \"where nobody can collect it\". CHANGELOG-v2.md:1480-1482: \"The value is then collectable only by code at the vault's address on L1. Only the deployer key, sending from the deployment nonce there, could put code at it.\" v2 NatSpec :127-128 says the same.",
+   "fix": "Reword both places to 'where only code deployed at the vault's address on Ethereum, which only the deployer key could create, could collect it'."
+  },
+  {
+   "title": "F09 overstates the app's contract-address confirmation",
+   "severity": "low",
+   "location": "REPORT.md:450; site/audit.html:442",
+   "problem": "The report says the app 'asks for an explicit confirmation for any address that has code'. That is true only for a claim payout address. A heir with code, at vault creation or at a heir change, gets a non-blocking warning note, with no checkbox or confirmation.",
+   "evidence": "REPORT.md:450: \"The app refuses the wrapped-native contract, the listed tokens and the vault itself as a payout address or heir, and asks for an explicit confirmation for any address that has code.\" site/assets/app.js:1422-1426 has an ack checkbox for the payout (actClaim). app.js:2040 (create) and :1165-1167 (heir change) only push [\"warn\", \"The heir's address is a smart contract...\"] into the notes.",
+   "fix": "Say 'asks for an explicit confirmation for a payout address that has code, and warns when a heir address has code'."
+  },
+  {
+   "title": "Site links that the report relies on point at blob/main, where the cited docs are missing or stale",
+   "severity": "low",
+   "location": "site/how-it-works.html (spec link), site/index.html (review report link); affects REPORT.md:273, :823 and :923",
+   "problem": "The report says the check-in chain spec is published (F02, F28) and that the 2026-08 review report carries a dated correction note (F24). A site visitor reaches these through blob/main links. main (eac6567) has no docs/CHECKIN-CHAIN.md and still has the uncorrected AUDIT-2026-08-09.md headline. These site files are outside this review's scope, but they make the report's live-site claims untrue until main is updated.",
+   "evidence": "site/how-it-works.html href=\"https://github.com/vinothkannaongc-prog/inheritance-vault/blob/main/docs/CHECKIN-CHAIN.md\". site/index.html href=\"https://github.com/vinothkannaongc-prog/inheritance-vault/blob/main/AUDIT-2026-08-09.md\". `git ls-remote --heads origin` shows refs/heads/main = eac6567. docs/ is untracked, and the AUDIT-2026-08-09.md correction is an uncommitted edit.",
+   "fix": "Point these site links at the audit-2026-09-prelim tag, or merge the release into main before the site deploy."
+  },
+  {
+   "title": "F23 wording implies the billing contract was deployed on 24 September",
+   "severity": "informational",
+   "location": "REPORT.md:790 and :1469; site/audit.html:769",
+   "problem": "The phrasing reads as if the deployment block is dated 24 September. NotifySubscription was deployed on 2026-08-09 (block 49,728,662); the log scan was run on 24 September.",
+   "evidence": "REPORT.md:790: \"A scan of its logs from its deployment block on 24 September 2026 found no payment ever made.\" REPORT.md:1469: \"(log scan from the deployment block, 24 September 2026)\". deployments/base.json: \"deployedAt\": \"2026-08-09T03:38:05.241Z\". verifiedSound: \"from its deploy block 49,728,662 to head\".",
+   "fix": "Say 'A scan on 24 September 2026 of its logs since deployment (block 49,728,662, 9 August 2026) found no payment ever made.'"
+  },
+  {
+   "title": "Minor wording inaccuracies in the mitigation text",
+   "severity": "informational",
+   "location": "REPORT.md:625, :675, :700, :750",
+   "problem": "(a) F16 says the home page tells users 'to submit at least a day early'. The home page says only 'mined strictly before the deadline'; How it works, the README and the generator do say 'a day early'. (b) F18 says the app reports when a check-in 'did not move the deadline'. app.js:925 prints 'Checked in, but it did not help' whenever the new deadline equals the horizon, including a check-in that did move it part of the way. (c) F19 says the owner card past the horizon replaces 'Change heir'. For an ACTIVE vault it still offers 'Change heir without extending' (app.js:1589), as F43 describes. (d) F21 quotes the field as \"Horizon (UTC date) - the long-stop\"; the actual label is 'Horizon (UTC date) - the long-stop after which check-ins stop working' (app.html:116).",
+   "evidence": "site/index.html:186-188: \"only check-ins mined strictly before the deadline count\" (no 'day early'). app.js:925: `if (vault && newDeadline !== undefined && newDeadline >= Number(vault.absoluteDeadline))`. app.js:1589: `if (state === 1) out.push(button(\"Change heir without extending\", ...))`.",
+   "fix": "(a) Drop 'the home page' from the day-early clause. (b) Say 'when a check-in left the deadline at the horizon'. (c) Qualify it: 'with a claim pending'. (d) Quote the full label or drop the quotation marks."
+  },
+  {
+   "title": "Small presentation and consistency gaps",
+   "severity": "informational",
+   "location": "REPORT.md:99, :134-143, :167, :206-214, :227, :1508-1513, :1420",
+   "problem": "(a) The status rubric defines six statuses, but the status lines also use 'By design' and 'Disputed' (F32, F34, F40), which it never defines. (b) 'Select a finding to open it.' makes sense only on the HTML page; in REPORT.md there is nothing to select. (c) 'Seven overlapping items ... were folded into existing findings': per audit-final.json dropped[], several went into the new round-2 findings F42, F46 and F40. (d) 'no admin transaction is waiting' sits beside an Admin actions table that lists a pending move to a multisig, which needs admin transactions. (e) F31 is listed only as 'Fixed in v2 source', though its text says notify/README.md (public documentation) was marked retired. F37 is marked 'Acknowledged', though the binding plan's disposition is DOC only. (f) Verification lines omit that the reachability skeptic set by_design_and_disclosed=true for F07, F15, F16, F17, F26, F40, F42 and F43. (g) The sound property 'The surplus sweep cannot touch ETH ... or credits' does not cross-reference F09, where an heir's ETH credit ends up swept.",
+   "evidence": "audit-final.json dropped[0..6], reasons: \"Merged into F42\", \"Moved into F46\", \"Kept as recommendations inside F40\". REPORT.md:167: \"so no admin transaction is waiting\". REPORT.md:1512: \"Move the admin role and fee recipient to a multisig | [F29](#f29) | Recommended, pending.\" The remediation plan's F37 row: \"DOC: veto inclusion depends on the sequencer...\" (no ACK).",
+   "fix": "Add 'By design' and 'Disputed' to the rubric. Render 'Select a finding to open it' only in the HTML. Say 'folded into other findings'. Say 'no finding is waiting on an admin transaction'. Optionally add F09 to the sweep property. Decide F31 and F37 against the rubric and the plan."
+  },
+  {
+   "title": "Every evidence link and the reproduce steps point at git tags that do not exist yet, and the page says one of them already exists",
+   "severity": "high",
+   "location": "site/audit.html:29, :85, :106, :1492 (and 55 GitHub hrefs); also audit/2026-09-preliminary/README.md:82 and poc/RESULTS-v1.md:6",
+   "problem": "55 GitHub links use blob/tree/audit-2026-09-prelim/..., and the page says the deployed source is at \"(tag v1-base)\". Neither tag exists locally or on origin. If the page goes out before both tags are pushed, every piece of evidence 404s, `git checkout audit-2026-09-prelim` fails, and the claim that the source is at tag v1-base is false. For a page whose case rests on \"security claims should be reproducible\", that is the first thing a skeptic would check.",
+   "evidence": "`git tag -l` returns nothing. `git ls-remote origin` returns only HEAD, refs/heads/{agent/willandkey-hardening (b8baf34), main (eac6567), seo-fix/...} and refs/pull/1/*, with no refs/tags. Page line 85: \"<code>contracts/InheritanceVault.sol</code> at commit ... <code>b8baf34</code></a> (tag <code>v1-base</code>)\". Line 1492: \"git checkout audit-2026-09-prelim\". All 56 linked paths do exist in the working tree, and none is gitignored (`git check-ignore` exit 1). The repo is public, so these links are the ones readers will follow.",
+   "fix": "Make this a publish gate. First commit audit/, CHANGELOG-v2.md, docs/, scripts/checkin-chain.ts and the rest. Then create and push `v1-base` at b8baf34 and `audit-2026-09-prelim` at the commit that holds the evidence suite. Deploy the page only after that. Alternatively, drop \"(tag v1-base)\" and link to the commit only. Afterwards, curl a sample of the 55 URLs anonymously."
+  },
+  {
+   "title": "Scope overstates how thoroughly the app, watcher and scripts were reviewed",
+   "severity": "medium",
+   "location": "site/audit.html:57 and :89",
+   "problem": "The page says the agents \"reviewed ... the web app, the retired reminder watcher\" and lists the app, watcher and deploy scripts as \"Also in scope\". The audit brief's \"In scope\" named only the three contract files, and its context files did not include app.js, app.html, watcher.js or the scripts. None of the ten lenses was a frontend or ops lens. The app was reached only where a lens followed a public claim or a round-2 hunt went (F19, F41, F46, F47). Nothing checked frontend security: script integrity of the vendored ethers.js, DOM injection, RPC-response trust, or wallet interaction. A reader will assume the app got a security review, and it did not.",
+   "evidence": "Line 57: \"AI auditing agents reviewed the live contract, the retired reminder-billing contract, the web app, the retired reminder watcher and the public documentation.\" Line 89: \"Also in scope, at the same commit: ... the web app (<code>site/app.html</code>, <code>site/assets/app.js</code>); the retired reminder watcher ...; the deploy and admin-transfer scripts\". scratchpad/audit-wf.js CONTEXT: \"In scope:\" lists only InheritanceVault.sol, NotifySubscription.sol and TestHelpers.sol. Context files: README, AUDIT-2026-08-09, AUDIT_SCOPE, tests, and three site pages. The lens keys have no frontend lens.",
+   "fix": "Split the scope in two. Primary scope: the two deployed contracts. Examined where a lens or hunt led there, not reviewed systematically: the app, the watcher, the scripts and the public documents. Add to Out of scope or Limitations: \"There was no frontend security review (script integrity, DOM injection, RPC trust, wallet interaction).\" Change line 57 to match."
+  },
+  {
+   "title": "Status box plays down that the author is an AI, and the page never says whether any human reviewed the work",
+   "severity": "medium",
+   "location": "site/audit.html:35 (vs :1479)",
+   "problem": "The box most people will read says the code was \"written with AI assistance\", which suggests a human author with some help. The Limitations section, much further down, says the auditors and the code's author are the same kind of AI system. Nowhere does the page say whether any human security reviewer looked at the code, the findings, the severities or this report. A journalist or professional auditor will ask that first.",
+   "evidence": "Line 35: \"The code was also written with AI assistance, so the reviewer is not independent of the author.\" Line 1479: \"The auditors and the code's author are the same kind of AI system (Anthropic's Claude), so they may share blind spots.\" The audit brief itself calls AUDIT-2026-08-09 \"a previous INTERNAL review by the same system that wrote the code\".",
+   "fix": "In the status box, say: \"The code was written by the same kind of AI system (Anthropic's Claude) that performed this audit.\" Add one plain line stating whether any human reviewed it. If none did: \"No human security auditor reviewed the code, the findings or this report.\""
+  },
+  {
+   "title": "F01 is rated Medium although the published rubric reads as High, and the skeptic's conditions for High are left out",
+   "severity": "medium",
+   "location": "site/audit.html:141 (rubric), :246 (F01 Verification), :59",
+   "problem": "The rubric published on the page defines High as including \"the admin able to reach user funds\". F01 is the admin sweeping every vault balance in an affected token. The page rates it Medium and gives no reason. The severity skeptic wrote that the rubric points to High and that the finding should be raised to High in two named situations. The page says only that the skeptic \"proposed Medium\". An auditor comparing the rubric with F01 will read this as quiet downgrading, and \"None was rated critical or high\" (line 59) inherits that doubt.",
+   "evidence": "Line 141: \"High ... Theft or freezing under plausible conditions, the admin able to reach user funds, or ...\". Line 246: \"the severity skeptic did not refute it and proposed Medium. Final severity: Medium.\" audit-final.json F01.sev.reasoning: \"Under the rubric, 'admin able to reach user funds' points to HIGH. But the precondition, a token class not known to exist on the target chains, fits MEDIUM ... It should be raised to HIGH on any deployment to a facade chain ... It should also be raised to HIGH if a token the app promotes gains a second entry point.\"",
+   "fix": "Add to F01's Verification: \"The rubric's High covers the admin reaching user funds. It was rated Medium because it needs a token with a second entry point, and none is known on Base or BNB Chain today. The severity skeptic noted that it becomes High on a chain whose native coin has a token address (such as Celo), or if a listed token gains a second entry point.\" Optionally make the High rubric line say that \"under plausible conditions\" applies to every clause."
+  },
+  {
+   "title": "\"Open 0 / none\" and \"no admin transaction is waiting\" can be quoted as \"nothing left to fix\"",
+   "severity": "medium",
+   "location": "site/audit.html:171-174",
+   "problem": "The status table ends with \"Needs an admin transaction 0 none\" and \"Open 0 none\", and the next sentence says no admin transaction is waiting. Under the page's own definitions both are accurate. But all contract behaviours are still live, seven contract findings have nothing at all done for the live contract, and the Admin actions table (lines 1472-1474) lists a pending signed commitment and a recommended multisig move. A skim-reader, or a journalist, will quote \"0 open findings\".",
+   "evidence": "Line 172: \"<tr><td>Open</td><td>0</td><td>none</td></tr>\". Line 174: \"The admin transaction for F23 was signed on 26 September 2026, so no admin transaction is waiting.\" Line 1473: \"Move the admin role and fee recipient to a multisig ... Recommended, pending.\"",
+   "fix": "Add a first row to the status table, \"Behaviour still present in the live contract\", with its count and IDs. Rename \"Open\" to \"Nothing changed anywhere\". Change the sentence to: \"No finding is waiting on an admin transaction; the admin actions recommended below (a signed fee commitment, a multisig) are still pending.\""
+  },
+  {
+   "title": "Readers cannot check what was left out, and one exclusion instruction is not disclosed",
+   "severity": "medium",
+   "location": "site/audit.html:1477-1487 (Limitations), :135, :1465",
+   "problem": "The report was compiled from a machine-readable record that is not published. Recommendation 9 asks for it to be published, which admits this, but Limitations never says that readers cannot currently verify that no finding was omitted or softened. Those include the 7 round-2 items folded into other findings and the raw texts behind the plain-words rewrites. Separately, the audit brief told the auditors not to report a known item, and the page does not say so. Separately again: if the record is published, its summary string reads \"independent-style audit\". Rewrite or annotate it first.",
+   "evidence": "Line 135: \"compiled ... from the audit's machine-readable record\". Line 1465: \"publish the machine-readable audit record ... so every number in this report can be checked from source.\" scratchpad/audit-wf.js line 76: \"Note security.html still says admin has not been transferred to a cold wallet; that is known and will be updated, do not report it.\" (F29 covered it anyway.) audit-result.json summary: \"Preliminary independent-style audit of Will & Key contracts ...\".",
+   "fix": "Add a Limitations bullet: \"The full audit record (raw findings, both skeptics' verdicts, the 7 items folded into other findings, the run log) is not yet published, so readers cannot yet check that nothing was left out. The auditors were told not to report one known stale statement (the admin status on the security page); F29 covers it anyway.\" Better still, publish the record before the page, with the \"independent-style\" summary string corrected."
+  },
+  {
+   "title": "\"An independent audit is still pending\" suggests one has been commissioned",
+   "severity": "medium",
+   "location": "site/audit.html:36",
+   "problem": "\"Still pending\" reads as if an independent audit is booked or under way. The security page words it more accurately. If no auditor has been engaged, this line over-reassures, and it sits in the most prominent box on the page.",
+   "evidence": "Line 36: \"<li>An independent audit is still pending.</li>\". site/security.html:154: \"No independent third-party audit has been completed.\"",
+   "fix": "If none has been engaged: \"No independent audit has been commissioned yet.\" If one has, name the firm and the expected date."
+  },
+  {
+   "title": "\"Mitigated on the live site\" is true only once the site deploy and the push to main happen alongside the page",
+   "severity": "medium",
+   "location": "site/audit.html:62, :149-150 (status definitions), F12 :514, F24 :801, F29 :921",
+   "problem": "The page describes app and documentation changes as present on the \"live site\", and says the README, SECURITY.md, AUDIT_SCOPE.md and AUDIT-2026-08-09 headline now say the right thing. None of that is deployed. site/app.html, app.js and the docs are uncommitted, and GitHub's default branch `main` is at eac6567, so the repo front page still shows the old README (\"any ERC-20\", \"cannot touch a wei\"). If the page is published before or without those changes, 35 \"Mitigated on the live site\" labels are false.",
+   "evidence": "`git status`: M site/app.html, site/assets/app.js, README.md, SECURITY.md, AUDIT_SCOPE.md, AUDIT-2026-08-09.md. `git ls-remote origin`: refs/heads/main = eac6567. Line 921: \"The site, README, SECURITY.md and AUDIT_SCOPE.md describe the admin as one Ledger key ...\".",
+   "fix": "Deploy the page in the same Pages upload as the app and doc changes, never on its own. Push the doc changes to `main` (not only to the tag) before or at publication. Alternatively, point the README/SECURITY.md claims at the tag."
+  },
+  {
+   "title": "Summary calls a Medium, decades-long delay to the heir \"delays or nuisance\"",
+   "severity": "low",
+   "location": "site/audit.html:60",
+   "problem": "F02 is Medium. A stranger holding a leaked value can hold off a dead owner's heir until the horizon: 20 years by the app's default, up to 100. Grouping it with 1-wei griefing (F22) and spam (F36) as \"delays or nuisance\" softens it.",
+   "evidence": "Line 60: \"Strangers can cause delays or nuisance (<a href=\"#f02\">F02</a>, <a href=\"#f22\">F22</a>, <a href=\"#f36\">F36</a>)\". Line 265 (F02 Impact): \"delaying the heir up to the horizon (up to 100 years; the app's default was 20)\".",
+   "fix": "\"A stranger holding a leaked check-in-chain value can delay an heir by years, up to the horizon (F02, only for chains built by hand); strangers can also cause nuisance (F22, F36) and, in narrower cases, freeze a payout (F04, F08).\""
+  },
+  {
+   "title": "\"Blocks look-alikes\" claims more than the app does",
+   "severity": "low",
+   "location": "site/audit.html:71",
+   "problem": "The app blocks only addresses that share their first or last 4 hex characters with the owner's own wallet or an heir the owner already uses. A poisoned look-alike of a new heir, for example on someone's first vault, has nothing to be compared with and is not blocked. The F41 detail (line 1210) describes this accurately; the summary does not.",
+   "evidence": "Line 71: \"The app now shows full addresses and blocks look-alikes; still confirm the address with your heir.\" site/assets/app.js:424: `lookalikeOf(heir, [S.account, ...heirs.map((known) => known.address), ...extra])`. app.js:65: `LOOKALIKE_HEX = 4`.",
+   "fix": "\"The app now shows full addresses and blocks addresses that imitate an heir you already use or your own wallet; it cannot recognise a look-alike of a new heir, so confirm the full address with your heir.\""
+  },
+  {
+   "title": "Naming Anthropic's Claude can read as Anthropic performing or endorsing the audit",
+   "severity": "low",
+   "location": "site/audit.html:34, :119, :1479",
+   "problem": "\"by AI auditing agents (Anthropic's Claude, ...)\" in the status box could be read as Anthropic having audited the project. Nothing on the page says the project owner ran the tool and that Anthropic had no role.",
+   "evidence": "Line 34: \"Performed 24–26 September 2026 by AI auditing agents (Anthropic's Claude, orchestrated as a multi-agent review) at the project owner's request.\"",
+   "fix": "\"Run by the project owner using Anthropic's Claude models as a multi-agent review. Anthropic did not perform, review or endorse this audit.\""
+  },
+  {
+   "title": "\"Lead auditor\", \"reviewers\" and \"separate reviewer\" are not identified as AI agents",
+   "severity": "low",
+   "location": "site/audit.html:122 vs :125, :1459, :1484, :1486",
+   "problem": "Step 2 says \"A lead agent\", but step 5 and the Limitations say \"the lead auditor\", and recommendation 4 says \"The reviewers lean towards pausing\". Readers will take these to be human professionals. In the workflow they are all AI agents: the lead is the orchestrating Claude session.",
+   "evidence": "Line 125: \"The lead auditor set each finding's final severity\". Line 1486: \"the final severities are the lead auditor's.\" Line 1459: \"The reviewers lean towards pausing if v2 is expected within months.\" Line 1484: \"checked by a separate reviewer in a browser\".",
+   "fix": "Use \"the lead AI agent\" (or define \"lead auditor\" once as an AI agent). Write \"the AI reviewers who compiled this report recommend pausing ...\" and \"a separate AI agent\"."
+  },
+  {
+   "title": "The \"if you use it today\" advice recommends USDC and EURC without the issuer-freeze caveat",
+   "severity": "low",
+   "location": "site/audit.html:75",
+   "problem": "The practical-advice list tells users to use USDC or EURC. F12 says a single issuer action freezes every vault in such a token, and advises preferring assets without issuer powers or splitting an estate. The advice list leaves that out.",
+   "evidence": "Line 75: \"Use ETH, or a token the app lists by name (on Base: USDC, WETH, cbBTC, EURC). Do not use other tokens.\" Line 516 (F12): \"Prefer assets without them, or split an estate across assets.\"",
+   "fix": "Append: \"USDC and EURC can be frozen by their issuer for every vault at once (F12); consider ETH or splitting across assets.\""
+  },
+  {
+   "title": "Absolute \"None\" residual risk for app mitigations that no current test verifies",
+   "severity": "low",
+   "location": "site/audit.html:684 (F19), :732 (F21), :1329 (F46), :1352 (F47)",
+   "problem": "Four residual-risk entries say \"None in the app\" or \"None in our interfaces\". The Limitations section says the app PoCs no longer measure the fixes, and that the app was checked only by an AI browser review with a simulated wallet, never with real wallets or on mainnet.",
+   "evidence": "Line 684: \"None in the app.\" Line 732: \"None in our interfaces.\" Line 1484: \"So these files do not currently show whether the app and documentation fixes work ... they have not been tested with real wallets or on mainnet.\"",
+   "fix": "\"None known in the app (checked in a browser review against a local v1, not by the PoC; see Limitations).\""
+  },
+  {
+   "title": "\"Each was fixed\" overstates the review rounds, and the two open design questions do not match the changelog",
+   "severity": "low",
+   "location": "site/audit.html:132 vs :1457",
+   "problem": "Three of the 34 review items kept their design and only had their documentation corrected: R1#5 (F20), R2#3 (F20) and R3#4 (F08). The two items the changelog flags as lead decisions are both about F20. Recommendation 2 instead names F20 and the F33 view guard, which the changelog flags for the lead in pass 1, not in a review round.",
+   "evidence": "Line 132: \"All 34 were confirmed; each was fixed in code, tests or documentation, and two design questions were left to the maintainer.\" CHANGELOG-v2.md:1137 \"NatSpec CORRECTED, design kept, LEAD DECISION FLAGGED\"; :1435 \"behaviour pinned, LEAD DECISION FLAGGED\"; :1740 \"NatSpec CORRECTED, design kept\"; :148 \"Known consequence, flagged for the lead\" (F33).",
+   "fix": "\"All 34 were confirmed. 31 were fixed in code or tests. In 3, the design was kept on purpose and its documentation corrected. Two design questions (F20's cancel, and the F33 view-guard cost flagged in pass 1) are left to the maintainer.\""
+  },
+  {
+   "title": "Finding links land on a closed row, and printing drops every finding body",
+   "severity": "low",
+   "location": "site/audit.html (about 150 href=\"#fNN\" links; details.finding) and site/assets/style.css print block",
+   "problem": "Each id sits on the <details> element itself. Following a cross-reference, or a shared link such as /audit#f41, lands on a collapsed row, so the reader has to click again. Print or save-as-PDF has no way to open the rows, so a printed copy (a journalist's or reviewer's file) contains only the 47 one-line summaries.",
+   "evidence": "In the browser, a fresh load of http://localhost:8123/audit#f41 (after navigating from /security) gave `document.getElementById('f41').open === false` with 0 details open. The @media print block only hides the summary icon and the status-box background.",
+   "fix": "Move each id onto the finding body (Chromium auto-expands details for a fragment inside the hidden content), or accept the extra click and say \"select to open\" near cross-references. Link audit/2026-09-preliminary/REPORT.md as the printable full text."
+  },
+  {
+   "title": "Meta description (the search snippet) leaves out \"not independent\"",
+   "severity": "low",
+   "location": "site/audit.html:7",
+   "problem": "The <title> and the meta description are what searchers see, without the status box. The OG description says \"Not independent\"; the meta description does not.",
+   "evidence": "Line 7: \"The September 2026 preliminary audit of Will &amp; Key by AI agents: 47 findings with evidence, what changed, and what still applies to the live contract.\" (154 chars).",
+   "fix": "\"Preliminary, not independent: an AI-agent audit of Will &amp; Key (Sept 2026). 47 findings, evidence, what changed and what still applies to the live contract.\" (159 chars measured raw, under the validator's 160 limit)."
+  },
+  {
+   "title": "F40 says \"and the guides\", but only two of the five guides carry the no-alerts statement",
+   "severity": "informational",
+   "location": "site/audit.html:1186",
+   "problem": "This implies every guide says it. Only crypto-inheritance-planning and dead-mans-switch-crypto contain \"no alerts\". never-put-seed-phrase-in-will does not, and the pillar guide is off-limits for edits.",
+   "evidence": "Line 1186: \"now appears in the app's banner, in a required acknowledgement before creating a vault, and on How it works, the security page and the guides\". `grep -l -i \"no alerts\" site/guides/*.html` → crypto-inheritance-planning.html and dead-mans-switch-crypto.html only.",
+   "fix": "\"... and in the two guides this finding named\"."
+  },
+  {
+   "title": "F23's log-scan sentence reads as if the contract was deployed on 24 September",
+   "severity": "informational",
+   "location": "site/audit.html:769 (and :1432)",
+   "problem": "NotifySubscription was deployed on 9 August 2026. The scan was run on 24 September. As written, it also leaves 24–26 September unscanned while claiming \"no payment ever made\". I scanned that window: the claim holds.",
+   "evidence": "Line 769: \"A scan of its logs from its deployment block on 24 September 2026 found no payment ever made.\" deployments/base.json at b8baf34: \"deployedAt\": \"2026-08-09T03:38:05.241Z\". My read-only scan of blocks 51,710,264 to 51,823,544 found 1 log: the kill-switch price change at 51,823,544. Contract balance now: 0.",
+   "fix": "\"A log scan from its deployment block (9 August 2026) through the kill-switch transaction found no payment ever made.\""
+  },
+  {
+   "title": "The site redesign and the pillar-guide refresh came after the audited commit; the page does not say so",
+   "severity": "informational",
+   "location": "site/audit.html:89, :119, :130",
+   "problem": "The audit read b8baf34. The live site since 26 September is 5bbad6e (the redesign: index.html +105 lines, app.html 32 lines, _headers, 858 lines of CSS) plus 90a7b83. RESULTS-v1.md shows the app and doc PoCs ran against 5bbad6e. The app.js change is aria-only, but readers should know which site was examined.",
+   "evidence": "`git diff --stat b8baf34 5bbad6e`: 22 files, +949 −209, including site/_headers, site/app.html, site/index.html. RESULTS-v1.md: \"HEAD `5bbad6e` ... the app, doc and script PoCs below record the v1 state at `5bbad6e`\".",
+   "fix": "Add to Scope: \"The site redesign (5bbad6e, live 26 September) and a guide refresh (90a7b83) came after the audited commit and were not audited, except where the evidence suite reads those files.\""
+  },
+  {
+   "title": "Numbers that depend on the working tree must be re-measured at the tagged commit",
+   "severity": "informational",
+   "location": "site/audit.html:106, :1504",
+   "problem": "Other agents are editing v2 and its tests right now. The figures 1,548 lines, 20,928 bytes, \"237 passing\" and \"48 passing ... 120 failing\" match the working tree and the scratchpad logs today, but they can drift before the commit is tagged.",
+   "evidence": "`wc -l contracts/InheritanceVault.sol` = 1548 (matches now). scratchpad/report-v2-tests.log \"237 passing\"; report-v1mode-tests.log \"48 passing / 120 failing\"; CHANGELOG-v2.md:1617 \"20,928 bytes\".",
+   "fix": "The lead should re-run `npx hardhat test`, the VAULT_IMPL=v1 run and the size measurement on the exact commit to be tagged, and update the page if anything moved."
+  },
+  {
+   "title": "F38's \"no fuzz or invariant tests\" sits oddly next to the randomized accounting test",
+   "severity": "informational",
+   "location": "site/audit.html:1138 vs :1361, :1481",
+   "problem": "F38's residual says there are no fuzz or invariant tests. The sound-properties list cites a randomized invariant test (3 seeds, 400 operations), and Limitations says \"apart from one randomized accounting test\". Readers cannot tell whether that test is in the repository suite or was an audit sandbox check.",
+   "evidence": "Line 1138: \"There are still no fuzz or invariant tests\". Line 1361: \"and by a randomized test (3 seeds, up to 400 operations ...)\".",
+   "fix": "Say where the randomized test lives, for example: \"(an auditor's sandbox test, not part of the repository suite)\"."
+  }
+ ]
+}

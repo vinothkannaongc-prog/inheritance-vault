@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
-{"@type":"Article","headline":"What Is a Dead Man's Switch for Crypto?","description":"How the mechanism works on chain, what it protects against and what it cannot protect against.","image":"https://willandkey.com/assets/social/dead-mans-switch.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-08-10T17:00:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/dead-mans-switch-crypto"},
+{"@type":"Article","headline":"What Is a Dead Man's Switch for Crypto?","description":"How the mechanism works on chain, what it protects against and what it cannot protect against.","image":"https://willandkey.com/assets/social/dead-mans-switch.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-09-26T12:00:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/dead-mans-switch-crypto"},
 {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://willandkey.com/guides/"},{"@type":"ListItem","position":3,"name":"Crypto dead man's switch","item":"https://willandkey.com/guides/dead-mans-switch-crypto"}]}
 ]}
 </script>
@@ -47,13 +47,13 @@
 <article class="article">
 <h1>What is a dead man's switch for crypto?</h1>
 <p class="standfirst">A mechanism as old as locomotives, rebuilt in smart-contract form: as long
-as you keep signaling "I'm here," nothing happens. When the signals stop, your crypto goes to
-the person you chose. Here's exactly how it works — and the hard questions to ask anyone
+as you keep signaling "I'm here," nothing happens. When the signals stop, the person you chose
+can claim your crypto. Here's exactly how it works — and the hard questions to ask anyone
 selling you one.</p>
-<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 10 August 2026 · <a href="/editorial-policy">Editorial policy</a></p>
+<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 26 September 2026 · <a href="/editorial-policy">Editorial policy</a></p>
 
 <div class="answer-box"><p><strong>Direct answer:</strong> a crypto dead man's switch is a time-based transfer mechanism. The owner periodically proves activity; after a configured silence period, a named beneficiary may start a claim; a separate challenge window lets the owner cancel a false trigger before settlement.</p></div>
-<p class="review-note"><strong>Review status:</strong> technically reviewed against the deployed Will &amp; Key contract and tests on 10 August 2026. No independent smart-contract auditor or lawyer has approved this guide.</p>
+<p class="review-note"><strong>Review status:</strong> technically reviewed against the deployed Will &amp; Key contract source on 26 September 2026, after its <a href="/audit">preliminary audit</a>. No independent smart-contract auditor or lawyer has approved this guide.</p>
 
 <section class="key-takeaways" aria-labelledby="takeaways">
 <h2 id="takeaways">Key takeaways</h2>
@@ -97,12 +97,19 @@ anything can happen.</li>
 <li><strong>Claim.</strong> If the timer truly runs out, your heir — and only the wallet you
 named — can initiate a claim.</li>
 <li><strong>Challenge window.</strong> The claim doesn't settle instantly. A veto period runs
-(in Will &amp; Key's case, minimum seven days, typically 30) during which any action from your
-wallet cancels the claim and resets everything. This is the safeguard against the hospital
-scenario: being unreachable is not being dead.</li>
-<li><strong>Settle.</strong> Window passes with no veto → the transfer finalizes. It cannot be
-blocked, reversed, or intercepted by anyone at that point — including the people who built the
-contract.</li>
+(in Will &amp; Key's case, minimum seven days; we suggest 14 or more) during which you can cancel
+the claim. This is the safeguard against the hospital scenario: being unreachable is not being
+dead. In Will &amp; Key, before your horizon, the cancelling actions are Veto claim, changing the
+heir, changing the check-in period, installing a new check-in chain (advanced), extending the
+horizon or any withdrawal. A check-in or a top-up does
+<em>not</em> cancel a claim, and ordinary wallet activity does not count; at or after the horizon
+only extending the horizon or withdrawing everything works. The window only protects you if you
+notice it: Will &amp; Key sends no alerts of any kind, so nobody will notify you if a claim is
+filed.</li>
+<li><strong>Settle.</strong> Once the window has run, anyone can finalize the transfer. Finalizing
+is a transaction, not an automatic event: until it is mined, your key can still cancel, so an heir
+should finalize promptly. After finalization, nobody can reverse it or redirect the funds —
+including the people who built the contract.</li>
 </ol>
 
 <div class="process-flow" aria-label="Dead man's switch stages">
@@ -119,8 +126,8 @@ contract.</li>
 <tr><td>0</td><td>Owner checks in</td><td>Inactivity deadline becomes day 90</td></tr>
 <tr><td>90</td><td>Deadline passes with no owner activity</td><td>The named beneficiary becomes eligible to initiate a claim</td></tr>
 <tr><td>91</td><td>Beneficiary initiates</td><td>A 30-day challenge window starts; funds do not transfer yet</td></tr>
-<tr><td>100</td><td>Owner proves activity</td><td>The pending claim is cancelled under the contract's owner-action rules</td></tr>
-<tr><td>121</td><td>If no valid veto occurred</td><td>The claim can be finalized according to the contract</td></tr>
+<tr><td>100</td><td>Owner presses Veto claim</td><td>The pending claim is cancelled and the clock restarts (a plain check-in would not cancel it)</td></tr>
+<tr><td>121</td><td>If no valid veto occurred</td><td>Anyone can finalize; until someone does, the owner's key can still cancel</td></tr>
 </table>
 <p>This example is explanatory, not a recommended timer. Hospitalization, travel, hardware loss,
 network congestion and the beneficiary's own availability all affect a sensible margin.</p>
@@ -129,12 +136,12 @@ network congestion and the beneficiary's own availability all affect a sensible 
 <p>Honest implementations are explicit about both columns:</p>
 <table>
 <tr><th>Protects against</th><th>Cannot protect against</th></tr>
-<tr><td>Death or permanent incapacity (the funds reach your heir)</td>
+<tr><td>Death or permanent incapacity (your heir can claim the funds)</td>
 <td>A stolen owner key (a thief with your key is indistinguishable from you)</td></tr>
 <tr><td>Your own lost key (stop checking in, heir inherits — a built-in recovery path)</td>
 <td>A lost <em>heir</em> key after you're gone (keep the heir's address current while alive)</td></tr>
 <tr><td>Custodian failure (there is no custodian)</td>
-<td>Forgetting to check in <em>and</em> ignoring every warning (that's what the challenge window and reminders are for)</td></tr>
+<td>Forgetting to check in <em>and</em> never looking during the challenge window (Will &amp; Key sends no warnings of any kind)</td></tr>
 <tr><td>Seed-phrase leakage via paperwork (no secret is ever shared — see
 <a href="/guides/never-put-seed-phrase-in-will">why not a will</a>)</td>
 <td>Chain-level catastrophe (any on-chain asset shares its chain's fate)</td></tr>
@@ -143,23 +150,35 @@ network congestion and the beneficiary's own availability all affect a sensible 
 <h2 id="evaluation">The questions to ask any dead man's switch</h2>
 <ul>
 <li><strong>"Can the operator touch my funds?"</strong> The only acceptable answer is a provable
-no — in Will &amp; Key's contract, vault balances are arithmetically outside the admin's reach,
-and that's verifiable in the source, not a policy promise.</li>
+no, and ask which assets it covers. In Will &amp; Key's contract, vault balances in ETH and
+<a href="/how-it-works#tokens">supported single-address tokens</a> are arithmetically outside the
+admin's reach, and that's verifiable in the source, not a policy promise. The contract accepts any
+token, though, and for unsupported tokens (rebasing, reachable through two addresses, and similar)
+the guarantee does not hold.</li>
 <li><strong>"What happens if the company disappears?"</strong> The contract must keep working
 with the website gone. Claims must be finalizable by anyone, not by the operator's server.</li>
 <li><strong>"Can the fee change under me?"</strong> Look for a hard cap in the bytecode and a
 creation-time ceiling. Will &amp; Key's current global settlement fee is 0.5% and the bytecode cap
-is 1%. Each vault records its creation-time ceiling; the effective rate can fall, but cannot rise
-above that ceiling. A claim also locks its effective rate against a mid-claim increase.</li>
+is 1%. Each vault records the rate in force when it was created as its ceiling. A lower global rate
+applies only while it is in force, so a cut that is later reversed can return a vault to its
+ceiling, but never above it. Starting a claim caps its rate against a mid-claim increase.</li>
 <li><strong>"Is it upgradeable?"</strong> An upgradeable inheritance contract means someone can
 change the rules after you're gone. Non-upgradeable is the right answer even though it makes
 the developer's life harder.</li>
 <li><strong>"Who controls administration?"</strong> Identify the current owner address and every
-privileged function. Will &amp; Key currently retains deployer administration rather than a multisig;
-that is disclosed as an unresolved risk even though the administrator cannot withdraw vault balances.</li>
-<li><strong>"Has it been audited?"</strong> Will &amp; Key's Base deployment has internal tests and an
-internal review, but no completed independent audit and no full minimum-duration Base Sepolia
-lifecycle test. Do not treat internal evidence as an external assurance.</li>
+privileged function. Since 24 September 2026 Will &amp; Key's administrator is a single Ledger
+hardware-wallet key, not a multisig, and it also receives the fees. Its functions are pausing new
+vault creation, changing the global fee within the 1% cap, changing or unsetting the fee recipient,
+sweeping surplus, and transferring administration. The address and handover transactions are on the
+<a href="/security#admin">security page</a>. A single key is a disclosed risk even though the
+administrator cannot withdraw vault balances in supported assets; moving to a multisig is
+recommended.</li>
+<li><strong>"Has it been audited?"</strong> Will &amp; Key's Base deployment has internal tests, an
+internal review and a <a href="/audit">preliminary audit</a> by AI auditing agents, performed at the
+project's request and not independent. It has no completed independent third-party audit and no
+full minimum-duration Base Sepolia lifecycle test. The contract is immutable, so the preliminary
+audit's fixes exist only as undeployed source for a future version. Do not treat internal evidence
+as an external assurance.</li>
 </ul>
 
 <h2>Three timers, three different promises</h2>
@@ -167,8 +186,8 @@ lifecycle test. Do not treat internal evidence as an external assurance.</li>
 <table>
 <tr><th>Setting</th><th>Purpose</th><th>Too short</th><th>Too long</th></tr>
 <tr><td>Inactivity period</td><td>Defines when a beneficiary may begin</td><td>Ordinary missed check-ins can trigger claims</td><td>Recovery after genuine incapacity is delayed</td></tr>
-<tr><td>Challenge window</td><td>Gives the owner time to cancel a false trigger</td><td>Hospitalization or access problems may outlast it</td><td>A legitimate beneficiary waits longer after claiming</td></tr>
-<tr><td>Absolute horizon</td><td>Bounds how far routine check-ins can defer the final inheritance path</td><td>Owner may need deliberate extension sooner</td><td>The beneficiary has a weaker long-stop guarantee</td></tr>
+<tr><td>Challenge window</td><td>Gives the owner time to cancel a false trigger (we suggest 14 days or more)</td><td>Hospitalization, access problems or a slow network may outlast it</td><td>A legitimate beneficiary waits longer after claiming</td></tr>
+<tr><td>Absolute horizon</td><td>Bounds how far routine check-ins can defer the final inheritance path</td><td>Owner may need deliberate extension sooner</td><td>The beneficiary's long-stop comes later</td></tr>
 </table>
 </div>
 
@@ -176,9 +195,9 @@ lifecycle test. Do not treat internal evidence as an external assurance.</li>
 <p>A dead man's switch converts the inheritance problem into a liveness problem. You no longer
 need to trust an institution, share a secret, or teach your family cryptography. In exchange,
 you take on one recurring obligation: check in, on a schedule you chose, for the rest of your
-life. Whether that trade is good depends entirely on whether checking in is easy — which is why
-the mechanism pairs naturally with reminders that escalate long before anything is at stake,
-and why the timer minimums are measured in weeks, not hours.</p>
+life. Whether that trade is good depends entirely on whether checking in is easy and whether you
+remember to — which is why the timer minimums are measured in weeks, not hours. Will &amp; Key sends
+no alerts of any kind, so put your check-in dates in your own calendar.</p>
 
 <div class="cta-box">
 <p><strong>Verify the mechanism before using the interface.</strong> Read the deployed address,

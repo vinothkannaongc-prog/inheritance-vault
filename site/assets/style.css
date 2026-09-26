@@ -628,6 +628,238 @@ input.f:focus, select.f:focus { outline: 2px solid var(--ink); outline-offset: 2
 .txlog { font-family: var(--mono); font-size: .8125rem; line-height: 1.5; color: var(--ink-2); margin-top: 12px; overflow-wrap: anywhere; }
 .txlog a { color: var(--gold-ink); }
 
+/* ---------- dApp: full addresses, review steps, acknowledgements ---------- */
+/* A full checksummed address: 0x and ten groups of four in mono. The groups are separated by margin,
+   not by characters, so selecting and copying the text yields the address with no spaces. */
+.addr { display: inline; }
+.addr-hex {
+  font-family: var(--mono); font-size: .8125rem; font-weight: 500; line-height: 1.7; letter-spacing: .02em;
+  color: var(--ink); font-variant-numeric: lining-nums tabular-nums; margin-right: 10px;
+}
+.addr-0x, .addr-g { display: inline-block; }
+.addr-0x { color: var(--ink-3); margin-right: .15em; }
+.addr-g { margin-right: .5em; }
+.addr-g:last-child { margin-right: 0; }
+.addr-bad .addr-hex { color: var(--bad); }
+.addr-act, .addr a.addr-link {
+  display: inline-block; margin-right: 12px; padding: 0; border: 0; background: none; cursor: pointer;
+  font-family: var(--sans); font-size: .75rem; font-weight: 500; line-height: 1.7; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--gold-ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px;
+}
+.addr-act:hover, .addr a.addr-link:hover { color: var(--ink); }
+@media (pointer: coarse) { .addr-act, .addr a.addr-link { min-height: 32px; line-height: 32px; } }
+.addr-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; margin: 4px 0; }
+.addr-label {
+  flex: none; min-width: 6em;
+  font-family: var(--sans); font-size: .75rem; font-weight: 500; line-height: 1.7; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-2);
+}
+.banner .addr-row { margin: 8px 0 0; }
+.banner .banner-copy { color: inherit; margin: 0; }
+select.f.addr-pick { font-family: var(--mono); font-size: .8125rem; }
+
+/* Hints under form fields: sentence case, not the label voice. */
+.hint {
+  display: block; margin-top: 6px;
+  font-family: var(--sans); font-size: .8125rem; font-weight: 400; line-height: 1.45; letter-spacing: 0; text-transform: none;
+  color: var(--ink-2);
+}
+
+/* Acknowledgements and choices. */
+label.check {
+  display: flex; align-items: flex-start; gap: 10px; margin: 14px 0;
+  font-family: var(--sans); font-size: .9375rem; line-height: 1.5; color: var(--ink); cursor: pointer;
+}
+label.check input { flex: none; width: 18px; height: 18px; margin-top: 2px; accent-color: var(--ink); }
+.banner label.check { color: var(--ink); margin: 12px 0 0; }
+#cTokenInfo { margin: 0 0 14px; font-family: var(--sans); }
+
+/* The in-card review panel that replaces prompt() for authority-moving actions. */
+.act-panel {
+  margin-top: 18px; padding: 20px 22px;
+  background: var(--paper-2); border: 1px solid var(--line); border-left: 2px solid var(--gold); border-radius: var(--radius);
+  font-family: var(--sans); font-size: .9375rem; line-height: 1.55; color: var(--ink);
+}
+.act-panel h4 {
+  font-family: var(--sans); font-size: .75rem; font-weight: 500; line-height: 1.2; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--gold-ink); margin-bottom: 14px;
+}
+.act-panel > .addr-row { margin-bottom: 14px; }
+.act-panel .warning-text { margin-bottom: 12px; }
+
+/* A pre-sign summary: a small ledger, in the register style of the trust table. */
+dl.review {
+  display: grid; grid-template-columns: minmax(9em, max-content) minmax(0, 1fr); gap: 10px 20px;
+  margin: 16px 0 12px; padding: 14px 0; border-top: 4px double var(--line-strong); border-bottom: 1px solid var(--line);
+  font-family: var(--sans); font-size: .9375rem; line-height: 1.5; font-variant-numeric: lining-nums tabular-nums;
+}
+dl.review dt {
+  font-size: .75rem; font-weight: 500; line-height: 1.7; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2);
+}
+dl.review dd { color: var(--ink); overflow-wrap: anywhere; }
+.tag {
+  display: inline-block; margin-left: 10px; padding: 0 8px; border: 1px solid currentColor; border-radius: var(--radius);
+  font-family: var(--sans); font-size: .6875rem; font-weight: 500; line-height: 1.7; letter-spacing: .1em; text-transform: uppercase;
+  white-space: nowrap; vertical-align: 1px;
+}
+.tag.ok { color: var(--ok); }
+.tag.warn { color: var(--warn); }
+.tag.bad { color: var(--bad); }
+ul.review-notes {
+  margin: 0 0 12px; padding-left: 1.2em;
+  font-family: var(--sans); font-size: .875rem; line-height: 1.5; color: var(--ink-2);
+}
+ul.review-notes li { margin: 4px 0; }
+ul.review-notes li::marker { color: var(--gold-ink); }
+ul.review-notes li.note-warn { color: var(--warn); }
+ul.review-notes li.note-bad { color: var(--bad); }
+.review-actions { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 12px; }
+.follow-up {
+  margin-top: 10px; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius);
+  font-family: var(--sans); font-size: .875rem; line-height: 1.5;
+}
+.follow-up.ok { background: var(--ok-tint); border-left: 3px solid var(--ok); color: var(--ok); }
+.follow-up.bad { background: var(--bad-tint); border-left: 3px solid var(--bad); color: var(--bad); }
+.follow-up.warn { background: var(--warn-tint); border-left: 3px solid var(--warn); color: var(--warn); }
+@media (max-width: 640px) {
+  dl.review { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  dl.review dd { margin-bottom: 10px; }
+  .act-panel { padding: 16px 14px; }
+  .tag { margin: 4px 0 0; }
+}
+
+/* ---------- dApp: vault states (a pending claim, a passed horizon) and the heir search ---------- */
+/* The block that leads a vault card while a claim is pending or once the horizon has passed. */
+.vault-card .claim-alert { margin: 16px 0 6px; }
+.banner .banner-copy + .banner-copy { margin-top: 8px; }
+.banner .claim-head { font-weight: 600; }
+.claim-alert dl.review { margin: 12px 0; padding: 10px 0; }
+
+/* The check-in-all report: each vault that was not checked in, with its reason and remedy. */
+#checkAllReport .follow-up, #checkAllReport .banner { margin-top: 12px; }
+ul.skip-list { margin: 8px 0 0; padding-left: 1.2em; }
+ul.skip-list li { margin-top: 10px; }
+ul.skip-list li::marker { color: var(--bad); }
+.banner .review-actions { margin-top: 8px; }
+.banner .review-actions .btn { margin: 0; }
+
+/* A second section inside an app card, in the panel-label voice. */
+.card h4.card-sub {
+  margin: 28px 0 10px; padding-top: 22px; border-top: 1px solid var(--line);
+  font-family: var(--sans); font-size: .75rem; font-weight: 500; line-height: 1.2; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--gold-ink);
+}
+
+/* ---------- the preliminary audit report (/audit) ---------- */
+/* A long, technical page in the article measure. It borrows the house voices: the hero notice's
+   double rule for the status box, the app's mono pills for severities, the ledger table for the
+   index, and the FAQ's hairline rows for the 47 findings. Colours come only from modifier classes;
+   .pill-sm changes size alone. */
+.article .audit-status {
+  position: relative; margin: 2em 0; padding: 26px 26px 18px;
+  background: var(--gold-tint); border: 1px solid var(--gold); outline: 1px solid var(--gold); outline-offset: -4px;
+  font-family: var(--sans); font-size: .9375rem; line-height: 1.55; color: var(--warn);
+}
+.article .audit-status::before {
+  content: "Status";
+  position: absolute; top: -.55em; left: 18px; padding: 0 8px; background: var(--paper);
+  font-family: var(--sans); font-size: .75rem; font-weight: 500; line-height: 1.2; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--gold-ink);
+}
+.article .audit-status p { margin: 0 0 .6em; }
+.article .audit-status ul { margin: 0; padding-left: 1.2em; }
+.article .audit-status li { margin: .4em 0; }
+.article .audit-status li::marker { color: var(--gold-ink); }
+.article .audit-status strong { color: var(--ink); font-weight: 600; }
+.article .audit-status a { color: var(--ink); }
+
+.audit code {
+  font-family: var(--mono); font-size: .85em; letter-spacing: 0;
+  font-variant-numeric: lining-nums tabular-nums; overflow-wrap: anywhere;
+}
+.audit pre {
+  margin: 1.2em 0; padding: 16px 18px; overflow-x: auto;
+  background: var(--paper-2); border: 1px solid var(--line); border-left: 2px solid var(--gold); border-radius: var(--radius);
+}
+.audit pre code { font-size: .8125rem; line-height: 1.7; color: var(--ink); white-space: pre; overflow-wrap: normal; }
+
+/* Severity pills (mono, as in the app) and status tags. */
+.pill.pill-sm { height: 22px; padding: 0 8px; gap: 6px; font-size: .6875rem; }
+.pill.pill-sm::before { width: 5px; height: 5px; }
+.audit .tag { margin: 3px 6px 3px 0; }
+.tag.st-v2 { color: var(--ink); }
+.tag.st-site { color: var(--gold-ink); }
+.tag.st-ack { color: var(--ink-2); border-style: dashed; }
+.tag.st-done { color: var(--ok); }
+.tag.st-open { color: var(--bad); }
+.audit a.f-ref { font-family: var(--mono); font-size: .8125rem; font-weight: 500; white-space: nowrap; }
+
+/* The findings index: a ledger with a mono ID column. */
+.article .table-scroll table.findings-index { min-width: 620px; }
+.article table.findings-index td { vertical-align: top; }
+.article table.findings-index td:first-child {
+  font-family: var(--mono); font-size: .8125rem; font-weight: 500; white-space: nowrap; padding-top: 14px;
+}
+.article table.findings-index td:first-child a { color: var(--gold-ink); text-decoration: none; }
+.article table.findings-index td:first-child a:hover { text-decoration: underline; }
+.article table.findings-index td:nth-child(3) { white-space: nowrap; }
+.article table.findings-index .status-tags { display: block; }
+
+/* One disclosure row per finding, in the FAQ's hairline idiom. */
+.audit .findings { margin: 1.6em 0 0; }
+details.finding { border-top: 1px solid var(--line); }
+details.finding:last-of-type { border-bottom: 1px solid var(--line); }
+details.finding:target { background: var(--paper-3); }
+details.finding > summary {
+  list-style: none; cursor: pointer;
+  display: grid; grid-template-columns: 3.4em minmax(0, 1fr) auto 14px; column-gap: 14px; align-items: baseline;
+  padding: 18px 0; min-height: 60px;
+  font-family: var(--serif); font-weight: 500; font-size: 1.125rem; line-height: 1.35; color: var(--ink);
+  transition: color 160ms ease-out;
+}
+details.finding > summary::-webkit-details-marker { display: none; }
+details.finding > summary::after {
+  content: ""; width: 14px; height: 14px; align-self: center;
+  background:
+    linear-gradient(var(--ink), var(--ink)) center / 14px 1px no-repeat,
+    linear-gradient(var(--ink), var(--ink)) center / 1px 14px no-repeat;
+  transition: transform 200ms ease-out;
+}
+details.finding[open] > summary::after { transform: rotate(45deg); }
+details.finding > summary:hover, details.finding[open] > summary { color: var(--gold-ink); }
+details.finding > summary .f-id {
+  font-family: var(--mono); font-size: .8125rem; font-weight: 500; letter-spacing: .02em; color: var(--gold-ink);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+details.finding > summary .pill { align-self: center; }
+details.finding .f-body { padding: 0 0 28px; }
+details.finding .f-tags { margin: 0 0 10px; }
+details.finding .f-audit-title { margin: 0 0 6px; font-family: var(--sans); font-size: .875rem; line-height: 1.5; color: var(--ink-2); }
+dl.f-facts { margin: 0; }
+dl.f-facts dt {
+  margin: 20px 0 6px;
+  font-family: var(--sans); font-size: .75rem; font-weight: 500; line-height: 1.2; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--gold-ink);
+}
+dl.f-facts dd { margin: 0; }
+dl.f-facts dd p { margin: 0 0 .6em; font-size: 1.0625rem; line-height: 1.6; color: var(--ink-2); }
+dl.f-facts dd p:last-child { margin-bottom: 0; }
+dl.f-facts dd strong { color: var(--ink); }
+@media (max-width: 640px) {
+  details.finding > summary { grid-template-columns: 3em minmax(0, 1fr) 14px; row-gap: 8px; font-size: 1.0625rem; }
+  details.finding > summary .f-id { grid-column: 1; grid-row: 1; }
+  details.finding > summary .f-title { grid-column: 2; grid-row: 1; }
+  details.finding > summary::after { grid-column: 3; grid-row: 1; }
+  details.finding > summary .pill { grid-column: 2; grid-row: 2; justify-self: start; }
+  .article .audit-status { padding: 24px 18px 16px; }
+}
+@media print {
+  /* /assets/audit.js opens every finding before printing; keep each title with its first lines. */
+  details.finding > summary::after { display: none; }
+  details.finding > summary { min-height: 0; padding: 12px 0 8px; break-after: avoid; }
+  .article .audit-status { background: none; outline: 0; }
+}
+
 /* ---------- responsive ---------- */
 @media (min-width: 720px) {
   .article .toc ol { columns: 2; column-gap: 32px; }

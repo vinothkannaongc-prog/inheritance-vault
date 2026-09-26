@@ -34,8 +34,10 @@
   <div id="walletBanner" class="banner warn" aria-live="polite" hidden></div>
   <div id="deployBanner" class="banner bad" aria-live="polite" hidden></div>
   <div class="banner warn">
-    Paid reminder subscriptions are disabled. The vault contract and check-in functions continue
-    to work normally; do not send funds directly to the retired reminder billing contract.
+    Will &amp; Key sends no alerts of any kind. Nobody will notify you, by email or in your wallet,
+    if your timer expires or a claim is filed on your vault: only opening this page, or your own
+    monitoring, will tell you. Reminder sales on the retired billing contract were switched off on
+    chain on 26 September 2026; do not send it funds.
   </div>
 
   <div class="tabs" id="tabs" role="tablist" aria-label="Vault views">
@@ -50,42 +52,77 @@
       <p>Connect your wallet to see your vaults. Every vault you own appears here with its
       countdown, and one click checks in on all of them at once.</p>
     </div>
+    <div id="mineAlerts"></div>
     <div class="mb-14">
       <button class="btn primary" id="checkAllBtn" hidden>Check in on all vaults</button>
+      <div class="txlog" id="checkAllLog" role="status"></div>
+      <div id="checkAllReport" aria-live="polite"></div>
     </div>
     <div id="vaultList"></div>
   </div>
 
   <div id="tab-create" class="tab-pane" role="tabpanel" aria-labelledby="tabbtn-create" hidden>
-    <div class="card">
+    <div class="card" id="createCard">
       <h3>Create a vault</h3>
       <div class="grid2">
         <label class="f"><span>Asset</span>
           <select class="f" id="cAsset">
             <option value="native">Native coin (ETH / BNB)</option>
-            <option value="erc20">ERC-20 token</option>
+            <option value="other">Other ERC-20 token (not reviewed)</option>
           </select>
+          <small class="hint">Known tokens for your network appear in this list once your wallet is connected.</small>
         </label>
         <label class="f" id="cTokenWrap" hidden><span>Token contract address</span>
-          <input class="f" id="cToken" placeholder="0x...">
+          <input class="f" id="cToken" placeholder="0x..." autocomplete="off" spellcheck="false">
         </label>
         <label class="f"><span>Amount</span>
-          <input class="f" id="cAmount" placeholder="1.0">
+          <input class="f" id="cAmount" placeholder="1.0" autocomplete="off">
+        </label>
+      </div>
+      <div id="cTokenInfo"></div>
+      <div id="cTokenWarn" class="banner bad" hidden>
+        <p class="banner-copy"><strong>This token is not on Will &amp; Key's list of known tokens.</strong>
+        The vault contract only works correctly for plain, single-address ERC-20 tokens, and nobody
+        has reviewed this one. Do not use rebasing tokens (the balance changes by itself),
+        fee-on-transfer or tax tokens, reflection tokens that pay holders, interest-bearing tokens
+        such as Aave aTokens, or double-entry tokens that can be moved through a second contract
+        address. With those, deposits in the shared pool can come up short for whoever withdraws
+        last, growth above your deposit becomes surplus that the admin can sweep, and for a
+        double-entry token the admin can sweep the deposits themselves. The token's name, symbol
+        and decimals are whatever its deployer chose.</p>
+        <label class="check"><input type="checkbox" id="cTokenAck">
+          <span>I have checked that this token is a plain ERC-20 and I accept these risks.</span></label>
+      </div>
+      <div class="grid2">
+        <label class="f" id="cHeirPickWrap" hidden><span>Use an existing heir</span>
+          <select class="f addr-pick" id="cHeirPick"></select>
+          <small class="hint">Picks the heir of one of your open vaults and fills both address boxes from on-chain data, so nothing is pasted from wallet history.</small>
         </label>
         <label class="f"><span>Heir's wallet address</span>
-          <input class="f" id="cHeir" placeholder="0x...">
+          <input class="f" id="cHeir" placeholder="0x..." autocomplete="off" spellcheck="false">
+        </label>
+        <label class="f"><span>Heir's wallet address, again</span>
+          <input class="f" id="cHeir2" placeholder="0x..." autocomplete="off" spellcheck="false">
+          <small class="hint">Type or paste it a second time. Scammers plant look-alike addresses in wallet histories, so check every character, not only the first and last few.</small>
         </label>
         <label class="f"><span>Inactivity period (days, 7-3650)</span>
           <input class="f" id="cPeriod" type="number" value="90" min="7" max="3650">
+          <small class="hint">The contract lets you change it later, but this app does not offer that yet, so choose it as if it were fixed.</small>
         </label>
         <label class="f"><span>Challenge window (days, 7-365) - your veto period after a claim</span>
           <input class="f" id="cWindow" type="number" value="30" min="7" max="365">
+          <small class="hint">We recommend at least 14 days. Fixed for the life of the vault: it can never be changed.</small>
         </label>
-        <label class="f"><span>Horizon - guaranteed inheritance date, even if check-in bots run forever</span>
+        <label class="f"><span>Horizon (UTC date) - the long-stop after which check-ins stop working</span>
           <input class="f" id="cHorizon" type="date">
+          <small class="hint">Can be moved later, never earlier. It is not a payout date: a claim started at the horizon can be finalized no earlier than the horizon plus the challenge window, and someone has to start and finalize it.</small>
         </label>
       </div>
-      <button class="btn primary" id="createBtn">Create vault</button>
+      <p class="muted-copy" id="cFeeInfo">Connect a wallet to see the current claim fee.</p>
+      <label class="check"><input type="checkbox" id="cAlertAck">
+        <span>Will &amp; Key sends no alerts. Nobody will notify me if my timer expires or a claim is filed.</span></label>
+      <button class="btn primary" id="createBtn">Review vault</button>
+      <div id="cReview"></div>
       <div class="txlog" id="createLog" role="status"></div>
     </div>
   </div>
@@ -99,6 +136,16 @@
         <input class="f" id="hOwner" placeholder="0x...">
       </label>
       <button class="btn primary" id="hLookupBtn">Look up</button>
+      <h4 class="card-sub">No owner address?</h4>
+      <p class="muted-copy">Search the vault contract's public records for vaults that have named
+      your connected wallet as heir. Every record found is checked on chain, and only open vaults
+      that name your wallet now are shown. The search reads every block since the contract was
+      deployed, so it can take several minutes, and it may be incomplete: a network connection can
+      leave records out. Your wallet address is sent to your wallet's network connection and, if
+      that cannot answer, to Base's public endpoint (mainnet.base.org).</p>
+      <button class="btn ghost" id="hScanBtn">Find vaults naming my wallet</button>
+      <button class="btn ghost" id="hScanStop" hidden>Stop</button>
+      <div class="txlog" id="hScanLog" role="status"></div>
       <div id="heirList" class="mt-18"></div>
     </div>
   </div>

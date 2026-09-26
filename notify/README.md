@@ -1,15 +1,45 @@
-# Will & Key notify — the check-in reminder service
+# Will & Key notify — RETIRED
 
-Polls vault state (read-only, holds no keys, can sign nothing) and sends escalating email
-alerts. This is the paid product; the contract stays free.
+**Status (2026-09): retired and not running.** Will & Key sends no alerts of any kind: nobody is
+notified when a vault's timer expires, a claim is filed or a claim settles, and no heir is told
+that a vault has become claimable. This folder is kept as the record of the former reminder
+service and of the code the audits reviewed. It is not a product, it is not sold, and it has no
+users.
 
-## Alerts
+The watcher polled vault state (read-only, holding no keys, able to sign nothing) and sent
+escalating email alerts. Paid reminders were billed through `NotifySubscription.sol`.
+
+## Do not pay the billing contract
+
+`NotifySubscription` on Base (`0x60749aF621180de1DC05DB4f3d158D09dE979dC6`) is retired, and its
+sales are disabled on chain since 2026-09-26: the admin (the Ledger key
+`0x883C821103B5415C53B11E584D3592205B5CdCA3`) called `setPrice(type(uint256).max)` in tx
+`0xf3485b1b4ec0f887838a2eec5181c3815e68913bc23b68570c3b635693a56cca` (block 51823544; recorded in
+`deployments/base.json` as `subscriptionSalesDisabled`), so every `subscribe` now reverts
+(`ZeroAmount`) and no new `paidUntil` time can be bought. Only the admin could reverse that. Do not
+send it funds. Do not deploy `NotifySubscription` on any other chain.
+
+## Before any restart
+
+Do not restart this watcher, on Base or on a new chain such as BNB, until all of the following are
+done:
+
+- the alert texts have been checked against the live contract so that none sends an owner to an
+  action that reverts (they were corrected in 2026-09: a check-in does not cancel a claim, and
+  past the horizon only `extendHorizon` or a full withdrawal does);
+- `LOG_PAGE` and the first-run lookback have been revalidated against that chain's RPC
+  `eth_getLogs` limits and block time (9,000 blocks is about 5 h on Base but under 2 h on BNB, and
+  some BNB RPCs refuse `eth_getLogs` for such ranges);
+- `config.subscription.enforce` stays off, because the billing contract is retired;
+- the site and terms are updated to say, accurately, what is being sent again.
+
+## Alerts it used to send
 
 | Recipient | Trigger | Note |
 |---|---|---|
 | Owner | 14 / 7 / 3 / 1 days before deadline | most-urgent tier only; re-arms after every check-in |
 | Owner | deadline expired | heir can now claim |
-| Owner | **claim initiated** | the alert that matters — veto window is running |
+| Owner | **claim initiated** | the veto window is running |
 | Owner | horizon within 30 days | check-ins stop working at the horizon |
 | Owner | check-in chain exhausted | warnings bit 3 |
 | Heir (optional) | vault claimable / claim finalizable | opt-in per watch |
@@ -18,7 +48,7 @@ Dedupe keys embed the value they alert about (deadline, claimInitiatedAt), so a 
 new claim re-arms alerts by construction. Missing a cron run is safe — the next run sends
 whatever is due.
 
-## Run
+## Run (development only)
 
 ```
 npm install
@@ -26,19 +56,6 @@ node watcher.js --config config.json
 ```
 
 No `smtp` in config = dev mode: alerts land as text files in `outbox/`.
-
-## VPS deployment (once the contract is live)
-
-House pattern — throwaway container from host cron, mail relayed via the host postfix:
-
-```
-0 */6 * * * docker run --rm --network host -v /home/ubuntu/willandkey-notify:/app -w /app node:22 node watcher.js --config config.json >> /var/log/willandkey-notify.log 2>&1
-```
-
-`config.smtp` for host postfix: `{ "host": "172.17.0.1", "port": 25, "secure": false }`.
-
-Signups are manual for the beta (edit `watches` in config.json). The self-serve signup +
-billing flow comes with mainnet.
 
 ## Integration test
 
@@ -50,10 +67,12 @@ cd .. && npx hardhat node --port 8547   # terminal 1 (8545 is claimed by the ozo
 cd .. && npx hardhat run scripts/notify-scenario.ts --network localnode   # terminal 2
 ```
 
-## Billing — crypto only
+The scenario passed 14 steps locally in August 2026. It has not been validated against a
+production RPC.
 
-Subscriptions are on-chain: `NotifySubscription.sol` (same repo, audited alongside the vault).
-Users pay in the chain's native coin from any wallet; the contract records `paidUntil[account]`
-and this watcher enforces it when `config.subscription.enforce` is true — lapsed watches get
-exactly one "reminders paused" notice, never silence. Time already purchased survives any price
-change. There is no card processor and no fiat anywhere in the loop.
+## Former billing design (historical)
+
+Subscriptions were on-chain in `NotifySubscription.sol`, paid in the chain's native coin, recorded
+as `paidUntil[account]` and enforced by this watcher when `config.subscription.enforce` was true.
+That contract was reviewed with the vault in the internal review of 2026-08 (not independent). It
+is retired and must not be paid.

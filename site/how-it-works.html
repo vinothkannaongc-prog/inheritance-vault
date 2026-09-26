@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
-{"@type":"TechArticle","headline":"How the Will & Key Crypto Inheritance Vault Works","description":"A complete walkthrough of vault creation, check-ins, claims, challenges and settlement.","image":"https://willandkey.com/assets/social/dead-mans-switch.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-10","dateModified":"2026-08-10","mainEntityOfPage":"https://willandkey.com/how-it-works"},
+{"@type":"TechArticle","headline":"How the Will & Key Crypto Inheritance Vault Works","description":"A complete walkthrough of vault creation, check-ins, claims, challenges and settlement.","image":"https://willandkey.com/assets/social/dead-mans-switch.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-10","dateModified":"2026-09-26","mainEntityOfPage":"https://willandkey.com/how-it-works"},
 {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"How it works","item":"https://willandkey.com/how-it-works"}]}
 ]}
 </script>
@@ -30,23 +30,53 @@
 <h1>How the inheritance vault works</h1>
 <p class="standfirst">Will &amp; Key is a non-custodial smart contract. It does not detect death.
 It follows a timer, an heir's transaction and a challenge period that the owner can veto.</p>
-<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Published 10 August 2026 · <a href="/security">Security status</a></p>
+<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Published 10 August 2026 · Updated 26 September 2026 · <a href="/security">Security status</a></p>
 
 <h2>The owner creates a vault</h2>
-<p>The owner connects a wallet, chooses a supported asset and names one beneficiary wallet. The
-owner also sets:</p>
+<p>The owner connects a wallet, chooses an asset and names one beneficiary wallet. The owner also
+sets:</p>
 <ul>
-<li><strong>Inactivity period:</strong> how long the owner may go without checking in.</li>
-<li><strong>Challenge window:</strong> the time between a beneficiary's claim and settlement.</li>
-<li><strong>Absolute horizon:</strong> a long-stop date that prevents automated check-ins from extending the plan forever after the intended limit.</li>
+<li><strong>Inactivity period:</strong> how long the owner may go without checking in, from 7 days
+to 10 years. It can be changed later.</li>
+<li><strong>Challenge window:</strong> the minimum time between a beneficiary's claim and
+settlement, during which the owner can veto, from 7 to 365 days. It is fixed at creation. We
+recommend at least 14 days, because a veto only counts once it is included on chain (see
+<a href="#veto">what cancels a claim</a>).</li>
+<li><strong>Absolute horizon:</strong> a long-stop date. Check-ins can never push the deadline past
+it, which stops automated check-ins from extending the plan forever. It is not a guaranteed payout
+date; see <a href="#horizon">the horizon</a> below.</li>
 </ul>
 <p>Each vault covers one asset and one beneficiary. An owner can create multiple vaults for
 different assets or heirs. The contract does not receive or store a seed phrase.</p>
 
+<h2 id="tokens">Which tokens are supported</h2>
+<p>Supported: ETH on Base, and plain ERC-20 tokens that live at a single contract address, move
+exactly the amount requested, never change a holder's balance by themselves, and have no transfer
+limits. <strong>The live contract does not check this.</strong> It accepts any token address, so
+choosing a supported token is up to you. The guarantees on this site do not hold for:</p>
+<ul>
+<li><strong>Tokens reachable through more than one address</strong> (double-entry or proxy tokens, or
+a native coin that also has an ERC-20 address): the administrator's surplus sweep can take every
+vault's balance in that token through the second address.</li>
+<li><strong>Rebasing, interest-bearing or reflection tokens</strong> whose balance grows on its own:
+the growth counts as surplus the administrator can sweep, and the heir inherits only the amount
+deposited.</li>
+<li><strong>Tokens that can debit the vault by more than it pays out</strong>, such as fee-on-top or
+negative-rebasing tokens: all vaults in one token share one balance, so the shortfall lands on
+whoever withdraws last, who can receive nothing.</li>
+<li><strong>Tokens with per-transfer caps, maximum-wallet limits or transfer cooldowns:</strong> a
+payout is withdrawn in one transfer, so a payout above the limit cannot be withdrawn, possibly
+ever.</li>
+<li>NFTs (ERC-721 and ERC-1155), and more than one asset in a vault.</li>
+</ul>
+
 <h2>The owner remains in control</h2>
 <p>While the vault is active, the owner can check in, add funds, withdraw funds, change the
-beneficiary and adjust permitted timing settings. A check-in moves the inactivity deadline
-forward, subject to the absolute horizon. One batch transaction can refresh several owned vaults.</p>
+beneficiary, change the inactivity period and extend the horizon. A check-in moves the inactivity
+deadline forward, but never past the absolute horizon: in the last inactivity period before the
+horizon a check-in still succeeds, yet can only move the deadline as far as the horizon itself.
+From the horizon on, check-ins are refused. One batch transaction can refresh several owned vaults;
+it skips any vault that has a claim pending or has passed its horizon.</p>
 <p>A wallet signature is the authority. A stolen owner key can therefore control the vault; the
 contract is designed for absence and key loss, not for recovering from key compromise.</p>
 
@@ -54,54 +84,137 @@ contract is designed for absence and key loss, not for recovering from key compr
 <p>Nothing moves automatically when the inactivity deadline passes. Funds remain in the contract.
 The named beneficiary must notice the condition and submit an on-chain claim from the nominated
 wallet address. A stranger cannot initiate the claim.</p>
+<div class="risk-box"><strong>Nobody is watching for you.</strong> Will &amp; Key sends no alerts of
+any kind: nobody will notify you if your timer expires or a claim is filed, and your wallet will not
+show a claim against your vault. Nobody notifies your heir either. The challenge window only helps
+an owner who looks during it, so size the inactivity period and the challenge window together to the
+longest time you might plausibly not open the app. The inactivity period can be changed later, but a
+longer period never moves the deadline past the horizon; the challenge window can never be
+changed.</div>
 
 <h2>The beneficiary initiates a claim</h2>
 <p>A valid claim changes the vault from active to claim-pending and starts the challenge window.
-The effective settlement fee is locked when the claim begins and can only fall before settlement,
-never rise above the vault's creation-time ceiling.</p>
+The beneficiary names a payout address when starting the claim. It cannot be changed afterwards, so
+it must be checked before signing. The claim also caps the fee rate; see <a href="#fees">fees</a>.</p>
 
-<h2>The owner gets a veto window</h2>
-<p>Before the absolute horizon, an authenticated owner action can cancel a pending claim and
-restart the clock. At or after the horizon, soft actions cannot create an endless denial loop.
-The owner must either close the vault by withdrawing everything or extend the horizon far enough
-into the future to restore a meaningful cooldown.</p>
-<p>This distinction is important: the challenge window protects against a mistaken or premature
-claim, while the horizon protects the heir against an unattended automation loop or repeated
-last-second veto with no real extension.</p>
+<h2 id="veto">What cancels a claim</h2>
+<p><strong>Before the horizon</strong>, each of these owner actions cancels a pending claim and
+restarts the clock: <strong>Veto claim</strong> (abortClaim), changing the heir, changing the
+inactivity period, installing a check-in chain, extending the horizon, or withdrawing any
+amount.</p>
+<p><strong>These do not cancel a claim:</strong> a check-in (it is refused while a claim is pending),
+a batch check-in (it skips the vault), a paper-chain check-in, a top-up, and ordinary activity in
+your wallet such as a swap or a transfer. Only transactions sent to the vault contract count.</p>
+<p><strong>At or after the horizon</strong>, while a claim is pending, Veto claim, changing the heir,
+changing the inactivity period and installing a check-in chain are refused, and a partial withdrawal
+still goes through but no longer cancels the claim: the heir simply inherits less. Only two things
+end a claim: extending the horizon to a date at least one full inactivity period after the moment the
+transaction is mined, or withdrawing the entire balance, which closes the vault.</p>
+<p>The challenge window protects against a mistaken or premature claim, while the horizon protects
+the heir against an unattended automation loop or a repeated last-second veto with no real
+extension.</p>
+<p>A veto only counts once it is included in a block. On Base that depends on the network's
+sequencer: if it is down or ignoring a transaction, the transaction can still be forced in through
+Ethereum, which can take up to about 12 hours. On other chains it depends on that chain's
+validators. Do not leave a veto to the last day.</p>
+
+<h2 id="horizon">The horizon is a long-stop, not a payout date</h2>
+<p>The absolute horizon is the last date to which check-ins can push the deadline. If the owner is
+still checking in when it arrives, the heir can start a claim at the horizon and finalize no earlier
+than the horizon plus the challenge window. That date is the earliest inheritance if the heir claims
+exactly at the horizon, not a guarantee: the heir still has to start the claim and then finalize it,
+and a living owner can still stop a claim past the horizon by extending the horizon (repeatable, at
+least one inactivity period ahead each time) or by withdrawing everything. Never give horizon
+extensions to automation.</p>
 
 <h2>Anyone can finalize after the challenge</h2>
-<p>If the challenge period ends without a valid veto, anyone may call the finalization function.
-The heir does not depend on a Will &amp; Key server or employee being available. Settlement records
-the heir's entitlement in a pull-payment credit lane. The heir then withdraws that credit to an
-address they choose.</p>
+<p>When the challenge period has run, anyone may call the finalization function. The heir does not
+depend on a Will &amp; Key server or employee being available. Finalizing is not automatic, and the
+end of the window is not a veto deadline: until a finalize transaction is mined, the owner's key can
+still cancel the claim with the actions above. Heirs should finalize promptly. Settlement records the
+heir's entitlement in a pull-payment credit lane. The heir then withdraws that credit to an address
+they choose.</p>
 <p>Using credits rather than sending funds during the state transition prevents a hostile or
 incompatible recipient contract from blocking settlement through a failed callback.</p>
 
-<h2>Fees</h2>
-<p>The current global claim-settlement fee is 0.5%. The bytecode caps it at 1%. Each vault records
-the global rate at creation as its personal ceiling; an administrator cannot later raise that
-vault above the ceiling. Deposits, owner withdrawals and check-ins have no Will &amp; Key service
-fee, although every on-chain transaction still pays the network's gas charge.</p>
+<h2 id="fees">Fees</h2>
+<p>The current global claim-settlement fee is 0.5%. The bytecode caps it at 1%. Deposits, owner
+withdrawals and check-ins have no Will &amp; Key service fee, although every on-chain transaction
+still pays the network's gas charge. The rate a claim pays is set in steps:</p>
+<ul>
+<li><strong>A ceiling at creation.</strong> Each vault records the global rate in force when its
+creation transaction is mined, and its fee can never exceed that ceiling. The administrator can
+change the global rate with no delay, so the ceiling is whatever rate is in force in that block, which
+may differ from the rate shown when you signed.</li>
+<li><strong>Cuts apply only while in force.</strong> A vault gets a lower global rate only if it is
+still in force when the vault's claim starts or settles. A cut that is later reversed does not stay
+with the vault; the vault can again be charged up to its ceiling.</li>
+<li><strong>Capped when the claim starts.</strong> Starting a claim locks the lower of the vault's
+ceiling and the global rate at that moment. At settlement the lower of that locked rate and the
+global rate then in force applies, so a rise after the claim starts can never take the fee above the
+locked rate. A cut helps the heir only if it is still in force when the claim is finalized: the
+administrator can reverse a cut at any moment, with no delay.</li>
+<li><strong>No fee recipient, no fee.</strong> If no fee recipient is set at the moment a claim
+settles, no fee is taken. The reverse also holds: a claim started while no recipient was set is
+charged its locked rate if a recipient is set before settlement. A fee recipient is currently set,
+to the administrator's hardware wallet.</li>
+</ul>
 
 <h2>What the administrator can and cannot do</h2>
+<p>Since 24 September 2026 the administrator of both contracts, and the fee recipient, is a single
+Ledger hardware-wallet key, <span class="break-all">0x883C821103B5415C53B11E584D3592205B5CdCA3</span>.
+It is one key, not a multisig. The handover transactions are listed on the
+<a href="/security#admin">security page</a>.</p>
 <table>
 <tr><th>Can do</th><th>Cannot do</th></tr>
-<tr><td>Pause creation of new vaults</td><td>Withdraw a user's locked balance</td></tr>
-<tr><td>Change the global fee within the 1% hard cap</td><td>Raise an existing vault above its creation ceiling</td></tr>
-<tr><td>Change the fee recipient</td><td>Change a vault's beneficiary</td></tr>
-<tr><td>Sweep only accounting surplus</td><td>Block a valid owner withdrawal or final settlement</td></tr>
+<tr><td>Pause and unpause creation of new vaults</td><td>Pause top-ups, check-ins, withdrawals, claims or payouts</td></tr>
+<tr><td>Change the global fee, immediately, within the 1% hard cap</td><td>Raise an existing vault above its creation ceiling</td></tr>
+<tr><td>Change or unset the fee recipient, immediately</td><td>Change a vault's beneficiary</td></tr>
+<tr><td>Sweep surplus: value above the accounted balances and payouts for one token address</td><td>Withdraw a vault balance or payout held in ETH or a supported token</td></tr>
+<tr><td>Transfer administration to a new address, in two steps</td><td>Block an owner withdrawal or a claim settlement</td></tr>
 </table>
+<p>For <a href="#tokens">unsupported tokens</a> the surplus sweep can reach value that belongs to
+vaults. "Cannot block" describes Will &amp; Key, not token issuers: an issuer can still freeze its
+own token.</p>
 
 <h2>Failure modes to plan for</h2>
 <ul>
 <li><strong>Owner key stolen:</strong> the attacker has the owner's authority.</li>
-<li><strong>Beneficiary key lost after the owner is gone:</strong> the entitlement may become permanently inaccessible.</li>
-<li><strong>Unsupported token behavior:</strong> rebasing and unusual transfer behavior can break normal accounting assumptions.</li>
-<li><strong>Missed notifications:</strong> reminders are not part of contract correctness; owners and heirs must not rely on email as the only awareness mechanism.</li>
-<li><strong>Contract defect:</strong> the deployment is immutable, so a serious defect requires a new contract and migration.</li>
+<li><strong>Beneficiary key lost after the owner is gone:</strong> the entitlement becomes
+permanently inaccessible. Only the named heir can claim, nothing happens at the horizon, and no
+administrator rescue exists.</li>
+<li><strong>Nobody notices:</strong> Will &amp; Key sends no alerts, so a claim or an expired timer
+goes unnoticed unless the owner or the heir checks. Heirs are not told when a vault becomes
+claimable.</li>
+<li><strong>Token issuer action:</strong> all vaults holding a token share one balance at the vault
+contract. An issuer with pause, blocklist, upgrade or wipe powers, such as Circle for USDC, can act
+against that address and freeze every user of the token at once. Claims still settle on schedule,
+and payouts wait until the freeze lifts. A wipe is a permanent loss the contract cannot prevent.</li>
+<li><strong>Unsupported token behavior:</strong> see <a href="#tokens">which tokens are
+supported</a>.</li>
+<li><strong>Paper-seed check-in chain (advanced, no app support):</strong> an optional hash chain lets
+whoever holds a paper seed keep the vault alive after the owner loses their wallet. The app cannot
+install or use it; the construction is in the
+<a href="https://github.com/vinothkannaongc-prog/inheritance-vault/blob/main/docs/CHECKIN-CHAIN.md" rel="noopener">check-in chain specification</a>.
+A chain check-in counts only if it is mined strictly before the deadline: once the heir has started a
+claim, the chain cannot stop it and its values cannot be used while the claim is pending, so submit
+at least a day early. If the owner's wallet key later cancels the claim, unused values work again, so
+a leaked seed stays dangerous until a new chain is installed.
+Chain values are bearer credentials. They cannot withdraw, change the heir or veto a claim, but
+whoever holds the seed or any unused value can postpone the heir's claim by up to the declared
+number of uses times the inactivity period, never past the horizon. Use a fresh seed for every vault
+and every chain, and never re-install an old one.</li>
+<li><strong>Contract defect:</strong> the deployment is immutable, so a serious defect requires a new
+contract and migration. The creation pause cannot stop deposits into existing vaults; in a
+migration, owners should withdraw in full, which closes the vault.</li>
 </ul>
 
-<div class="risk-box"><strong>Verification before value:</strong> read the <a href="/security">security and audit page</a>, inspect the deployed source and try the complete flow with a small amount. The contract has not completed an independent audit.</div>
+<div class="risk-box"><strong>Verification before value:</strong> read the <a href="/security">security and audit page</a>
+and the <a href="/audit">preliminary audit</a>, which was performed by AI auditing agents at our
+request and is not independent. Inspect the deployed source and try the complete flow with a small
+amount. The contract has not completed an independent third-party audit. It is immutable, so the
+preliminary audit's fixes exist only as undeployed source for a future version, and everything on
+this page describes the live contract as it is.</div>
 
 <p>For a broader planning workflow, continue with the <a href="/guides/crypto-inheritance-planning">crypto inheritance planning checklist</a> or read the <a href="/guides/dead-mans-switch-crypto">dead-man switch guide</a>.</p>
 </main>

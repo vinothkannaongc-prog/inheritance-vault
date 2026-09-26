@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 /* Will & Key watcher: reads public vault state, sends escalating reminders.
  *
+ * STATUS (2026-09): RETIRED. The production watcher is not running and Will & Key sends no alerts
+ * of any kind. The paid-reminder billing contract (NotifySubscription) is retired and must not be
+ * paid. Read notify/README.md ("Before any restart") before running this against a live chain.
+ *
  * Design constraints, in order:
  *   1. Holds no keys and can sign nothing. It reads vault state and sends email.
  *   2. Run-to-completion. Invoked by cron; no daemon, no queue, nothing to babysit.
@@ -127,6 +131,48 @@ function alert(key, to, subject, body) {
 function appLink() { return cfg.appUrl || "https://willandkey.com/app.html"; }
 function vaultLabel(w, v) { return `${w.label || short(v.owner)} — vault #${v.vaultId}`; }
 
+/**
+ * The ONE place that words what an owner can still do to keep control. Every alert that tells
+ * someone how to stop or prevent a claim takes its wording from here, so no alert can send an owner
+ * to an action the contract refuses (rule 5). Text only: it decides nothing about which alerts fire.
+ *
+ * What it restates, from the live v1 contract:
+ *   - before the horizon, checkIn restarts the timer but reverts while a claim is pending
+ *     (ClaimPendingUseAbort); abortClaim, setBeneficiary, setInactivityPeriod, setCheckInChain,
+ *     extendHorizon and any withdraw cancel a pending claim; topUp and checkInByChain revert and
+ *     checkInMany skips the vault, so none of those cancels it;
+ *   - at or after the horizon, checkIn and abortClaim revert (HorizonReached), and only
+ *     extendHorizon (to at least now + inactivityPeriod) or withdrawing the whole balance stops a
+ *     claim.
+ */
+function ownerRemedy(v, now, forHeir = false, pastHorizon = Boolean(v.horizonReached)) {
+  const key = forHeir ? "the owner's" : "your";
+  const period = Number(v.inactivityPeriod);
+  if (pastHorizon) {
+    return (
+      `This vault passed its horizon on ${fmtDate(v.absoluteDeadline)}, so check-ins no longer work,\n` +
+      `and once a claim has started the Veto button does not work either. Only two things can stop\n` +
+      `a claim, and both need ${key} wallet key: extending the horizon to a date later than\n` +
+      `${fmtDate(now + period)} (the contract requires at least one full check-in period,\n` +
+      `${period / DAY} days, after the transaction is mined, so leave a margin), or withdrawing the\n` +
+      `whole balance.\n`
+    );
+  }
+  if (Number(v.state) === 2) {
+    return (
+      `To cancel the claim, use "Veto claim" in the app with ${key} wallet. Changing the heir,\n` +
+      `changing the check-in period, installing a new check-in chain (advanced), extending the\n` +
+      `horizon or withdrawing any amount also cancels it. A check-in does NOT: it is refused while\n` +
+      `a claim is pending, and a batch check-in skips this vault. Ordinary wallet activity does not\n` +
+      `count either; only transactions sent to the vault contract do.\n`
+    );
+  }
+  return (
+    `A check-in from ${key} wallet restarts the timer. Once a claim has started, a check-in no\n` +
+    `longer helps: only "Veto claim" or one of the other cancelling actions does.\n`
+  );
+}
+
 /* ---------------------------------------------------------------- alerts */
 
 function ownerAlerts(w, v, now, funded) {
@@ -144,46 +190,59 @@ function ownerAlerts(w, v, now, funded) {
       if (tier === undefined) return;
       key = `${baseKey}:t${tier}`;
     }
-    // Past the horizon abortClaim, setBeneficiary and friends all revert. Telling the owner
-    // "any action from your wallet cancels the claim" would send them to a bare revert while
-    // the window ran out.
-    const how = v.horizonReached
-      ? `Your vault has passed its horizon (${fmtDate(v.absoluteDeadline)}), so the ordinary veto\n` +
-        `no longer works. Only two things can still stop this: extending the horizon to a date at\n` +
-        `least one full check-in period in the future, or withdrawing the balance outright.\n`
-      : `Any action from your wallet cancels the claim — a check-in is enough.\n`;
+    // Past the horizon abortClaim, setBeneficiary and friends all revert, and before it a plain
+    // check-in reverts while a claim is pending. ownerRemedy words both cases, so this alert can
+    // never send the owner to a bare revert while the window runs out.
+    const how = ownerRemedy(v, now);
     alert(key, w.email,
       `ACTION NEEDED: an inheritance claim is running on your vault (${vaultLabel(w, v)})`,
       `A claim was initiated on your vault at ${fmtDate(stamp)}.\n\n` +
       `If this is expected (you are coordinating a planned transfer), do nothing.\n` +
       `If you are alive and this is NOT expected, you must act before the challenge window\n` +
       `closes at ${fmtDate(v.finalizableAt)}.\n\n` + how + `\n  ${appLink()}\n\n` +
-      `After that moment the transfer is final and cannot be reversed by anyone.`);
+      `A transaction only counts once it is included in a block. On Base, if the network's\n` +
+      `sequencer is down, a transaction can still be forced in through Ethereum, but that can take\n` +
+      `up to about 12 hours: do not wait for the last day.\n\n` +
+      `When the window closes, anyone can finalize the claim at any moment. Until a finalize\n` +
+      `transaction is mined your wallet can still cancel it, but do not count on that.`);
     return;
   }
 
   if (Number(v.warnings) & 8) {
     alert(`${id}:chain-exhausted:${v.hbAnchor}`, w.email,
       `Your paper check-in chain is used up (${vaultLabel(w, v)})`,
-      `The backup check-in chain on this vault has no uses left, so keyless check-ins will no\n` +
-      `longer work. Install a fresh one from the app:\n\n  ${appLink()}\n`);
+      `The backup check-in chain on this vault has no declared uses left, so keyless check-ins\n` +
+      `will no longer work. The app cannot install a chain: a new one needs your wallet key, a\n` +
+      `direct call to setCheckInChain before the horizon, and a fresh seed. Never re-install a\n` +
+      `seed or anchor you have used before. The construction is specified in docs/CHECKIN-CHAIN.md\n` +
+      `in the Will & Key repository.\n\n  ${appLink()}\n`);
   }
 
   const horizonDays = daysUntil(v.absoluteDeadline, now);
   if (horizonDays <= HORIZON_WARN_DAYS) {
+    const passed = horizonDays <= 0;
+    const left = Math.ceil(horizonDays);
     alert(`${id}:horizon:${v.absoluteDeadline}`, w.email,
-      `Your vault's horizon is ${Math.max(1, Math.ceil(horizonDays))} days away (${vaultLabel(w, v)})`,
-      `After ${fmtDate(v.absoluteDeadline)} check-ins stop working, and from then only an\n` +
-      `explicit horizon extension can delay inheritance. If that is not what you want, extend\n` +
-      `the horizon now:\n\n  ${appLink()}\n`);
+      passed
+        ? `Your vault's horizon has passed (${vaultLabel(w, v)})`
+        : `Your vault's horizon is ${left} day${left === 1 ? "" : "s"} away (${vaultLabel(w, v)})`,
+      passed
+        ? ownerRemedy(v, now, false, true) + `\n  ${appLink()}\n`
+        : `After ${fmtDate(v.absoluteDeadline)} check-ins stop working, and from then only extending\n` +
+          `the horizon or withdrawing everything can stop a claim. Check-ins already cannot push\n` +
+          `your deadline past the horizon. If that is not what you want, extend the horizon now:\n\n` +
+          `  ${appLink()}\n`);
   }
 
   if (v.expired) {
     alert(`${id}:expired:${v.deadline}:${bucket(now)}`, w.email,
       `Your vault timer has EXPIRED (${vaultLabel(w, v)})`,
       `Your inactivity deadline passed at ${fmtDate(v.deadline)}. Your heir can now initiate a\n` +
-      `claim. Nothing is lost yet — a claim still has a ${Number(v.challengeWindow) / DAY}-day veto window —\n` +
-      `but you should check in now:\n\n  ${appLink()}\n`);
+      `claim at any time.\n\n` +
+      (v.horizonReached
+        ? ""
+        : `Nothing is lost yet: a claim would still have a ${Number(v.challengeWindow) / DAY}-day veto window.\n`) +
+      ownerRemedy(v, now) + `\n  ${appLink()}\n`);
     return;
   }
 
@@ -196,7 +255,8 @@ function ownerAlerts(w, v, now, funded) {
       alert(`${id}:t${tier}:${v.deadline}`, w.email,
         `Check in within ${tier} day${tier > 1 ? "s" : ""} (${vaultLabel(w, v)})`,
         `Your vault's inactivity deadline is ${fmtDate(v.deadline)}.\n` +
-        `One transaction resets it for another ${Number(v.inactivityPeriod) / DAY} days:\n\n` +
+        `One check-in resets it to ${Number(v.inactivityPeriod) / DAY} days after the transaction is mined,\n` +
+        `but never past your horizon (${fmtDate(v.absoluteDeadline)}):\n\n` +
         `  ${appLink()}\n`);
       break;
     }
@@ -222,16 +282,18 @@ function heirAlerts(w, v, now) {
     alert(`${id}:heir-claimable:${v.deadline}:${bucket(now)}`, w.heirEmail,
       `A vault naming you as heir is now claimable (${vaultLabel(w, v)})`,
       `The owner's inactivity deadline passed at ${fmtDate(v.deadline)}.\n\n` +
-      `If the owner is fine, tell them to check in — that is the system working.\n` +
+      `If the owner is fine, that is the system working. ` + ownerRemedy(v, now, true) + `\n` +
       `If they are not, you can initiate your claim with the wallet they named:\n\n` +
       `  ${appLink()}\n\n` +
-      `A ${Number(v.challengeWindow) / DAY}-day challenge window will run before settlement.`);
+      `Check the payout address carefully when you start the claim: it cannot be changed\n` +
+      `afterwards. A ${Number(v.challengeWindow) / DAY}-day challenge window will run before settlement.`);
   }
   if (Number(v.state) === 2 && v.finalizable) {
     alert(`${id}:heir-finalizable:${v.claimInitiatedAt}`, w.heirEmail,
       `Your inheritance claim can now be finalized (${vaultLabel(w, v)})`,
-      `The challenge window closed at ${fmtDate(v.finalizableAt)} with no veto.\n` +
-      `Finalize to settle the transfer, then withdraw your payout:\n\n  ${appLink()}\n`);
+      `The challenge window ended at ${fmtDate(v.finalizableAt)} and the claim has not been vetoed.\n` +
+      `Finalize promptly: until a finalize transaction is mined, the owner's key can still cancel\n` +
+      `the claim. Finalize to settle the transfer, then withdraw your payout:\n\n  ${appLink()}\n`);
   }
 }
 
@@ -409,9 +471,9 @@ async function main() {
             `Your subscription has lapsed, so ADVANCE check-in reminders are paused.\n\n` +
             `You will still be told if anything actually happens: a claim on your vault, an\n` +
             `expired timer, an approaching horizon, or a settlement. We do not withhold those.\n\n` +
-            `Your vault itself is untouched and keeps running exactly as before. Anyone can renew\n` +
-            `for you from any wallet — an heir or family member can restore your reminders\n` +
-            `without your keys:\n\n  ${appLink()}\n`);
+            `Your vault itself is untouched and keeps running exactly as before. Paid reminders\n` +
+            `are no longer sold. Do not send funds to the reminder billing contract: a payment to\n` +
+            `it buys nothing.\n\n  ${appLink()}\n`);
         }
       }
 

@@ -25,5 +25,13 @@
       "vault.acceptOwnership": "0x5a0bb97d2d421eccc399b6727c49ea37c008a0a7bb782d53cf5a59d1ce85d532",
       "sub.acceptOwnership": "0xff034fda9c4065a5dfa6579fa6afba3c6fb6be55da2c5b71ea323780077fd906"
     }
+  },
+  "subscriptionSalesDisabled": {
+    "date": "2026-09-26",
+    "by": "0x883C821103B5415C53B11E584D3592205B5CdCA3",
+    "call": "NotifySubscription.setPrice(type(uint256).max)",
+    "effect": "every subscribe() now reverts ZeroAmount (audit finding F23)",
+    "transaction": "0xf3485b1b4ec0f887838a2eec5181c3815e68913bc23b68570c3b635693a56cca",
+    "block": 51823544
   }
 }

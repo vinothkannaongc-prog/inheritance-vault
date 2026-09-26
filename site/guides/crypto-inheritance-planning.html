@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
-{"@type":"Article","headline":"Crypto Inheritance Planning: A Plan You Can Finish This Weekend","description":"A practical crypto inheritance plan in five steps: inventory, custody, instructions, transfer mechanism and rehearsal.","image":"https://willandkey.com/assets/social/crypto-inheritance-plan.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-08-10T17:00:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/crypto-inheritance-planning"},
+{"@type":"Article","headline":"Crypto Inheritance Planning: A Plan You Can Finish This Weekend","description":"A practical crypto inheritance plan in five steps: inventory, custody, instructions, transfer mechanism and rehearsal.","image":"https://willandkey.com/assets/social/crypto-inheritance-plan.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-09-26T12:00:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/crypto-inheritance-planning"},
 {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://willandkey.com/guides/"},{"@type":"ListItem","position":3,"name":"Crypto inheritance planning","item":"https://willandkey.com/guides/crypto-inheritance-planning"}]}
 ]}
 </script>
@@ -49,7 +49,7 @@
 <p class="standfirst">Most crypto inheritance advice is either "trust an exchange" or a
 cryptography seminar. This is neither: five concrete steps, one weekend, and about ten minutes a
 year of maintenance afterward.</p>
-<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 10 August 2026 · <a href="/editorial-policy">Editorial policy</a></p>
+<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 10 August 2026 · Updated 26 September 2026 · <a href="/editorial-policy">Editorial policy</a></p>
 
 <div class="answer-box"><p><strong>Direct answer:</strong> a workable crypto inheritance plan has five parts: an asset inventory, a custody map, separate legal and technical instructions, a transfer mechanism, and a rehearsal. The inventory should help an heir discover assets without containing any private key, seed phrase, PIN or password.</p></div>
 <p class="review-note"><strong>Review status:</strong> technically reviewed by the Will &amp; Key project team on 10 August 2026. No independent legal, tax or security reviewer has approved this guide.</p>
@@ -125,6 +125,12 @@ into any website"), and who to ask for technical help — a named person you act
 "someone at the computer shop." What the letter must <em>never</em> contain: seed phrases, PINs,
 passwords. A letter is paperwork, and <a href="/guides/never-put-seed-phrase-in-will">paperwork
 leaks</a>.</p>
+<p>If you use an on-chain inactivity switch such as Will &amp; Key, the inventory page should also
+give your heir everything they need to find and claim the vault, none of it secret: the chain, the
+vault contract address, your public wallet address and the vault number, which of their addresses
+you named, the app address, and your check-in period and horizon date. Say plainly that nobody will
+notify them when the time comes. Will &amp; Key sends no alerts of any kind, so they will have to
+check for themselves.</p>
 <p>The warning about not typing things into websites earns its sentence: bereaved families are a
 targeted scam demographic. Anyone who contacts your family offering "wallet recovery help" after
 a death is a predator, one hundred percent of the time.</p>
@@ -138,7 +144,7 @@ your heirs are:</p>
 <tr><td>Exchange estate process</td><td>Heir needs a conventional legal process</td><td>Discover account and produce current provider documents</td><td>Provider risk or undiscovered account</td></tr>
 <tr><td>Multi-share backup</td><td>Family can safeguard physical shares</td><td>Locate the threshold and follow supported recovery steps</td><td>Too few valid shares survive</td></tr>
 <tr><td>Multisig</td><td>Several capable, independent signers exist</td><td>Coordinate threshold signatures and wallet configuration</td><td>Signer or metadata loss</td></tr>
-<tr><td>On-chain inactivity switch</td><td>Heir can use one wallet but should not hold today's spending key</td><td>Initiate a claim after the configured inactivity period</td><td>Missed owner check-ins, bad beneficiary address or contract defect</td></tr>
+<tr><td>On-chain inactivity switch</td><td>Heir can use one wallet but should not hold today's spending key</td><td>Notice the expired deadline unprompted, initiate a claim, then finalize it after the challenge window</td><td>Missed owner check-ins, an heir who never checks, bad beneficiary address or contract defect</td></tr>
 <tr><td>Full seed shared in advance</td><td>Rarely appropriate</td><td>Protect a secret that spends immediately</td><td>Premature compromise</td></tr>
 </table>
 </div>
@@ -153,8 +159,11 @@ secret-free inventory, mechanism decision record, rehearsal log and annual revie
 </div>
 
 <div class="risk-box"><strong>Will &amp; Key status:</strong> the deployed contract is internally
-tested but has not completed an independent audit or a full minimum-duration Base Sepolia claim
-lifecycle. Review the <a href="/security">security evidence</a> and use only a small test amount.</div>
+tested and has had a <a href="/audit">preliminary audit</a> by AI auditing agents, performed at the
+project's request and not independent. It has not completed an independent third-party audit or a
+full minimum-duration Base Sepolia claim lifecycle, and it is immutable, so the preliminary audit's
+fixes exist only as undeployed source for a future version. Review the
+<a href="/security">security evidence</a> and use only a small test amount.</div>
 
 <h2 id="rehearsal">Step 5 — The rehearsal (Sunday evening, 30 minutes)</h2>
 <p>Whatever you chose, run it once with your heir while you're alive. Send a token amount. Have
@@ -167,7 +176,8 @@ plan is a hope. This half hour is the highest-value part of the whole weekend.</
 <li>Re-read the inventory; update anything that moved.</li>
 <li>Confirm your heir still controls the wallet you named — and still knows where the letter is.</li>
 <li>If your mechanism has a horizon or timer settings, sanity-check they still fit your life.</li>
-<li>Check your reminders still reach you (email changed? phone changed?).</li>
+<li>Check that whatever reminds you to check in still works: your own calendar entry, not the
+product. Will &amp; Key sends no alerts of any kind.</li>
 </ul>
 
 <p>That's the whole discipline. Not a seminar — a weekend, then ten minutes a year, for the only

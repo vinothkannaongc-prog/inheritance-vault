@@ -40,7 +40,7 @@
 <p class="standfirst">Will &amp; Key is an open-source experiment in one narrow problem: helping
 self-custody crypto reach a chosen beneficiary without giving anyone the owner's seed phrase
 while the owner is alive.</p>
-<p class="byline">Project information · Last reviewed 10 August 2026</p>
+<p class="byline">Project information · Last reviewed 27 September 2026</p>
 
 <h2>The problem we are working on</h2>
 <p>A bank can respond to a court order. A blockchain cannot. If the only person able to sign for a
@@ -57,16 +57,17 @@ deposit a supported asset, nominate a beneficiary and choose an inactivity perio
 stops checking in, the beneficiary may initiate a claim. A separate challenge period gives the
 owner time to veto before settlement.</p>
 <p>The browser interface is static and served from isolated Cloudflare Pages hosting. Contract
-source, tests, deployment records and the internal adversarial review are maintained in the
+source, tests, deployment records, the internal adversarial review and the preliminary audit are maintained in the
 <a href="https://github.com/vinothkannaongc-prog/inheritance-vault" rel="noopener">project repository</a>.</p>
 
 <h2>Where the project stands</h2>
 <ul>
   <li>The Base deployment is live and its runtime bytecode matches the local compiler artifacts.</li>
-  <li>Sixty-three contract tests and a fourteen-step local watcher recovery scenario pass.</li>
-  <li>The contracts have an internal adversarial review but no completed independent audit.</li>
+  <li>The deployed version shipped with sixty-three contract tests and a fourteen-step local watcher recovery scenario.</li>
+  <li>The contracts have had an internal adversarial review and a <a href="/audit">preliminary audit</a> (September 2026) by AI auditing agents. Neither is independent, and no independent third-party audit has been completed.</li>
+  <li>The preliminary audit found no critical or high issues. Its contract fixes exist only as undeployed v2 source: the live contract is unchanged and cannot be patched.</li>
   <li>A full-duration Base Sepolia inheritance lifecycle remains pending.</li>
-  <li>Paid reminder subscriptions are disabled and the retired billing contract should not be paid.</li>
+  <li>Will &amp; Key sends no reminders or alerts. Sales on the retired reminder-billing contract were switched off on chain on 26 September 2026.</li>
 </ul>
 <p>Those limitations matter. The contract is immutable, so a serious contract finding would require
 a new deployment rather than an in-place patch. The website does not recommend using material

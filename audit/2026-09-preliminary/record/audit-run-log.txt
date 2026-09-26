@@ -1,0 +1,22 @@
+Round 1: 80 raw findings from 10/10 auditors
+Round 1 after dedupe: 39 findings (0 dropped): F01, F02, F03, F04, F05, F06, F07, F08, F09, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36, F37, F38, F39
+[stall] agent "poc:F36" stalled (no progress) after 180s — retrying (1/5)
+[stall] agent "refute-sev:F10" stalled (no progress) after 414s — retrying (1/5)
+[stall] agent "refute-reach:F12" stalled (no progress) after 222s — retrying (1/5)
+[stall] agent "refute-sev:F15" stalled (no progress) after 232s — retrying (1/5)
+[stall] agent "refute-reach:F12" stalled (no progress) after 374s — retrying (2/5)
+[stall] agent "refute-sev:F10" stalled (no progress) after 374s — retrying (2/5)
+[stall] agent "refute-reach:F15" stalled (no progress) after 288s — retrying (1/5)
+[stall] agent "refute-reach:F13" stalled (no progress) after 535s — retrying (1/5)
+[stall] agent "refute-reach:F16" stalled (no progress) after 232s — retrying (1/5)
+Round 1 verified: 37 confirmed, 2 by-design, 0 disputed, 0 rejected
+Critic round 2: 4 leads
+[stall] agent "hunt:r2.3" stalled (no progress) after 3713s — retrying (1/5)
+[stall] agent "hunt:r2.3" stalled (no progress) after 58712s — retrying (2/5)
+[stall] agent "hunt:r2.3" stalled (no progress) after 58443s — retrying (3/5)
+Round 2: 8 new findings: F40, F41, F42, F43, F44, F45, F46, F47
+[critic:r3] failed: You've hit your session limit · resets 7:40am (Asia/Kolkata)
+[critic:r3~retry1] failed: You've hit your session limit · resets 7:40am (Asia/Kolkata)
+[critic:r3~retry2] failed: You've hit your session limit · resets 7:40am (Asia/Kolkata)
+Critic round 3: no leads, coverage judged complete
+FINAL: 44 confirmed, 2 by-design, 1 disputed, 0 rejected, 0 incomplete

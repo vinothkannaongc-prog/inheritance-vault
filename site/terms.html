@@ -23,7 +23,7 @@
 <main class="article">
   <h1>Terms and service disclosures</h1>
   <p class="standfirst">Read these disclosures before depositing assets or signing a transaction.</p>
-  <p class="byline">Last updated: 10 August 2026</p>
+  <p class="byline">Last updated: 26 September 2026</p>
 
   <h2>Technical tool, not a legal will</h2>
   <p>Will &amp; Key is a software interface to an autonomous smart contract. It is not a lawyer,
@@ -34,20 +34,38 @@
   <p>You control transaction signing and are responsible for wallet security, beneficiary
   addresses, asset compatibility, check-in timing, horizon settings, and gas. The deployed vault
   contract is non-upgradeable. A defect, compromised key, wrong address, unsupported token,
-  network failure, or lost beneficiary key can cause permanent loss. The contract has an internal
-  adversarial review but no completed independent third-party audit. Use only value you can afford
-  to lose.</p>
+  network failure, or lost beneficiary key can cause permanent loss. The deployed contract accepts
+  any token address, but only ETH and <a href="/how-it-works#tokens">supported single-address
+  tokens</a> are covered by the published guarantees; with other tokens, value can be lost or
+  become reachable by the administrator's surplus sweep. The contract has an internal adversarial
+  review and a <a href="/audit">preliminary audit</a> by AI auditing agents, performed at the
+  project's request and not independent, but no completed independent third-party audit. Fixes
+  from the preliminary audit cannot be applied to the deployed contract. Use only value you can
+  afford to lose.</p>
+
+  <h2>No alerts</h2>
+  <p>Will &amp; Key sends no alerts or reminders of any kind. Nobody will notify you if your timer
+  expires or a claim is filed on your vault, and nobody notifies your beneficiary when a vault
+  becomes claimable. Checking the vault is your responsibility and your beneficiary's.</p>
 
   <h2>Fees</h2>
-  <p>The current vault interface discloses a 0.5% claim-settlement fee, capped at 1% by the deployed
-  bytecode and by each vault's creation-time ceiling. Blockchain gas fees are separate and go to
-  the network, not Will &amp; Key. Verify current contract state before signing.</p>
+  <p>The current global claim-settlement fee is 0.5%, capped at 1% by the deployed bytecode. Each
+  vault's fee can never exceed the global rate in force when its creation transaction was mined.
+  Lower global rates apply only while they are in force. When a claim starts, its rate is capped at
+  the lower of the vault's ceiling and the global rate at that moment, and it can still fall before
+  settlement. No fee is taken if no fee recipient is set when the claim settles. The administrator
+  can change the global rate and the fee recipient without delay; the details are on the
+  <a href="/how-it-works#fees">mechanism page</a>. Blockchain gas fees are separate and go to the
+  network, not Will &amp; Key. Verify current contract state before signing.</p>
 
   <h2>Paid reminders are disabled</h2>
-  <p>Will &amp; Key is not accepting new paid reminder subscriptions through this website. The older
-  reminder billing contract remains immutable on Base and may still accept a direct contract call;
-  such a call is not an accepted service order. Do not send funds to it. The vault itself does not
-  depend on the reminder service.</p>
+  <p>Will &amp; Key is not accepting new paid reminder subscriptions through this website, and the
+  reminder service is not running. The older reminder billing contract remains on Base, but sales
+  on it were also switched off on chain on 26 September 2026: its price was set to the maximum, so
+  every payment to it reverts, and only the administrator could reverse that (transaction
+  <a class="break-all" href="https://basescan.org/tx/0xf3485b1b4ec0f887838a2eec5181c3815e68913bc23b68570c3b635693a56cca" rel="noopener">0xf3485b1b4ec0f887838a2eec5181c3815e68913bc23b68570c3b635693a56cca</a>).
+  A direct call to it is not an accepted service order. Do not send funds to it. The vault itself
+  does not depend on the reminder service.</p>
 
   <h2>Existing reminder payments and refunds</h2>
   <p>The retired on-chain billing contract has no automatic refund function. If you previously paid
@@ -64,8 +82,10 @@
 
   <h2>Source and audit status</h2>
   <p>The deployed contract addresses and source-verification links are published on the home page.
-  The project repository includes source, tests, deployment records, and the internal audit report.
-  An independent audit remains a release requirement for recommending use with material value.</p>
+  The project repository includes source, tests, deployment records, the internal review report and
+  the evidence for the <a href="/audit">preliminary audit</a>. Neither review is independent. An
+  independent third-party audit remains a release requirement for recommending use with material
+  value.</p>
 </main>
 
 <footer class="site"><div class="wrap">
