@@ -750,6 +750,19 @@ ul.skip-list li::marker { color: var(--bad); }
   color: var(--gold-ink);
 }
 
+/* ---------- dApp: v2 (the v1 notice, tokens the contract lists but the app does not offer) ---------- */
+/* What the connected wallet still has on the retired v1 contract, set under the v1 notice. */
+.v1-notice .v1-mine { margin-top: 8px; }
+/* An address or a long number in the app's plain-text messages (the v1 notice, an error, a token the
+   app does not offer) wraps instead of widening the page, as it already does in .txlog and dl.review. */
+.banner, .follow-up, .warning-text, ul.review-notes li { overflow-wrap: anywhere; }
+/* A listed token the create form does not offer, with the reason, under the asset picker. */
+#cTokenInfo .warning-text { margin-top: 6px; font-family: var(--sans); font-size: .875rem; line-height: 1.5; }
+/* What the wallet did with a network switch, under the network banner's buttons. */
+.banner .switch-note { margin-top: 10px; }
+/* A transaction's line whose card is gone (a vault closed or settled), at the top of its list. */
+#mineAlerts > .txlog, #heirList > .txlog { margin: 0 0 14px; }
+
 /* ---------- the preliminary audit report (/audit) ---------- */
 /* A long, technical page in the article measure. It borrows the house voices: the hero notice's
    double rule for the status box, the app's mono pills for severities, the ledger table for the

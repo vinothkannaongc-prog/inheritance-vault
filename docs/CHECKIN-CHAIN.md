@@ -9,8 +9,8 @@ Two contracts are covered:
 - **v1** is the InheritanceVault deployed on Base at `0xC821849A1D74959753450409b594b23eCE7fEe2f`.
   It is immutable. It checks a plain keccak step, so every protection described for v1 below is
   off-chain, in how the chain is built.
-- **v2** is the fixed source in `contracts/InheritanceVault.sol`. **It is not deployed.** It binds
-  every step on chain.
+- **v2** is the source in `contracts/InheritanceVault.sol`, written in response to the 2026-09
+  audit of v1. It binds every step on chain.
 
 ## What a chain is for, and what it is not
 
@@ -149,7 +149,7 @@ CHECKIN_SEED=0x... npx ts-node scripts/checkin-chain.ts anchor --mode v2 --rpc <
 # The value to submit next (read from the vault; refused if it does not lead to the anchor):
 CHECKIN_SEED=0x... npx ts-node scripts/checkin-chain.ts next --mode v2 --rpc <url>     --vault <contract> --owner <owner> --vault-id <id>
 
-# v1 (the Base deployment): the same, with --mode v1 and --epoch <your install index>.
+# v1 (0xC821...fEe2f on Base): the same, with --mode v1 and --epoch <your install index>.
 # Offline: pass --chain-id and --epoch instead of --rpc, and --left <hbLeft> for `next`.
 ```
 

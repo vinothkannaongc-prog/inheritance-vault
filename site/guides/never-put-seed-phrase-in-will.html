@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
-{"@type":"Article","headline":"Never Put Your Seed Phrase in Your Will","description":"Why recovery information must stay separate from a will and what the will should contain instead.","image":"https://willandkey.com/assets/social/seed-phrase-will.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-08-10T17:00:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/never-put-seed-phrase-in-will"},
+{"@type":"Article","headline":"Never Put Your Seed Phrase in Your Will","description":"Why recovery information must stay separate from a will and what the will should contain instead.","image":"https://willandkey.com/assets/social/seed-phrase-will.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"V2_DATE_ISO_TBD","mainEntityOfPage":"https://willandkey.com/guides/never-put-seed-phrase-in-will"},
 {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://willandkey.com/guides/"},{"@type":"ListItem","position":3,"name":"Seed phrases and wills","item":"https://willandkey.com/guides/never-put-seed-phrase-in-will"}]}
 ]}
 </script>
@@ -48,7 +48,7 @@
 <h1>Never put your seed phrase in your will</h1>
 <p class="standfirst">It feels like the responsible thing to do. It is actually one of the fastest
 ways to lose everything — possibly while you're still alive.</p>
-<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 10 August 2026 · <a href="/editorial-policy">Editorial policy</a></p>
+<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 10 August 2026 · Updated V2_DATE_TBD · <a href="/editorial-policy">Editorial policy</a></p>
 
 <div class="answer-box"><p><strong>Direct answer:</strong> do not place a seed phrase, private key, wallet PIN or passphrase in a will. Put legal ownership and a pointer to separately protected instructions in the will; keep the spendable recovery material in a different security process.</p></div>
 <p class="review-note"><strong>Review status:</strong> technically reviewed by the Will &amp; Key project team on 10 August 2026. No independent lawyer, tax adviser or security reviewer has approved this guide.</p>
@@ -175,11 +175,12 @@ asset locations and recovery responsibilities without asking for any seed phrase
 </div>
 
 <div class="risk-box"><strong>Product caution:</strong> Will &amp; Key is one possible technical
-mechanism, not a substitute for a valid estate plan. Its deployed contract has had a
-<a href="/audit">preliminary audit</a> by AI auditing agents, performed at the project's request and
-not independent, but has not completed an independent third-party audit or full Base Sepolia
-lifecycle test. Review <a href="/security">security status</a> before testing it with a small
-amount.</div>
+mechanism, not a substitute for a valid estate plan. Its contract on Base is version 2, deployed on
+V2_DATE_TBD with the contract fixes from a <a href="/audit">preliminary audit</a> of version 1 by AI
+auditing agents, performed at the project's request and not independent; a few findings were kept
+by design and are listed as <a href="/security#limits">known limits</a>. Version 2 has not completed
+an independent third-party audit or a full Base Sepolia lifecycle test. Review
+<a href="/security">security status</a> before testing it with a small amount.</div>
 
 <p>Nothing on this page is legal advice. The interaction between on-chain transfers and your
 local estate law is worth one conversation with a professional — bring this article.</p>

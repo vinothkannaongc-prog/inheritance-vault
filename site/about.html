@@ -40,7 +40,7 @@
 <p class="standfirst">Will &amp; Key is an open-source experiment in one narrow problem: helping
 self-custody crypto reach a chosen beneficiary without giving anyone the owner's seed phrase
 while the owner is alive.</p>
-<p class="byline">Project information · Last reviewed 27 September 2026</p>
+<p class="byline">Project information · Last reviewed V2_DATE_TBD</p>
 
 <h2>The problem we are working on</h2>
 <p>A bank can respond to a court order. A blockchain cannot. If the only person able to sign for a
@@ -52,21 +52,22 @@ verify a death, give tax advice, act as executor, hold recovery phrases or decid
 inherit.</p>
 
 <h2>What has been built</h2>
-<p>The project has deployed a non-upgradeable inheritance-vault contract on Base. An owner can
-deposit a supported asset, nominate a beneficiary and choose an inactivity period. If the owner
-stops checking in, the beneficiary may initiate a claim. A separate challenge period gives the
-owner time to veto before settlement.</p>
+<p>The project runs a non-upgradeable inheritance-vault contract on Base: version 2, deployed on
+V2_DATE_TBD, which replaced version 1 (deployed on 9 August 2026 and now retired). An owner can
+deposit ETH or one of four listed tokens, nominate a beneficiary and choose an inactivity period. If
+the owner stops checking in, the beneficiary may initiate a claim. A separate challenge period gives
+the owner time to veto before settlement.</p>
 <p>The browser interface is static and served from isolated Cloudflare Pages hosting. Contract
 source, tests, deployment records, the internal adversarial review and the preliminary audit are maintained in the
 <a href="https://github.com/vinothkannaongc-prog/inheritance-vault" rel="noopener">project repository</a>.</p>
 
 <h2>Where the project stands</h2>
 <ul>
-  <li>The Base deployment is live and its runtime bytecode matches the local compiler artifacts.</li>
-  <li>The deployed version shipped with sixty-three contract tests and a fourteen-step local watcher recovery scenario.</li>
-  <li>The contracts have had an internal adversarial review and a <a href="/audit">preliminary audit</a> (September 2026) by AI auditing agents. Neither is independent, and no independent third-party audit has been completed.</li>
-  <li>The preliminary audit found no critical or high issues. Its contract fixes exist only as undeployed v2 source: the live contract is unchanged and cannot be patched.</li>
-  <li>A full-duration Base Sepolia inheritance lifecycle remains pending.</li>
+  <li>Version 2 is live on Base since V2_DATE_TBD. Its code fingerprints and how to check them against the source are on the <a href="/security#bytecode">security page</a>.</li>
+  <li>Version 1 had an internal adversarial review (August 2026) and a <a href="/audit">preliminary audit</a> (September 2026) by AI auditing agents. The audit found no critical or high issues. Version 1 could not be patched, so its contract fixes went into version 2.</li>
+  <li>Version 2 has been reviewed only by AI agents of the same kind that wrote it, in five fix-review rounds and a pre-launch review. None of the reviews is independent, and no independent third-party audit of either version has been completed.</li>
+  <li>Version 1 is retired: its new-vault creation is paused on chain (<a href="https://basescan.org/tx/V1_PAUSE_TX_TBD" rel="noopener">transaction</a>), and on 27 September 2026 it held no user funds.</li>
+  <li>A full-duration Base Sepolia lifecycle test of version 2 has not been completed.</li>
   <li>Will &amp; Key sends no reminders or alerts. Sales on the retired reminder-billing contract were switched off on chain on 26 September 2026.</li>
 </ul>
 <p>Those limitations matter. The contract is immutable, so a serious contract finding would require

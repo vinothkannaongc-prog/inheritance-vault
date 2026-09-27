@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
-{"@type":"Article","headline":"What Is a Dead Man's Switch for Crypto?","description":"How the mechanism works on chain, what it protects against and what it cannot protect against.","image":"https://willandkey.com/assets/social/dead-mans-switch.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"2026-09-26T12:00:00+05:30","mainEntityOfPage":"https://willandkey.com/guides/dead-mans-switch-crypto"},
+{"@type":"Article","headline":"What Is a Dead Man's Switch for Crypto?","description":"How the mechanism works on chain, what it protects against and what it cannot protect against.","image":"https://willandkey.com/assets/social/dead-mans-switch.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-09T12:00:00+05:30","dateModified":"V2_DATE_ISO_TBD","mainEntityOfPage":"https://willandkey.com/guides/dead-mans-switch-crypto"},
 {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://willandkey.com/guides/"},{"@type":"ListItem","position":3,"name":"Crypto dead man's switch","item":"https://willandkey.com/guides/dead-mans-switch-crypto"}]}
 ]}
 </script>
@@ -50,10 +50,10 @@
 as you keep signaling "I'm here," nothing happens. When the signals stop, the person you chose
 can claim your crypto. Here's exactly how it works — and the hard questions to ask anyone
 selling you one.</p>
-<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 26 September 2026 · <a href="/editorial-policy">Editorial policy</a></p>
+<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Last verified 27 September 2026 · Updated V2_DATE_TBD · <a href="/editorial-policy">Editorial policy</a></p>
 
 <div class="answer-box"><p><strong>Direct answer:</strong> a crypto dead man's switch is a time-based transfer mechanism. The owner periodically proves activity; after a configured silence period, a named beneficiary may start a claim; a separate challenge window lets the owner cancel a false trigger before settlement.</p></div>
-<p class="review-note"><strong>Review status:</strong> technically reviewed against the deployed Will &amp; Key contract source on 26 September 2026, after its <a href="/audit">preliminary audit</a>. No independent smart-contract auditor or lawyer has approved this guide.</p>
+<p class="review-note"><strong>Review status:</strong> technically reviewed on 27 September 2026 against the source of the Will &amp; Key version 2 contract, which was written after the <a href="/audit">preliminary audit</a> of version 1 and deployed on V2_DATE_TBD. No independent smart-contract auditor or lawyer has approved this guide.</p>
 
 <section class="key-takeaways" aria-labelledby="takeaways">
 <h2 id="takeaways">Key takeaways</h2>
@@ -95,13 +95,15 @@ address. You choose an <em>inactivity period</em> — how long the silence must 
 that resets the timer. Checking in monthly on a 90-day timer means three missed months before
 anything can happen.</li>
 <li><strong>Claim.</strong> If the timer truly runs out, your heir — and only the wallet you
-named — can initiate a claim.</li>
+named — can initiate a claim, naming the address the funds should be paid to. In Will &amp; Key the
+heir can correct that address only by cancelling the claim and filing a new one, and safely only
+before the claim becomes finalizable.</li>
 <li><strong>Challenge window.</strong> The claim doesn't settle instantly. A veto period runs
 (in Will &amp; Key's case, minimum seven days; we suggest 14 or more) during which you can cancel
 the claim. This is the safeguard against the hospital scenario: being unreachable is not being
 dead. In Will &amp; Key, before your horizon, the cancelling actions are Veto claim, changing the
-heir, changing the check-in period, installing a new check-in chain (advanced), extending the
-horizon or any withdrawal. A check-in or a top-up does
+heir, changing the check-in period, installing or disarming a check-in chain (advanced), extending
+the horizon or any withdrawal. A check-in or a top-up does
 <em>not</em> cancel a claim, and ordinary wallet activity does not count; at or after the horizon
 only extending the horizon or withdrawing everything works. The window only protects you if you
 notice it: Will &amp; Key sends no alerts of any kind, so nobody will notify you if a claim is
@@ -150,35 +152,38 @@ network congestion and the beneficiary's own availability all affect a sensible 
 <h2 id="evaluation">The questions to ask any dead man's switch</h2>
 <ul>
 <li><strong>"Can the operator touch my funds?"</strong> The only acceptable answer is a provable
-no, and ask which assets it covers. In Will &amp; Key's contract, vault balances in ETH and
-<a href="/how-it-works#tokens">supported single-address tokens</a> are arithmetically outside the
-admin's reach, and that's verifiable in the source, not a policy promise. The contract accepts any
-token, though, and for unsupported tokens (rebasing, reachable through two addresses, and similar)
-the guarantee does not hold.</li>
+no, and ask which assets it covers. In Will &amp; Key's contract, vault balances are arithmetically
+outside the admin's reach, and that's verifiable in the source, not a policy promise. It holds
+because a vault can hold only ETH or one of <a href="/how-it-works#tokens">four listed tokens</a>
+(USDC, WETH, cbBTC and EURC), chosen because each lives at one address and never changes a balance on
+its own; the list is fixed in the contract and nobody can add to it. A token's issuer can still
+freeze its own token: Circle can pause or blocklist USDC and EURC, and Coinbase cbBTC.</li>
 <li><strong>"What happens if the company disappears?"</strong> The contract must keep working
 with the website gone. Claims must be finalizable by anyone, not by the operator's server.</li>
-<li><strong>"Can the fee change under me?"</strong> Look for a hard cap in the bytecode and a
-creation-time ceiling. Will &amp; Key's current global settlement fee is 0.5% and the bytecode cap
-is 1%. Each vault records the rate in force when it was created as its ceiling. A lower global rate
-applies only while it is in force, so a cut that is later reversed can return a vault to its
-ceiling, but never above it. Starting a claim caps its rate against a mid-claim increase.</li>
+<li><strong>"Can the fee change under me?"</strong> Look for a hard cap in the bytecode, a
+creation-time ceiling and a notice period for raises. Will &amp; Key's current global settlement fee
+is 0.5% and the bytecode cap is 1%. Each vault records the rate in force when it was created as its
+ceiling. A cut applies at once, but a raise takes effect only 30 days after it is announced on
+chain, so it cannot be slipped in front of your transaction. Starting a claim locks the lower of the
+vault's ceiling and the rate then in force, and a later cut helps the heir only if it is still in
+force when the claim settles.</li>
 <li><strong>"Is it upgradeable?"</strong> An upgradeable inheritance contract means someone can
 change the rules after you're gone. Non-upgradeable is the right answer even though it makes
 the developer's life harder.</li>
 <li><strong>"Who controls administration?"</strong> Identify the current owner address and every
-privileged function. Since 24 September 2026 Will &amp; Key's administrator is a single Ledger
-hardware-wallet key, not a multisig, and it also receives the fees. Its functions are pausing new
-vault creation, changing the global fee within the 1% cap, changing or unsetting the fee recipient,
-sweeping surplus, and transferring administration. The address and handover transactions are on the
-<a href="/security#admin">security page</a>. A single key is a disclosed risk even though the
-administrator cannot withdraw vault balances in supported assets; moving to a multisig is
-recommended.</li>
-<li><strong>"Has it been audited?"</strong> Will &amp; Key's Base deployment has internal tests, an
-internal review and a <a href="/audit">preliminary audit</a> by AI auditing agents, performed at the
-project's request and not independent. It has no completed independent third-party audit and no
-full minimum-duration Base Sepolia lifecycle test. The contract is immutable, so the preliminary
-audit's fixes exist only as undeployed source for a future version. Do not treat internal evidence
-as an external assurance.</li>
+privileged function. Will &amp; Key's administrator is a single Ledger hardware-wallet key, not a
+multisig, and it also receives the fees. Its functions are pausing new vault creation, cutting the
+global fee or announcing a raise that takes effect 30 days later (never above the 1% cap), changing
+the fee recipient, sweeping surplus in ETH or a listed token, and transferring administration. It
+cannot add a token. The address is on the <a href="/security#admin">security page</a>. A single
+key is a disclosed risk even though the administrator cannot withdraw vault balances; moving to a
+multisig is recommended.</li>
+<li><strong>"Has it been audited?"</strong> Will &amp; Key's contract on Base is version 2, live
+since V2_DATE_TBD. It was written in response to a <a href="/audit">preliminary audit</a> of
+version 1 by AI auditing agents, performed at the project's request and not independent, and it has
+since been reviewed only by AI agents of the same kind that wrote it. It has no completed
+independent third-party audit and no completed full minimum-duration Base Sepolia lifecycle test.
+Do not treat internal evidence as an external assurance.</li>
 </ul>
 
 <h2>Three timers, three different promises</h2>
@@ -221,7 +226,7 @@ in one weekend</a>.</p>
 <li><a href="https://docs.base.org/base-chain/quickstart/connecting-to-base" rel="noopener">Base documentation - mainnet and Base Sepolia network details</a></li>
 <li><a href="https://docs.base.org/get-started/block-explorers" rel="noopener">Base documentation - verifying contracts and transactions with explorers</a></li>
 <li><a href="https://docs.openzeppelin.com/contracts/5.x/access-control" rel="noopener">OpenZeppelin - ownership and access-control concepts</a></li>
-<li><a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">BaseScan - deployed Will &amp; Key InheritanceVault address</a></li>
+<li><a href="https://basescan.org/address/V2_ADDRESS_TBD" rel="noopener">BaseScan - deployed Will &amp; Key InheritanceVault address (version 2)</a></li>
 <li><a href="/how-it-works">Will &amp; Key - transaction-by-transaction mechanism</a></li>
 <li><a href="/security">Will &amp; Key - bytecode, admin powers, tests and audit status</a></li>
 </ul>

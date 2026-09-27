@@ -16,11 +16,11 @@
  *
  * Two modes, because the two contracts check a step differently:
  *
- *   v1  (the contract deployed on Base) step = keccak256(x), the raw 32 bytes, because that is
+ *   v1  (0xC821...fEe2f on Base) step = keccak256(x), the raw 32 bytes, because that is
  *       all v1 checks. The context is bound off-chain only, through the tip; `epoch` is then an
  *       install index you choose and print on the paper (1 for the first installation of that
  *       vault, +1 for every re-installation). Never re-use an install index for the same vault.
- *   v2  (the fixed source; NOT deployed) step = keccak256(abi.encode(HB_DOMAIN, chainId, vault,
+ *   v2  (contracts/InheritanceVault.sol) step = keccak256(abi.encode(HB_DOMAIN, chainId, vault,
  *       owner, vaultId, epoch, x)), exactly as the contract's hbStep. `epoch` is the vault's
  *       installation epoch the chain is for: getVault(...).hbEpoch + 1 at install.
  *

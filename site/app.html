@@ -28,7 +28,7 @@
 <main>
   <div class="app-head">
     <h1>Your vaults</h1>
-    <span class="pill warn">Live on Base - no third-party audit</span>
+    <span class="pill warn">v2 on Base - no third-party audit</span>
   </div>
 
   <div id="walletBanner" class="banner warn" aria-live="polite" hidden></div>
@@ -38,6 +38,17 @@
     if your timer expires or a claim is filed on your vault: only opening this page, or your own
     monitoring, will tell you. Reminder sales on the retired billing contract were switched off on
     chain on 26 September 2026; do not send it funds.
+  </div>
+  <div class="banner warn v1-notice" id="v1Notice">
+    <p class="banner-copy"><strong>This page manages Will &amp; Key v2, deployed on V2_DATE_TBD.</strong>
+    The first vault contract, v1 (<a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821849A1D74959753450409b594b23eCE7fEe2f</a>),
+    is retired: creating new vaults on it is paused on chain
+    (<a href="https://basescan.org/tx/V1_PAUSE_TX_TBD" rel="noopener">pause transaction</a>), and this
+    page no longer manages it. Every v1 exit still works. A payout credited to you on v1 can be
+    withdrawn on Basescan: open the contract's
+    <a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f#writeContract" rel="noopener">Write Contract</a>
+    tab, connect your wallet and call withdrawCredit.</p>
+    <div id="v1Mine" class="v1-mine" hidden></div>
   </div>
 
   <div class="tabs" id="tabs" role="tablist" aria-label="Vault views">
@@ -64,35 +75,22 @@
   <div id="tab-create" class="tab-pane" role="tabpanel" aria-labelledby="tabbtn-create" hidden>
     <div class="card" id="createCard">
       <h3>Create a vault</h3>
+      <div id="cPaused" class="banner bad" hidden>
+        New vaults cannot be created right now: the vault contract's admin has paused creation.
+        Your existing vaults, and every way out of them, keep working.
+      </div>
       <div class="grid2">
         <label class="f"><span>Asset</span>
           <select class="f" id="cAsset">
-            <option value="native">Native coin (ETH / BNB)</option>
-            <option value="other">Other ERC-20 token (not reviewed)</option>
+            <option value="native">Native coin (ETH)</option>
           </select>
-          <small class="hint">Known tokens for your network appear in this list once your wallet is connected.</small>
-        </label>
-        <label class="f" id="cTokenWrap" hidden><span>Token contract address</span>
-          <input class="f" id="cToken" placeholder="0x..." autocomplete="off" spellcheck="false">
+          <small class="hint">The coin, or one of the tokens the vault contract lists. The list was fixed when the contract was deployed, and the contract refuses every other token.</small>
         </label>
         <label class="f"><span>Amount</span>
           <input class="f" id="cAmount" placeholder="1.0" autocomplete="off">
         </label>
       </div>
       <div id="cTokenInfo"></div>
-      <div id="cTokenWarn" class="banner bad" hidden>
-        <p class="banner-copy"><strong>This token is not on Will &amp; Key's list of known tokens.</strong>
-        The vault contract only works correctly for plain, single-address ERC-20 tokens, and nobody
-        has reviewed this one. Do not use rebasing tokens (the balance changes by itself),
-        fee-on-transfer or tax tokens, reflection tokens that pay holders, interest-bearing tokens
-        such as Aave aTokens, or double-entry tokens that can be moved through a second contract
-        address. With those, deposits in the shared pool can come up short for whoever withdraws
-        last, growth above your deposit becomes surplus that the admin can sweep, and for a
-        double-entry token the admin can sweep the deposits themselves. The token's name, symbol
-        and decimals are whatever its deployer chose.</p>
-        <label class="check"><input type="checkbox" id="cTokenAck">
-          <span>I have checked that this token is a plain ERC-20 and I accept these risks.</span></label>
-      </div>
       <div class="grid2">
         <label class="f" id="cHeirPickWrap" hidden><span>Use an existing heir</span>
           <select class="f addr-pick" id="cHeirPick"></select>
@@ -133,13 +131,13 @@
       <p class="muted-copy">Enter the vault owner's address. Vaults that name your connected
       wallet as heir will appear, with their status and available actions.</p>
       <label class="f"><span>Vault owner's address</span>
-        <input class="f" id="hOwner" placeholder="0x...">
+        <input class="f" id="hOwner" placeholder="0x..." autocomplete="off" spellcheck="false">
       </label>
       <button class="btn primary" id="hLookupBtn">Look up</button>
       <h4 class="card-sub">No owner address?</h4>
       <p class="muted-copy">Search the vault contract's public records for vaults that have named
       your connected wallet as heir. Every record found is checked on chain, and only open vaults
-      that name your wallet now are shown. The search reads every block since the contract was
+      that name your wallet now are shown. The search reads every block since the v2 contract was
       deployed, so it can take several minutes, and it may be incomplete: a network connection can
       leave records out. Your wallet address is sent to your wallet's network connection and, if
       that cannot answer, to Base's public endpoint (mainnet.base.org).</p>
@@ -153,14 +151,13 @@
   <div id="tab-credits" class="tab-pane" role="tabpanel" aria-labelledby="tabbtn-credits" hidden>
     <div class="card">
       <h3>Payouts owed to you</h3>
-      <p class="muted-copy">Settled inheritances and withdrawals land here as credits you pull
-      to any address you choose.</p>
-      <label class="f"><span>Token (leave blank for native coin)</span>
-        <input class="f" id="crToken" placeholder="0x... or blank">
-      </label>
-      <button class="btn ghost" id="crCheckBtn">Check balance</button>
-      <button class="btn primary" id="crPullBtn" hidden>Withdraw to my wallet</button>
+      <p class="muted-copy">A withdrawal from a vault and a settled inheritance move nothing to a
+      wallet: each is credited here, to the address it names, and that address withdraws it to
+      itself, all at once or in parts. Credits exist only in the coin and the tokens the vault
+      contract lists.</p>
+      <button class="btn ghost" id="crCheckBtn">Check my payouts</button>
       <div class="txlog" id="crLog" role="status"></div>
+      <div id="crList" class="mt-18"></div>
     </div>
   </div>
 
@@ -170,7 +167,9 @@
     <div class="wrap app-footer-wrap">
       <div>Will &amp; Key - self-custody inheritance. Not legal, tax, or investment advice.</div>
       <div><a href="/security">Security</a> - <a href="/privacy">Privacy</a> - <a href="/terms">Terms</a></div>
-    <div class="footer-contract">Vault contract <a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821&hellip;fEe2f</a></div>
+      <div class="footer-contract">Vault contract (v2) <a href="https://basescan.org/address/V2_ADDRESS_TBD" rel="noopener">V2_ADDRESS_TBD</a>,
+      deployed on V2_DATE_TBD in block <a href="https://basescan.org/block/V2_BLOCK_TBD" rel="noopener">V2_BLOCK_TBD</a>
+      (<a href="https://basescan.org/tx/V2_TX_TBD" rel="noopener">deploy transaction</a>)</div>
     </div>
   </footer>
 </div>

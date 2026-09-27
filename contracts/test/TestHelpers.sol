@@ -852,3 +852,67 @@ contract EntryPointDepositMock {
         require(ok, "withdraw failed");
     }
 }
+
+// ============================================================================================
+// Pre-launch finalization (review round 5).
+
+/**
+ * @dev F09 (R5-3). Mimics Venus vBNB on BNB Chain (0xA07c...Bea36), a Compound-style market for
+ * the native coin: a plain native transfer mints market tokens to msg.sender. When the vault pays
+ * it, msg.sender is the vault, which has no call to redeem them. Tests install its runtime code at
+ * that address with hardhat_setCode.
+ */
+contract NativeMarketMintMock {
+    event Mint(address minter, uint256 mintAmount, uint256 mintTokens);
+
+    mapping(address => uint256) public balanceOf;
+
+    receive() external payable {
+        uint256 tokens = msg.value * 50; // any exchange rate will do
+        balanceOf[msg.sender] += tokens;
+        emit Mint(msg.sender, msg.value, tokens);
+    }
+}
+
+/// @dev F09 (R5-1). Sends its value to `to` with SELFDESTRUCT, which runs none of `to`'s code.
+contract ForceSend {
+    constructor(address payable to) payable {
+        selfdestruct(to);
+    }
+}
+
+/**
+ * @dev F09 (R5-1). A ledger that books native coin to msg.sender, as an EntryPoint does, but lets
+ * ANYONE release a booking to its owner: release() sends the coin and falls back to the wrapped
+ * token when the owner refuses it (the "ETH, else WETH" refund of auction houses), and
+ * forceRelease() force-sends it. The vault's receive() refuses plain transfers, so release()
+ * returns the vault's booking as wrapped tokens, and forceRelease() as native coin.
+ */
+contract ReleasableLedgerMock {
+    IWrappedNativeLike public immutable wrapped;
+    mapping(address => uint256) public booked;
+
+    constructor(address wrapped_) {
+        wrapped = IWrappedNativeLike(wrapped_);
+    }
+
+    receive() external payable {
+        booked[msg.sender] += msg.value;
+    }
+
+    function release(address account) external {
+        uint256 a = booked[account];
+        booked[account] = 0;
+        (bool ok,) = account.call{value: a, gas: 30_000}("");
+        if (!ok) {
+            wrapped.deposit{value: a}();
+            wrapped.transfer(account, a);
+        }
+    }
+
+    function forceRelease(address account) external {
+        uint256 a = booked[account];
+        booked[account] = 0;
+        new ForceSend{value: a}(payable(account));
+    }
+}

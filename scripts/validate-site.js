@@ -85,6 +85,67 @@ for (const file of htmlFiles) {
 }
 
 if (sitemapUrls.has("https://willandkey.com/app")) failures.push("sitemap: app must not be included");
+
+// Launch markers (see scripts/set-launch-values.js). Until the v2 deployment's values are filled in,
+// site/ holds *_TBD placeholders (V2_ADDRESS_TBD, V2_DATE_TBD and the rest), and a site that still
+// has one must not be deployed: it would publish a placeholder where an address, a date or a
+// transaction belongs, and the app would say v2 is not deployed. Every file under site/ except
+// binary assets is read. The *_UNSET placeholders of the app's optional Base Sepolia slot are
+// reported, not failed: the app treats that network as not deployed until they are filled in.
+const BINARY = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".woff", ".woff2", ".pdf"]);
+const markerHits = [];
+const unsetHits = [];
+for (const file of walk(root).filter((candidate) => !BINARY.has(path.extname(candidate).toLowerCase()))) {
+  fs.readFileSync(file, "utf8").split(/\r?\n/).forEach((line, index) => {
+    for (const hit of line.matchAll(/\b[A-Z][A-Z0-9_]*_TBD\b/g)) markerHits.push(`${path.relative(root, file)}:${index + 1} ${hit[0]}`);
+    for (const hit of line.matchAll(/\b[A-Z][A-Z0-9_]*_UNSET\b/g)) unsetHits.push(`${path.relative(root, file)}:${index + 1} ${hit[0]}`);
+  });
+}
+if (markerHits.length) {
+  const names = [...new Set(markerHits.map((hit) => hit.split(" ")[1]))].sort();
+  failures.push(
+    `launch markers remain in site/: ${markerHits.length} (${names.join(", ")}). Do not deploy the site until the v2 ` +
+    "launch values are filled in: node scripts/set-launch-values.js --address 0x.. --block N --tx 0x.. " +
+    `--date "D Month YYYY" --v1-pause-tx 0x..\n  ${markerHits.join("\n  ")}`,
+  );
+}
+if (unsetHits.length) {
+  warnings.push(`Not filled in yet (optional; the app treats that network as not deployed): ${unsetHits.join(", ")}`);
+}
+
+// Once the markers are filled in, the v2 deployment the app talks to (its Base entry in
+// site/assets/app.js) and the one the app page names must be the same: app.html's footer links
+// the same address and block, and the entry carries a code hash, which the app compares with the
+// contract's code on every connect. set-launch-values.js writes them in one run and checks them on
+// chain; a hand edit made afterwards must not publish two deployments.
+{
+  // One chain's entry in the app's CHAINS table (`  8453: {` to `  },`), as set-launch-values.js reads it.
+  const appSlot = (text, chainId) => {
+    const start = text.indexOf(`\n  ${chainId}: {`);
+    if (start < 0) return null;
+    const end = text.indexOf("\n  },", start);
+    const body = text.slice(start, end < 0 ? undefined : end);
+    const field = (name) => (new RegExp(`\\b${name}:\\s*"([^"]*)"`).exec(body) || [])[1] ?? null;
+    return { contract: field("contract"), deployBlock: field("deployBlock"), codehash: field("codehash") };
+  };
+  const slot = appSlot(fs.readFileSync(path.join(root, "assets", "app.js"), "utf8"), 8453);
+  if (!slot) {
+    failures.push("assets/app.js: no Base (8453) entry in CHAINS");
+  } else if (/^0x[0-9a-fA-F]{40}$/.test(slot.contract || "")) {
+    const hash = String(slot.codehash || "").replace(/^0x/i, "").toLowerCase();
+    if (!/^[1-9]\d*$/.test(slot.deployBlock || "")) failures.push(`assets/app.js: Base deployBlock "${slot.deployBlock}" is not a block number`);
+    if (!/^[0-9a-f]{64}$/.test(hash)) failures.push(`assets/app.js: Base codehash "${slot.codehash}" is not a keccak-256 hash`);
+    const appHtml = fs.readFileSync(path.join(root, "app.html"), "utf8");
+    const footer = (/<div class="footer-contract">([\s\S]*?)<\/div>/.exec(appHtml) || [])[1] || "";
+    const linked = (kind) => [...footer.matchAll(new RegExp(`href="https://basescan\\.org/${kind}/([^"]*)"`, "g"))].map((m) => m[1]);
+    if (linked("address").join() !== slot.contract) {
+      failures.push(`app.html: the footer links contract ${linked("address").join(", ") || "nothing"}, but assets/app.js uses ${slot.contract}`);
+    }
+    if (linked("block").join() !== slot.deployBlock) {
+      failures.push(`app.html: the footer links block ${linked("block").join(", ") || "nothing"}, but assets/app.js uses ${slot.deployBlock}`);
+    }
+  }
+}
 if (!/\/app\s+[\s\S]*X-Robots-Tag:\s*noindex/i.test(fs.readFileSync(path.join(root, "_headers"), "utf8"))) {
   failures.push("_headers: missing X-Robots-Tag for /app");
 }

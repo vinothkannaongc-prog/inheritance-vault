@@ -3,6 +3,12 @@
 Published 27 September 2026. Audit performed 24–26 September 2026. Not independent. Public page: <https://willandkey.com/audit>.
 The same content is published there; this file is the canonical copy in the repository.
 
+> **Since this report (added V2_DATE_TBD).** The report below is unchanged. It describes the contracts, the app and the documentation as they were when it was published on 27 September 2026, while v2 was still undeployed source.
+>
+> - **v2 is live.** It was deployed on Base on V2_DATE_TBD at [V2_ADDRESS_TBD](https://basescan.org/address/V2_ADDRESS_TBD) ([transaction](https://basescan.org/tx/V2_TX_TBD)). It contains the fixes this report marks "Fixed in v2 source" and the changes made after it, which [`CHANGELOG-v2.md`](https://github.com/vinothkannaongc-prog/inheritance-vault/blob/main/CHANGELOG-v2.md) records: among them, v2 also refuses Venus vBNB as a payout address, and the v2 comments that [F21](#f21) and [F29](#f29) quote were corrected. The app now uses v2.
+> - **v2 has not been independently audited.** Only AI agents of the same kind that wrote it have reviewed it: this audit's five fix-review rounds and a pre-launch review. Do not use material value until an independent audit is complete.
+> - **v1 is retired.** New-vault creation on v1 ([0xC821849A1D74959753450409b594b23eCE7fEe2f](https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f)) is paused ([transaction](https://basescan.org/tx/V1_PAUSE_TX_TBD)). v1 cannot change, so every v1 behaviour described below is still present in it. On 27 September 2026 it held no user funds.
+
 > **Status: PRELIMINARY. Not an independent audit.**
 >
 > - Run 24–26 September 2026 by the project owner, using AI agents (Anthropic's Claude models, orchestrated as a multi-agent review). Anthropic did not perform, review or endorse this audit.

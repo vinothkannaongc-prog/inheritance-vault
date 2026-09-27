@@ -1,12 +1,13 @@
 # InheritanceVault v2: changelog
 
-**v2 is undeployed source.** It is the fixed `contracts/InheritanceVault.sol` written in response to the
-preliminary security audit of 2026-09. Nothing in this file describes a live contract.
+**v2 is the fixed source** in `contracts/InheritanceVault.sol`, written in response to the preliminary
+security audit of 2026-09. This file records its changes up to the pre-launch review of 27 September 2026,
+when it was still undeployed. Nothing in it describes a deployment.
 
 **v1 is immutable.** The InheritanceVault deployed on Base at
 `0xC821849A1D74959753450409b594b23eCE7fEe2f` (Basescan-verified; source kept as
 `contracts/v1/InheritanceVaultV1.sol`) cannot be changed. Every defect listed here is still present
-there. The website app talks to v1 and keeps the v1 ABI.
+there. Through every round below, the website app talked to v1, with the v1 ABI.
 
 Each finding below has a `describe` block in `test/AuditPrelim2026-09.ts`. Every test in it fails on
 v1, except those titled "(control)", "(guard)" or "(pin)". A "(pin)" test (review round 3) records a
@@ -2271,6 +2272,8 @@ There are 7 new tests: F09 +2, F06 +3, F15 +1 and F38 +1.
 
 ## Review round 5: recorded, not fixed
 
+R5-1 to R5-5 were resolved later, in the pre-launch finalization (the next section).
+
 Round 5 was a confirmation round of three fresh reviewers (security regressions, finding closure,
 tests) on the round-4 tree. They reported six issues: one low and five informational. None is
 medium or above, and none lets anyone move value away from a correctly named recipient.
@@ -2281,11 +2284,11 @@ than fixing them without a further review round. **v2 remains undeployed source.
 
 | # | Severity | Issue | Disposition |
 |---|---|---|---|
-| R5-1 | Informational | PAYOUT ADDRESSES says a payout booked by a credit-the-sender ledger is "lost, though never sweepable". That holds only if nobody but the booking's owner can move it. A ledger that lets anyone release a booking to its owner (for example an "ETH, else WETH" refund), or that force-sends native coin, returns the value to the vault as surplus, which `sweepSurplus` can take. | Open. Correct the NatSpec and the round-4 pin's title. No code change is possible: a later return cannot be told apart from any other force-feed. |
-| R5-2 | **Low** | F20 × F13: `beneficiaryCancelClaim` lets an heir fix a mistyped recipient only until someone mines `finalizeClaim`. That call is permissionless from `finalizableAt`, so the last safe moment to correct a recipient is `finalizableAt`, not "until finalizeClaim is mined" as the NatSpec says. | Open. Correct the NatSpec. A v2 app must confirm the recipient at claim start and show `finalizableAt` as the correction deadline. Lead decision for the independent audit: an optional grace after `finalizableAt` during which only the beneficiary or recipient may finalize. |
-| R5-3 | Informational | Venus vBNB (0xA07c5b74C9B40447a954e1466938b865b6BBea36, BNB Chain) mints to msg.sender on a plain transfer, the same shape as the EntryPoints, and `_checkPayee` does not refuse it. | Open in v2. **The live app now refuses it** (and the four EntryPoints and the OP-stack predeploy range) as a heir, payout or claim-recipient address. |
-| R5-4 | Informational | No test calls `checkIn` or `checkInMany` on a SETTLED vault. Every terminal-state assertion uses a CLOSED one. | Open (test only). |
-| R5-5 | Informational | The F27 guard ("the deadline is written in exactly one place") is still a text regex: `delete`, tuple and `++` writes to `deadline` would pass it. | Open (test only). Move it to the AST, as round 4 did for F01. |
+| R5-1 | Informational | PAYOUT ADDRESSES says a payout booked by a credit-the-sender ledger is "lost, though never sweepable". That holds only if nobody but the booking's owner can move it. A ledger that lets anyone release a booking to its owner (for example an "ETH, else WETH" refund), or that force-sends native coin, returns the value to the vault as surplus, which `sweepSurplus` can take. | **Resolved** in the pre-launch finalization: the NatSpec corrected, the round-4 pin retitled, and the counter-example pinned. No code change is possible: a later return cannot be told apart from any other force-feed. |
+| R5-2 | **Low** | F20 × F13: `beneficiaryCancelClaim` lets an heir fix a mistyped recipient only until someone mines `finalizeClaim`. That call is permissionless from `finalizableAt`, so the last safe moment to correct a recipient is `finalizableAt`, not "until finalizeClaim is mined" as the NatSpec says. | **Resolved** in the pre-launch finalization: the NatSpec corrected and the race pinned. The lead kept the design (no grace period, no atomic re-point). A v2 app must confirm the recipient at claim start and show `finalizableAt` as the correction deadline. |
+| R5-3 | Informational | Venus vBNB (0xA07c5b74C9B40447a954e1466938b865b6BBea36, BNB Chain) mints to msg.sender on a plain transfer, the same shape as the EntryPoints, and `_checkPayee` does not refuse it. | **Resolved** in the pre-launch finalization: v2 refuses it (`VENUS_VBNB`). The live app already refuses it (and the four EntryPoints and the OP-stack predeploy range) as a heir, payout or claim-recipient address. |
+| R5-4 | Informational | No test calls `checkIn` or `checkInMany` on a SETTLED vault. Every terminal-state assertion uses a CLOSED one. | **Resolved** in the pre-launch finalization (test only). |
+| R5-5 | Informational | The F27 guard ("the deadline is written in exactly one place") is still a text regex: `delete`, tuple and `++` writes to `deadline` would pass it. | **Resolved** in the pre-launch finalization (tests only): the guard reads the AST, as round 4's F01 guard does. |
 | R5-6 | Informational | Carry-over: the suite depended on untracked files, and the `v1-base` tag did not exist. | Resolved by the lead's release commit, which adds every referenced file, and by tag `v1-base` at `b8baf34`. |
 
 Round-5 evidence (sandbox tests) is recorded in `audit/2026-09-preliminary/record/fix-review-rounds-4-5.json`.
@@ -2293,3 +2296,536 @@ Round-5 evidence (sandbox tests) is recorded in `audit/2026-09-preliminary/recor
 **Live-site follow-ups the lead made from round 4** (not v2 changes):
 - `README.md`, `site/how-it-works.html` and `site/index.html` said a fee cut during a claim "still reaches the heir". On v1 a fee rise has no delay, so the admin can reverse a cut at any moment before settlement. All three now say a cut helps only if it is still in force at settlement.
 - The live app refuses the four ERC-4337 EntryPoints, Venus vBNB (BNB Chain only) and the OP-stack predeploy range as a heir or payout address.
+
+## Pre-launch finalization
+
+On 27 September 2026 the launch plan set the lead's design decisions for the final v2 source.
+This pass implements them: R5-1 to R5-5 and the F20 NatSpec. It then reads every NatSpec block
+and comment against the code, as the engineer who will ship it. The launch deploys v2 on Base once
+the v2 app is built and tested on local networks and forks. The independent audit comes later.
+
+- **One behaviour change:** v2 refuses one more payout address, Venus vBNB (R5-3). Everything else
+  is NatSpec, comments and tests.
+- **No real bug was found** in the final read.
+- Runtime size: **21,119 bytes** (+39 from 21,080). The optimizer is still at 200 runs. EIP-170
+  leaves 3,457 bytes of headroom. The source has 1,615 lines (1,573 before).
+
+### Lead decisions, recorded
+
+- **F20:** `beneficiaryCancelClaim` stays as implemented, with no grace period after
+  `finalizableAt` and no atomic re-point. The NatSpec now names `finalizableAt` as the last safe
+  moment to correct a recipient (R5-2 below), and the app shows that deadline.
+- **F33:** `nonReentrantView` stays on the six guarded views. Its cost has been pinned since pass 1.
+- **Optional `ratchetLockedFee`** (review round 4, item 1): not added. A cut reaches a claim only
+  if it is still in force when `finalizeClaim` is mined, and an heir keeps one for good only by
+  cancelling and re-initiating while it is in force. FEES says so.
+
+### How each change was shown to be needed
+
+- **Against the pre-finalization contract.** The final test file and `TestHelpers.sol` were run
+  against the unmodified contract in `scratchpad/poc/FINAL-prove`: 176 passing, 10 failing
+  (`prove-old-contract.txt`). Each failure is its item's reason:
+  - the vBNB test: the payout went through and 50 vBNB were minted to the vault (R5-3);
+  - the two F09 pins: PAYOUT ADDRESSES still said the payout "is lost, though never sweepable"
+    (R5-1);
+  - the new F20 guard: `beneficiaryCancelClaim` did not name `finalizableAt` (R5-2);
+  - the five F21 and F29 guards: each runs the contract first, then finds the audited wording
+    that the run contradicts;
+  - the round-3 F15 test: reason 7 still said "the horizon has passed".
+- **Tests for gaps (R5-4, R5-5).** They pass on the pre-finalization contract, as tests of
+  existing behaviour should. The mutation check below shows what each adds.
+- **v1 run.** See Counts at the end of this section.
+
+### R5-1 (Informational): PAYOUT ADDRESSES said a mis-routed payout is "never sweepable": RESOLVED (NatSpec, tests)
+
+- **Fix (NatSpec).**
+  - A payout to a payee that books the value to this contract is now "lost to whoever named it".
+    Whether the admin can ever reach it depends on the payee: it stays out of reach only while
+    nothing but its owner, this contract, can move the booking.
+  - A ledger that lets anyone release a booking to its owner, in a listed token (an "ETH, else
+    WETH" refund) or by force-sending the native coin, returns the value in a later transaction,
+    as surplus that `sweepSurplus` can take. No rule can tell that return from any other
+    force-feed, so there is no code change.
+  - The parenthesis on value "a payee sends back later" now says that such value is surplus.
+    "can turn a payout into surplus the admin could sweep" became "can hand a payout straight back
+    as surplus the admin could sweep", which is what the measurement proves.
+- **Tests (F09).**
+  - The round-4 pin is retitled "... where only the booking's owner can move it, takes the payout;
+    the vault is left with a booking it can never withdraw, and nothing is sweepable". It checks
+    the new text, and that "the payout is lost, though never sweepable" is gone.
+  - New: "(pin) the documented residual, other side: a ledger that lets anyone release a booking
+    to its owner hands a mis-routed payout back here as surplus, in a listed token or in native
+    coin, and the admin can sweep it". It uses `ReleasableLedgerMock` (new) and runs both returns:
+    `release()` sends WETH because the vault refuses the coin, and `forceRelease()` force-sends
+    the coin with SELFDESTRUCT. Both times the admin sweeps the returned value. It passes on v1
+    too.
+
+### R5-2 (Low), F20: the last safe moment to correct a recipient is finalizableAt: RESOLVED (NatSpec; design kept)
+
+- **Fix (NatSpec).**
+  - `beneficiaryCancelClaim`: a new paragraph. The last safe moment to correct a recipient is
+    `finalizableAt` (in `getVault` and in `ClaimInitiated`), not settlement. From that second
+    anyone may call `finalizeClaim`, and a keeper's or a stranger's call mined first settles the
+    claim to the recorded recipient. The credit is then that recipient's alone to withdraw, and a
+    push can deliver it nowhere else. A cancel is certain to work only if it is mined before
+    `finalizableAt`.
+  - The disclosure that a stolen beneficiary key can redirect the payout "until finalizeClaim is
+    mined" stays. That is the attacker's window, not the heir's.
+  - `initiateClaim`: check the recipient before sending, because only `beneficiaryCancelClaim` can
+    change it, and only safely before `finalizableAt`.
+  - `finalizeClaim`: whoever mines it first from `finalizableAt` settles the claim to the recorded
+    recipient.
+  - THE CREDIT LANE: "(beneficiaryCancelClaim can still change it, safely only before
+    finalizableAt)" instead of "before settlement".
+- **Tests (F20).**
+  - "(pin) the documented cost: from finalizableAt a stranger's finalizeClaim mined first settles
+    the estate to the mistyped recipient for good, so the heir's cancel is certain only before
+    that second". One block stamped `finalizableAt` holds a stranger's `finalizeClaim` (the higher
+    tip) and the heir's cancel. The statuses are [1, 0]. The estate is credited to the typo, the
+    heir cannot withdraw it, and after `PUSH_GRACE` a push delivers it to the typo. Rolled back
+    and stamped one second earlier, the statuses are [0, 1], and the re-initiated claim settles to
+    the heir.
+  - "(guard) the NatSpec names finalizableAt, not settlement, as the last safe moment to correct a
+    recipient": the four places above.
+
+### R5-3 (Informational): Venus vBNB is refused as a payee: RESOLVED (contract)
+
+- **Fix.** `VENUS_VBNB` (new internal constant, `0xA07c5b74C9B40447a954e1466938b865b6BBea36`) is
+  refused in `_checkPayee`, like the EntryPoints. That covers every payout path, the claim
+  recipient, the fee recipient (constructor included) and the sweep target. PAYOUT ADDRESSES names
+  it, and its list of what no rule can see now reads "a staking, lending or deposit contract".
+- **Checked read-only on 27 September 2026** (`FINAL-work/check-vbnb.js`). The address has 19,906
+  bytes of code on BNB Chain. On Base it has no code and nonce 0, but it holds 1,525,300,000,000
+  wei of dust, so the NatSpec says "has no code on Base", not "empty".
+- **Test (F09).** "Venus vBNB is refused as a payee: native coin paid to it mints vBNB to this
+  contract, which can neither redeem nor sweep it". It installs `NativeMarketMintMock` (new) at the
+  address. It checks `withdrawCredit`, `withdraw`, `setFeeRecipient`, `sweepSurplus`, the
+  constructor and `initiateClaim`; that nothing was minted to the vault; that the credit is kept;
+  and that `sweepSurplus(vBNB)` reverts `UnsupportedToken`, because it is not listed. On the
+  pre-finalization contract and on v1 the payout goes through, and the vault holds 50 vBNB.
+- **Cost:** +39 runtime bytes.
+
+### R5-4 (Informational): no test used a SETTLED vault in checkIn or checkInMany: RESOLVED (test)
+
+- **Test (F15).** "a SETTLED vault is terminal for checkIn and checkInMany, before and past its
+  horizon: VaultNotActive(id, SETTLED) and SKIP_TERMINAL, never HorizonReached". It settles two
+  vaults: one with its horizon far off, and one whose horizon then passes.
+  - `checkIn` reverts `VaultNotActive(id, 3)` before and past the horizon, never `HorizonReached`.
+  - `checkInMany([0, 1, 2])` logs `0:skip2`, `1:skip2` and `2:in`.
+  - `checkInMany([0, 1])` reverts `NothingCheckedIn(4)`, and so does `checkInMany([1])` past the
+    horizon.
+- Round 5's mutants H9 and K8 survive the pre-finalization suite (231 passing). This test kills
+  both.
+
+### R5-5 (Informational): the F27 guard was a text regex: RESOLVED (tests)
+
+- **The guard keeps its text layer and gains an AST layer**, read from the compiler's own AST
+  (Hardhat's build info), as round 4 did for F01:
+  - every `deadline` member of a stored `Vault` (type `struct InheritanceVault.Vault storage ...`)
+    that is an lvalue must sit in `_resetClock`, and there must be exactly one. A delete, a tuple
+    target and `++` are all lvalues;
+  - no whole stored `Vault` may be an lvalue (assigned into, deleted or a tuple target). The one
+    lvalue allowed is a storage pointer being pointed at a vault (`v = _vaults[o][id]` in
+    `_vault`), which writes nothing;
+  - no inline assembly may `sstore` or take a `.slot`;
+  - `DeadlineReset` is emitted only in `_resetClock`.
+- **New behavioural test (F27).** "DeadlineReset stays a complete record through a claim, a
+  cancel and a settlement: after each, getVault's deadline is the last one logged". It covers the
+  three claim paths that the owner-action test does not. On v1 it fails for F27's reason: there is
+  no DeadlineReset.
+- `delete v` on the storage pointer itself does not compile (TypeError), so no layer needs to
+  cover it.
+
+### Mutation check (sandbox, vault suite: AuditPrelim2026-09.ts + Audit.ts + InheritanceVault.ts)
+
+The runner is `scratchpad/poc/mutate-final.js`. It applies each mutant to one copy of the
+pre-finalization source with its suite (`FINAL-mut-old/mutants-old-result.txt`) and to one copy
+of the final source with its suite (`FINAL-mut-new/mutants-new-result.txt`).
+
+| Mutant | Change | Pre-finalization suite (231 tests) | Final suite (242 tests) |
+|---|---|---|---|
+| H9 | `checkIn` treats only CLOSED as terminal | survived | killed: F15 SETTLED test |
+| K8 | `checkInMany` skips only CLOSED as terminal | survived | killed: the same |
+| F27a | `delete v.deadline` in `finalizeClaim` | survived | killed: F27 behavioural test; F27 guard, AST member write |
+| F27b | a tuple write of the deadline in `initiateClaim` | survived | killed: the same |
+| F27c | `v.deadline++` in `initiateClaim` | survived | killed: the same |
+| F27d | a whole-struct write of a copy with the deadline + 1, in `beneficiaryCancelClaim` | killed: F20 "deadline and horizon untouched" | killed: F20; F27 behavioural test; F27 guard, AST whole struct |
+| F27d0 | a whole-struct write of an unchanged copy, same place | survived | killed: F27 guard, AST whole struct, alone |
+| F27f | an `sstore` of the vault's slot 1 with its own value, same place | killed: F01 guard | killed: F01 guard; F27 guard, AST assembly |
+| F27g | `delete v` of the storage pointer | does not compile | does not compile |
+| VB1 | `_checkPayee` stops refusing vBNB | (new code) | killed: F09 vBNB test |
+
+Each AST rule was seen to fail on its own mutant, with the message naming it: the member rule
+on F27a to F27c, the whole-struct rule on F27d0 and the assembly rule on F27f.
+
+### Final read of the NatSpec and comments
+
+Every NatSpec block and every comment was read against the code. No real bug was found. The
+items below were stale or wrong. They are corrected, in NatSpec and comments only.
+
+- **F21 and F29: comments the audit report says v2 "still carries".** Each now has a guard in a
+  new block, "F21 and F29 the v2 source comments say what the code does". Each guard runs the
+  contract first, then checks the comment, so each fails on the audited wording.
+  - T1 said the owner key can "veto any claim". Past the horizon `abortClaim` reverts. Now the
+    owner key can stop any claim that has not settled, with the veto before the horizon and past
+    it only as T3 says.
+  - T2 said a lost heir key leaves the funds "stuck until the horizon". Nothing opens at the
+    horizon: only the beneficiary can ever start a claim, so the funds are stuck for good. The
+    guard looks 20 years past `guaranteedInheritanceAt`.
+  - T3 called `extendHorizon` "the ONLY way past the date". It priced each override at "one full
+    inactivity period" and said nothing moves the date "without bound". Now, and each point is
+    checked by the guard:
+    - nothing but the live owner key can move the date;
+    - it can move the date or stop a claim only in two logged ways: withdrawing everything, or
+      `extendHorizon` to at least one inactivity period and at most `MAX_HORIZON` ahead;
+    - either one ends a pending claim;
+    - the date holds for an heir who claims by the horizon;
+    - the period can first be cut to `MIN_INACTIVITY` (7 days) while no claim is pending;
+    - one call can move the horizon 100 years ahead;
+    - naming a new heir past the horizon does not move the date.
+  - `_clearPending` said "Any owner action supersedes a running claim", but a check-in and a
+    top-up do not. It now names the five actions that do. It also says a full withdrawal ends a
+    claim by closing the vault, without going through `_clearPending`.
+  - `_setCheckInChain` said that installing a chain past the horizon "would take a fee". The call
+    is not payable, and the comment now says "would cost gas".
+- **Also corrected.**
+  - The contract `@notice` said the heir "is paid" at finalization, where finalization records a
+    credit. It also offered the veto for the whole window, which holds only before the horizon.
+  - `beneficiaryCancelClaim`'s list of gap costs called `extendHorizon` "the only way to stop the
+    claim itself". A full withdrawal stops it too. This is the same overstatement as T3.
+  - `SKIP_HORIZON_REACHED` and `SKIP_CLAIM_PENDING_PAST_HORIZON` said the horizon "has passed".
+    Both are given AT the horizon second (`>=`, pinned in round 4), so they now say "has been
+    reached". The round-3 F15 test pins both.
+  - `ClaimFeeChanged` said "the rate in force changed". `setClaimFee` at the rate in force, which
+    is how a raise is called off, emits it with both rates equal. The F06 test now asserts
+    `ClaimFeeChanged(20, 20)`.
+  - `setFeeRecipient` named only `wrappedNative` and the listed tokens as refused. It refuses every
+    address the payout rule refuses.
+  - `BALANCE_READ_GAS` said "about ten times what the proposed tokens ... use cold". The list is no
+    longer a proposal. Measured read-only on Base (`FINAL-work/measure-balanceof.js`), a cold
+    `balanceOf` costs about 12,600 gas through the USDC, EURC and cbBTC proxies and 5,300 for
+    WETH. The cap is about eight times the first figure.
+  - `topUp`'s comment said a token's callback could close a vault during `_pull`. Every function
+    that changes a vault is `nonReentrant`, and the F38 hook test shows the re-entry refused, so
+    the re-check is defence in depth. Its NatSpec said the refusal mid-claim keeps "the amount an
+    heir is claiming" from moving. Past the horizon a partial withdrawal still moves it, so the
+    NatSpec now says only that a gift cannot.
+  - `checkInMany`'s explanation sat inside its `@return` tag. It is now `@dev`, and `@return`
+    comes last.
+- **Read and found accurate:** ACCOUNTING, SUPPORTED TOKENS, FEES, NOT SUPPORTED, VIEWS, THE
+  CHECK-IN CHAIN and EVENTS; T4; THE CREDIT LANE apart from R5-2; the struct and view field notes;
+  every event and error apart from `ClaimFeeChanged`; the constructor; `_holdings`, `_payout`,
+  `_pull`, `_credit`, `_payCredit` and `_nextDeadline`; `checkInByChain`, `setCheckInChain`,
+  `extendHorizon`, `abortClaim`, `withdraw`, `pushCredit` and the fee functions.
+
+### Launch-neutral wording outside the marker script's reach
+
+`scripts/set-launch-values.js` replaces the launch markers in site/, README.md, SECURITY.md,
+AUDIT_SCOPE.md, DEPLOY.md and the report generator's inputs. Three of this pass's files state v2's
+deployment status and are not on that list. They now say nothing that the launch would make false:
+
+- `docs/CHECKIN-CHAIN.md`: "**It is not deployed.**" is removed, and v1 is named by its address
+  instead of "the Base deployment";
+- `scripts/checkin-chain.ts`: the same, in its header;
+- this file's header, which is now dated.
+
+### Flagged for the lead (outside this pass's files)
+
+- **Report generator** (`tmp/audit-2026-09-workbench/report-gen/gen.cjs`). It reads the v2 source.
+  - Its line gate expects 1,573 lines. The source now has 1,615.
+  - Its `V2_BASELINE` expects all five audited comments (t1, t2, t3, clear, fee). All five are now
+    reworded, so it warns for each. Its F21 and F29 "In v2 source" text switches to "reworded since
+    the audit" by itself; re-read both before publishing.
+  - Hard-coded figures to update: 21,080 bytes becomes 21,119; `npx hardhat test` 244 becomes
+    255; the v1 run's 51 and 124 become 57 and 129.
+- **`scripts/deploy.ts`** refuses an EntryPoint `FEE_RECIPIENT` or `ADMIN_ADDRESS` before sending.
+  Add vBNB before a BNB deploy. The constructor now refuses it as the fee recipient anyway, and it
+  does not matter on Base, where the fee recipient is the Ledger.
+- **APP (v2).** Confirm the recipient at claim start and show `finalizableAt` as the correction
+  deadline (R5-2). Keep warning on any payee with code (R5-1).
+
+### Files changed in the pre-launch finalization
+
+- `contracts/InheritanceVault.sol`: `VENUS_VBNB` (new) and `_checkPayee` refusing it; NatSpec and
+  comments as listed above.
+- `contracts/test/TestHelpers.sol`: `NativeMarketMintMock`, `ForceSend` and `ReleasableLedgerMock`
+  (new).
+- `test/AuditPrelim2026-09.ts`:
+  - `VENUS_VBNB` and the `docAbove()` helper;
+  - F09: 2 new tests, and the round-4 pin retitled;
+  - F20: 1 new pin and 1 new guard;
+  - F15: 1 new test, and the round-3 test's NatSpec check;
+  - F27: 1 new test, and the guard's AST layer;
+  - F06: one assertion added;
+  - a new block, F21 and F29: 5 guards.
+- `docs/CHECKIN-CHAIN.md`, `scripts/checkin-chain.ts`: launch-neutral wording.
+- `CHANGELOG-v2.md`: the header, the round-5 table and this section.
+
+### Counts
+
+- `npx hardhat test`: **255 passing, 0 failing** (244 before). There are 11 new tests: F09 +2,
+  F20 +2, F15 +1, F27 +1, and F21 and F29 +5.
+- `VAULT_IMPL=v1 npx hardhat test test/AuditPrelim2026-09.ts`: **57 passing, 129 failing** (51 and
+  124 before). All 57 are "(control)", "(guard)" or "(pin)".
+  - The 6 more passing: the new F09 pin, which v1 shares; the new F20 guard; and the T1, T2, T3
+    and "would take a fee" guards. All four behave the same on v1 and read the v2 source.
+  - The 5 more failing:
+    - the vBNB test fails for F09's reason: v1 pays vBNB;
+    - the SETTLED test fails for F15's reason: v1's `checkInMany` logs no skip;
+    - the DeadlineReset test fails for F27's reason: v1 emits none;
+    - the new F20 pin fails in its control half only, because v1 has no `beneficiaryCancelClaim`;
+    - the `_clearPending` guard fails because v1 cannot disarm a chain (F28), not because of F29.
+
+## Pre-launch review
+
+On 27 September 2026 three fresh reviewers (security, launch configuration, tests) read the
+finalized source, `scripts/deploy.ts` and the suite. They reported 16 issues: one medium, ten low
+and five informational. **None is high or critical, and none is a defect in the v2 contract.**
+Each was reproduced independently in a sandbox before anything changed, and all 16 hold.
+
+- **No contract change.** Runtime size: **21,119 bytes**, unchanged.
+- **Items 10 to 16 (tests): FIXED.** The medium one is a gap in the tests on a fund-safety guard,
+  not a bug. 8 new tests and 1 corrected test in `test/InheritanceVault.ts`, and one header
+  correction in `test/AuditPrelim2026-09.ts`. A mutation check (below) shows what each adds.
+- **Items 1 to 9 (`scripts/deploy.ts`, `DEPLOY.md`): CONFIRMED, NOT FIXED HERE.** They are six
+  distinct defects (three were reported twice). Neither file belongs to this pass: the deploy
+  script belongs to the deploy rehearsal, and `DEPLOY.md` to the documentation track. No user
+  funds are at risk in any of them. But a stranger can make a correct deployment read as failed
+  (1, 7), a failed RPC read can lose the record and lead to a second vault (2, 4), and a wrong
+  permanent admin, token list or fee deploys with no alarm (3, 5, 6, 8). **Fix them before the
+  mainnet run.** A tested reference patch is in `scratchpad/plfix-deploy-proposed.ts` (diff:
+  `scratchpad/plfix-deploy-ts.diff`); see "For the owner of scripts/deploy.ts" below.
+
+| # | Lens | Severity | Issue | Disposition |
+|---|---|---|---|---|
+| 10 | tests | **Medium** | No test asserted `VaultTerminal`: either terminal arm of `_requireLive` could be dropped | FIXED (tests) |
+| 11 | tests | Low | `checkInByChain` on a SETTLED or CLOSED vault was untested | FIXED (tests) |
+| 12 | tests | Low | `topUp` on a terminal vault was untested, although a test's title said it was | FIXED (tests) |
+| 13 | tests | Low | The constructor's fee cap was untested | FIXED (tests) |
+| 14 | tests | Informational | The terminal views and `initiateClaim`'s state check were unpinned | FIXED (tests) |
+| 15 | tests | Informational | Two one-second boundaries were unpinned (the `MAX_HORIZON` cap, `expired`) | FIXED (tests) |
+| 16 | tests | Informational | The v1-run header's list of v2-only API omitted `HB_DOMAIN` | FIXED (test header) |
+| 1, 7 | security, launch config | Low | 1 wei sent to the predictable vault address fails the read-back: "do NOT use" | CONFIRMED; deploy.ts |
+| 2, 4 | security, launch config | Low | The record is written after ~30 unguarded reads; a thrown read loses it, and a re-run deploys a second v2 | CONFIRMED; deploy.ts |
+| 3, 6 | security, launch config | Informational, Low | Lowercase role addresses skip the EIP-55 check; nothing pauses before the send; the vault can own itself | CONFIRMED; deploy.ts |
+| 5 | launch config | Low | `SUPPORTED_TOKENS` / `WRAPPED_NATIVE` overrides are accepted on a mainnet with no metadata check, and read back "ok" | CONFIRMED; deploy.ts |
+| 8 | launch config | Low | A blank `CLAIM_FEE_BPS` parses as 0 bps and deploys | CONFIRMED; deploy.ts |
+| 9 | launch config | Informational | deploy.ts's printed step 2 and `DEPLOY.md` contradict the launch plan | CONFIRMED; deploy.ts and `DEPLOY.md` |
+
+### 10. No test asserted VaultTerminal (tests lens, Medium): FIXED (tests)
+
+- **Confirmed.** `grep VaultTerminal test/*.ts` finds nothing. Dropping the SETTLED arm (ST3) or
+  the CLOSED arm (ST4) of `_requireLive` passes all 242 vault tests (`PLFIX-old-*`), and so does
+  dropping the call from any one of its five callers (RLW, RLB, RLI, RLH, RLC).
+- **The damage, confirmed by a probe that only logs** (`scratchpad/poc/PLFIX-probe/test/pl-probe.ts`).
+  Alice's vault 0 has settled; her vault 1 is live and alone in the open set.
+  - Real v2: the stray `withdraw(0, type(uint256).max, alice)` reverts `VaultTerminal(0, 3)`; the
+    open set stays `[1]`; bob's claim on vault 1 settles, and Alice's full withdrawal of it works.
+  - Under ST3: the stray call goes through for 0 and closes vault 0 again at its stale
+    `openIndex` 0. That pops the LIVE vault 1: the open set is `[]` and `vaultsClosed` is 1. Bob's
+    `finalizeClaim(1)` and Alice's own `withdraw(1, max)` then both panic 0x11, for good.
+  - The contract is correct today. The gap was that nothing would have caught a regression on
+    this line.
+- **Tests (`test/InheritanceVault.ts`, new block "terminal vaults").**
+  - "every owner action refuses a SETTLED and a CLOSED vault with VaultTerminal, before and past
+    its horizon". It covers `withdraw` with the sentinel and with 1 wei, `setBeneficiary`,
+    `setInactivityPeriod`, `extendHorizon`, and `setCheckInChain` in both forms and as a disarm.
+    Each must revert `VaultTerminal(id, state)`, also past the horizon, where a horizon test
+    placed first would answer `HorizonReached` instead.
+  - "a stray close or settlement of a terminal vault cannot drop a live vault from the open set
+    or strand it". Vaults 0 (settled) and 1 (closed) both left the open set from slot 0; live
+    vaults 2 and 3 fill slots 0 and 1. After stray `withdraw(max)` calls on 0 and 1, and a keeper's
+    repeated `finalizeClaim` on each, the open set must still be `[2, 3]`. Then bob settles 2 and
+    Alice closes 3. This pins what the refusals protect, whatever error they use.
+
+### 11. checkInByChain's refusal of terminal vaults was untested (tests lens, Low): FIXED (tests)
+
+- **Confirmed.** ST1 (SETTLED accepted) and ST2 (only CLAIM_PENDING refused) pass all 242 vault
+  tests. Round 5's R5-4 covered `checkIn` and `checkInMany` only.
+- **Test.** "checkInByChain refuses a SETTLED and a CLOSED vault, before and past the horizon, and
+  the armed value stays unspent". Each vault is armed with a one-value chain built by
+  `scripts/checkin-chain.ts`; vault 0 then settles, vault 1 is closed. `checkInByChain` must
+  revert `VaultNotActive(0, 3)` and `VaultNotActive(1, 4)`, with `hbAnchor` and `hbLeft`
+  unchanged, before vault 0's horizon and past it. The second pass also pins the order: the
+  state test comes before the horizon test (mutant ORDB).
+
+### 12. topUp's refusal of terminal vaults was untested (tests lens, Low): FIXED (tests)
+
+- **Confirmed.** "is refused mid-claim and on terminal vaults" only tried a pending claim. ST10
+  (SETTLED accepted by both checks) passes all 242 vault tests, and so does ST10c (CLOSED).
+- **Fix.** The same test now also tops up a SETTLED and a CLOSED vault: `VaultNotActive(0, 3)` and
+  `VaultNotActive(1, 4)`, and `totalLocked` stays 0. The pending case now checks its arguments
+  too.
+
+### 13. The constructor's fee cap was untested (tests lens, Low): FIXED (tests)
+
+- **Confirmed.** The only `FeeTooHigh` assertion was `setClaimFee(101)`. FT17 (the constructor
+  refuses only 65,535) passes all 242 vault tests.
+- **Test.** "the constructor refuses a claim fee above MAX_CLAIM_FEE_BPS, and accepts the cap
+  itself": 101, 5,000 and 65,535 revert `FeeTooHigh(bps, 100)` (matched on the factory), and a
+  deployment at 100 reports `claimFeeBps()` 100.
+
+### 14. The terminal views and initiateClaim's state check were unpinned (tests lens, Informational): FIXED (tests)
+
+- **Confirmed.** ST7 (a SETTLED vault reports `finalizableAt` and `finalizable` from its old
+  claim, which `finalizeClaim` leaves in storage), ST6b (a CLOSED vault loses warnings bit 7) and
+  ST11 (`initiateClaim` on a SETTLED vault reaches `NothingToClaim`) each pass all 242 vault tests.
+- **Tests.**
+  - "getVault and warningsOf report a SETTLED or CLOSED vault as terminal alone: nothing
+    finalizable, no locked fee, also past its horizon": warnings 128, `finalizable` false,
+    `finalizableAt` 0 and `lockedFeeBps` 0 for both vaults, once terminal and past the horizon.
+    The test first checks that both deadlines have passed, so a lost bit 7 would show.
+  - "every claim call refuses a SETTLED and a CLOSED vault": `initiateClaim` reverts
+    `VaultNotActive(id, state)`; `beneficiaryCancelClaim`, `abortClaim` and `finalizeClaim` revert
+    `NoClaimPending(id)`; bob's credit is unchanged.
+
+### 15. Two one-second boundaries were unpinned (tests lens, Informational): FIXED (tests)
+
+- **Confirmed.** HZ19 (`createVault` refuses a horizon exactly `MAX_HORIZON` out) and HZ23
+  (`getVault().expired` one second late) pass all 242 vault tests. So does HZ19b, which accepts a
+  horizon one second past the cap.
+- **Tests.**
+  - "accepts a horizon exactly MAX_HORIZON ahead, and refuses one a second further": in blocks
+    stamped exactly, `t + MAX_HORIZON + 1` reverts `HorizonTooFar(t + MAX_HORIZON + 1,
+    t + MAX_HORIZON)`, and `t + MAX_HORIZON` is accepted and recorded.
+  - "getVault's expired flag turns AT the deadline second, the second from which the heir may
+    claim": false with warnings 0 a second before; at the deadline second the heir's
+    `initiateClaim` goes through and `expired` is true.
+
+### 16. The v1-run header omitted HB_DOMAIN (tests lens, Informational): FIXED (test header)
+
+- **Confirmed.** In a fresh v1 run (`PLFIX-v1`, 57 passing, 129 failing), 18 tests fail with
+  "function selector was not recognized", 13 of them unlabelled. Each of the 13 calls API on the
+  header's list, except the F02 step test, whose first call is `HB_DOMAIN()`.
+- **Fix.** The header of `test/AuditPrelim2026-09.ts` now names `HB_DOMAIN` first in that list.
+  The failure itself is legitimate: the domain tag is part of the F02 fix.
+
+### Beyond the report
+
+Found while confirming items 10 to 15, and pinned by the same tests:
+
+- **`finalizeClaim` on a SETTLED vault** (mutant FZ1) was unpinned too, and its regression would
+  be worse than ST3: `finalizeClaim` is permissionless. Under FZ1 the probe shows a stranger's
+  second `finalizeClaim(0)` going through, emptying the open set (`vaultsSettled` 2), and the same
+  two panics on the live vault. A stranger could have frozen any owner's live vault.
+- **`abortClaim` on a SETTLED vault** (AB2) was unpinned.
+- **The order of the terminal and horizon tests** in `_setCheckInChain` (ORDC), as in
+  `checkInByChain` (ORDB), was unpinned.
+
+### For the owner of scripts/deploy.ts (items 1 to 9): CONFIRMED, NOT FIXED HERE
+
+Each was reproduced with the UNMODIFIED script in `scratchpad/poc/PLFIX-deploy` (the wrapper
+`scripts/pl-wrap.ts` only prepares the chain, then loads `deploy.ts`):
+
+- **1, 7: the native-surplus read-back.** A stranger sends 1 wei to the predicted address, then
+  the deploy runs: "note surplus reachable by admin in native coin: 1", "1 post-deploy check(s)
+  failed: do NOT use", exit 1, record `readBack` "1 check(s) FAILED: do not use". Read-only on
+  Base at block 51,852,626: the hot key's next nonce is 8, and the addresses for nonces 8, 9 and
+  10 hold 0 wei, so the defect is latent. **The same class, beyond the report:** a stranger's
+  `createVault` on the new contract before the read-back makes "no vaults yet" FAIL the same way
+  (reproduced). Nothing a third party can do after the send is a property of the deployment.
+- **2, 4: the record.** With the first `eth_call` to the new contract failing (as a lagging or
+  rate-limited RPC would), the vault was deployed, no record or args file was written, and exit
+  was 1. The same command run again on the same node deployed a second vault at the next nonce and
+  recorded only that one (`PLFIX-deploy`, a local node on port 8631, nonces 1 and 2).
+- **3, 6: the role addresses.** `ethers.getAddress` refuses the checksummed Ledger address with
+  one digit wrong, but accepts the same typo in lowercase. The script has no dry run and no
+  confirmation step (`scripts/transfer-admin.ts` has `CONFIRM=yes`). On an unforked chain with id
+  8453, where the script takes its Base mainnet branches (`hardhat.8453.config.ts`, with stand-ins
+  answering the four tokens' symbols and decimals), the lowercase typo deployed as the owner with
+  `readBack` "ok". With `ADMIN_ADDRESS` set to the vault's own predicted address it deployed a
+  vault that owns itself, printed as "wallet (no code)", also with `readBack` "ok". On Base today
+  `v1.owner()` and `v1.feeRecipient()` are both the Ledger.
+- **5: token overrides.** An override entry is `{ address }` alone, so the symbol and decimals
+  checks are skipped; `overridden` is used only for a printed line; nothing refuses an override on
+  a mainnet; and the read-back compares with the overridden inputs. On the chain-8453 run,
+  `SUPPORTED_TOKENS` = WETH alone deployed a one-token list for good, and `WRAPPED_NATIVE` = USDC
+  deployed with USDC as `wrappedNative`, both with `readBack` "ok".
+- **8: the fee.** `CLAIM_FEE_BPS=" "` and `CLAIM_FEE_BPS=` each deployed at 0 bps with `readBack`
+  "ok"; `0x32` and `5e1` were read as 50.
+- **9: the runbook.** deploy.ts prints "Do NOT set site/assets/app.js CHAINS[...].contract to it
+  ... Ship a v2 app first", which the plan reverses. `DEPLOY.md` still deploys NotifySubscription,
+  verifies with v1's three constructor arguments, and makes an independent review a precondition
+  of mainnet, against the owner's decision. (`DEPLOY.md` is the documentation track's, which is
+  already rewriting it for v2.)
+
+**The reference patch** (`scratchpad/plfix-deploy-proposed.ts`, tested in
+`scratchpad/poc/PLFIX-deploy2`: 26 cases in `pl-cases.sh`, on chain 31337, on an unforked chain
+8453 with stand-ins for the four Base tokens, and on a local node; results in `pl-cases.out`):
+
+- On a mainnet nothing is sent without `CONFIRM=yes`. The first run is a dry run that prints the
+  deployer's next nonce and the vault's future address. The send also needs
+  `EXPECT_DEPLOYER_NONCE` equal to that nonce, and the deployment is sent from exactly that nonce,
+  so no re-run can send a second vault.
+- The record, with the transaction hash, nonce and address and `readBack` "pending", is written
+  the moment the deployment is sent. A failed receipt or a failed read-back call is recorded as
+  such (never as a pass), the script stops with "do NOT deploy again", and `READBACK=yes` re-runs
+  the read-back alone. A re-run of the deploy is refused because the record exists.
+- The read-back reads the deployment block, and reports vault activity and surplus as notes: a
+  stranger's 1 wei or `createVault` is not a fault.
+- On a mainnet, role addresses must be pasted in checksummed form, and on every chain neither may
+  be the vault's own address. On Base the launch plan (admin = fee recipient = the Ledger, 50 bps,
+  the table's four tokens) is enforced unless `ALLOW_PLAN_OVERRIDE=yes`.
+- On a mainnet, token overrides need `ALLOW_TOKEN_OVERRIDE=yes` and `0xADDRESS:SYMBOL:DECIMALS`
+  for each entry, and a table chain's wrapped-native token cannot be overridden.
+- `CLAIM_FEE_BPS` must be digits from 0 to 100; a blank value is refused.
+- Step 2 prints the `scripts/set-launch-values.js` command with the address, block, transaction
+  and date for chains 8453 and 84532. `_checkPayee`'s vBNB is added to the pre-send refusals.
+
+The runbook changes with it: a dry run first, then the same command with `CONFIRM=yes` and
+`EXPECT_DEPLOYER_NONCE`. Run the mainnet deploy against a keyed `BASE_RPC_URL`, not the public
+rate-limited endpoint (item 2's operational half). The deploy rehearsal on a Base fork should run
+the patched script before the user does.
+
+### Mutation check (sandbox, vault suite: AuditPrelim2026-09.ts + Audit.ts + InheritanceVault.ts)
+
+Runner `scratchpad/poc/plfix-mutate.js` with `plfix-mutants.js`: each mutant is applied to a copy of
+the finalized source (every anchor occurs exactly once) and run against the suite before this
+review (`PLFIX-old-*`, 242 tests) and after it (`PLFIX-new-*`, 250 tests). Results in
+`plmut-old-*.tsv` and `plmut-new-*.tsv`.
+
+| Mutant | Change | Before (242 tests) | After (250 tests): killed by |
+|---|---|---|---|
+| ST3 / ST4 | `_requireLive` drops SETTLED / CLOSED | survived | owner actions; stray close (open set `[3]`, not `[2, 3]`) |
+| RLW, RLB, RLI, RLH, RLC | one caller drops `_requireLive` (`withdraw`, `setBeneficiary`, `setInactivityPeriod`, `extendHorizon`, `_setCheckInChain`) | survived | owner actions (RLW also the stray close) |
+| ORDC | `_setCheckInChain` tests the horizon first | survived | owner actions, past the horizon |
+| ST1 / ST2 | `checkInByChain` accepts SETTLED / SETTLED and CLOSED | survived | `checkInByChain` test |
+| ORDB | `checkInByChain` tests the horizon first | survived | the same, past vault 0's horizon |
+| ST10 / ST10c | `topUp` accepts SETTLED / CLOSED (both checks) | survived | `topUp` "on terminal vaults" |
+| ST11 | `initiateClaim` on SETTLED reaches `NothingToClaim` | survived | claim calls |
+| FZ1 | `finalizeClaim` accepts SETTLED again | survived | claim calls; stray close |
+| AB2 | `abortClaim` accepts SETTLED | survived | claim calls |
+| ST7 | SETTLED reports `finalizableAt` / `finalizable` | survived | terminal views |
+| ST6b | CLOSED loses warnings bit 7 | survived | terminal views |
+| FT17 | constructor refuses only 65,535 | survived | constructor fee cap |
+| FT18 | constructor refuses the cap itself | killed (F05 test) | the same, and constructor fee cap |
+| HZ19 / HZ19b | `createVault` refuses exactly `MAX_HORIZON` / accepts a second more | survived | `MAX_HORIZON` boundary |
+| HZ23 | `expired` one second late | survived | `expired` at the deadline second |
+
+### Files changed in the pre-launch review
+
+- `test/InheritanceVault.ts`: `vaultFactory` imported; "is refused mid-claim and on terminal
+  vaults" completed; 3 new tests (the `MAX_HORIZON` boundary, the constructor's fee cap,
+  `expired` at the deadline second); a new block "terminal vaults" with 5 tests.
+- `test/AuditPrelim2026-09.ts`: the header names `HB_DOMAIN`.
+- `CHANGELOG-v2.md`: the header's date scope, and this section.
+- Unchanged: `contracts/InheritanceVault.sol`, `contracts/test/TestHelpers.sol`,
+  `scripts/checkin-chain.ts`, `docs/CHECKIN-CHAIN.md`.
+
+### Flagged for the lead (outside this pass's files)
+
+- **`scripts/deploy.ts`: items 1 to 9, before the mainnet run.** Apply the reference patch or an
+  equivalent, and rehearse it on the Base fork.
+- **`DEPLOY.md`:** item 9 (documentation track).
+- **Report generator** (`gen.cjs`): `npx hardhat test` is now 263, not 255. The v1 run (57 and
+  129) and the runtime size (21,119 bytes) are unchanged.
+
+### Counts
+
+- `npx hardhat test`: **263 passing, 0 failing** (255 before). The 8 new tests are all in
+  `test/InheritanceVault.ts`.
+- `VAULT_IMPL=v1 npx hardhat test test/AuditPrelim2026-09.ts`: **57 passing, 129 failing**,
+  unchanged. All 57 are "(control)", "(guard)" or "(pin)". The new tests are in a file the v1 run
+  does not load: they pin checks that v1 has too, not audit findings, so they belong in the unit
+  suite rather than the regression file.
+- Runtime size: **21,119 bytes**, unchanged; EIP-170 leaves 3,457 bytes of headroom.

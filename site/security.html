@@ -24,27 +24,38 @@
 <div class="crumbs"><a href="/">Home</a> › Security</div>
 <main class="article">
 <h1>Security, audit and contract status</h1>
-<p class="standfirst">Will &amp; Key is live software with immutable contracts. It has internal
-testing, an internal review and a preliminary audit by AI auditing agents, and no completed
-independent audit. Verify the evidence before using it.</p>
-<p class="byline">Status checked 26 September 2026</p>
+<p class="standfirst">Will &amp; Key is live software with an immutable contract. Its current
+version has internal tests and reviews by AI agents, and no completed independent audit. Verify the
+evidence before using it.</p>
+<p class="byline">Updated V2_DATE_TBD</p>
 
-<div class="risk-box"><strong>Current risk status:</strong> deployed and not independently audited.
-A <a href="/audit">preliminary audit</a> was performed in September 2026 by AI auditing agents at
-the project's request. It is not independent. It reported 47 findings (5 medium, 21 low, 21
-informational) in the live contract, the app, the retired reminder watcher and this documentation.
-The live contract is immutable: its contract fixes exist only as undeployed source for a future
-version, and the live contract still behaves as this page describes. Do not use material value until
-an independent third-party audit and a full Base Sepolia lifecycle are complete.</div>
+<div class="risk-box"><strong>Current risk status:</strong> version 2 is live and not independently
+audited. It was written in response to a <a href="/audit">preliminary audit</a> of version 1,
+performed in September 2026 by AI auditing agents at the project's request and not independent,
+which reported 47 findings (5 medium, 21 low, 21 informational). Since then version 2 has been
+reviewed only by AI agents of the same kind that wrote it: the audit's five fix-review rounds and a
+pre-launch review. Do not use material value until an independent third-party audit is complete. A
+full-duration Base Sepolia lifecycle test of version 2 has not been completed either.</div>
 
 <p><a class="btn primary" href="/audit">Read the preliminary audit</a></p>
 
-<h2>Canonical Base deployment</h2>
+<h2 id="deployment">Deployments on Base</h2>
+<div class="table-scroll">
 <table>
-<tr><th>Contract</th><th>Address</th></tr>
-<tr><td>InheritanceVault</td><td class="break-all"><a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821849A1D74959753450409b594b23eCE7fEe2f</a></td></tr>
-<tr><td>Retired reminder billing</td><td class="break-all"><a href="https://basescan.org/address/0x60749aF621180de1DC05DB4f3d158D09dE979dC6" rel="noopener">0x60749aF621180de1DC05DB4f3d158D09dE979dC6</a></td></tr>
+<tr><th>Contract</th><th>Address</th><th>Status</th></tr>
+<tr><td>InheritanceVault, version 2</td><td class="break-all"><a href="https://basescan.org/address/V2_ADDRESS_TBD" rel="noopener">V2_ADDRESS_TBD</a></td><td>Live since V2_DATE_TBD</td></tr>
+<tr><td>InheritanceVault, version 1</td><td class="break-all"><a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821849A1D74959753450409b594b23eCE7fEe2f</a></td><td>Retired: new vaults refused (see <a href="#v1">version 1</a>)</td></tr>
+<tr><td>Reminder billing</td><td class="break-all"><a href="https://basescan.org/address/0x60749aF621180de1DC05DB4f3d158D09dE979dC6" rel="noopener">0x60749aF621180de1DC05DB4f3d158D09dE979dC6</a></td><td>Retired: every payment reverts</td></tr>
 </table>
+</div>
+<p>Version 2 was deployed on V2_DATE_TBD in Base block V2_BLOCK_TBD, transaction
+<a class="break-all" href="https://basescan.org/tx/V2_TX_TBD" rel="noopener">V2_TX_TBD</a>. Its
+constructor set the administrator and the fee recipient (the Ledger key
+<span class="break-all">0x883C821103B5415C53B11E584D3592205B5CdCA3</span> for both) and the claim
+fee (0.5%), and fixed for the life of the contract the tokens a vault can hold: USDC, WETH, cbBTC
+and EURC, with WETH as the wrapped native token (see <a href="/how-it-works#tokens">which
+tokens</a>). The administrator, the fee recipient and the fee can change later only as described
+under <a href="#admin">administrator powers</a>; the token list cannot change at all.</p>
 <p>Paid reminder sales are disabled on this website and, since 26 September 2026, on chain as
 well. The administrator set the retired billing contract's monthly price to the largest value the
 contract can store, so every payment to it now reverts and it records no new paid time. Only the
@@ -54,72 +65,98 @@ The reminder service it once paid for no longer runs. <strong>Do not send funds 
 directly.</strong> Refund requests for earlier payments are handled under the
 <a href="/terms">terms</a>.</p>
 
-<h2>Bytecode evidence</h2>
-<p>On 10 August 2026, the deployed runtime bytecode of each address was compared byte-for-byte
-with the local Hardhat compiler artifact. Both matched. Neither contract has immutable variables, so
-the compiled runtime and the on-chain code are the same bytes. The fingerprints below were re-read
-from Base on 26 September 2026.</p>
+<h2 id="bytecode">Bytecode evidence</h2>
+<p>Version 2's runtime bytecode, read from Base after its deployment on V2_DATE_TBD, and its
+source:</p>
 <ul>
-<li><strong>InheritanceVault keccak-256 of the runtime bytecode (EXTCODEHASH):</strong> <span class="break-all">26a231771f3b5e7de6a09b3cd5a3e0d03fb5985d69b9bc4973db5f1e41af9733</span></li>
+<li><strong>Version 2 keccak-256 of the runtime bytecode (EXTCODEHASH):</strong> <span class="break-all">V2_KECCAK_TBD</span></li>
+<li><strong>Version 2 SHA-256 of the raw runtime bytes:</strong> <span class="break-all">V2_SHA256_TBD</span></li>
+<li><strong>Version 2 source:</strong> <code>contracts/InheritanceVault.sol</code> in the
+<a href="https://github.com/vinothkannaongc-prog/inheritance-vault" rel="noopener">source repository</a>,
+21,119 bytes of runtime code when compiled. The address's
+<a href="https://basescan.org/address/V2_ADDRESS_TBD#code" rel="noopener">Contract tab on Basescan</a>
+shows whether that source has been verified against the deployed bytecode.</li>
+</ul>
+<p>Version 2 has one immutable variable: the wrapped native token's address (WETH), which the
+deployment writes into the runtime code. So the code on chain is the compiled runtime with that
+address filled into one 32-byte slot, whose position is in the compiler output
+(<code>immutableReferences</code>). Basescan's verification allows for it; to compare by hand, fill
+the slot first.</p>
+<p>The retired contracts have no immutable variables, so their compiled runtime and their on-chain
+code are the same bytes. On 10 August 2026 both were compared byte-for-byte with the local compiler
+artifacts and matched, and both are source-verified on Basescan. Their fingerprints, re-read from
+Base on 26 September 2026:</p>
+<ul>
+<li><strong>Version 1 keccak-256 of the runtime bytecode (EXTCODEHASH):</strong> <span class="break-all">26a231771f3b5e7de6a09b3cd5a3e0d03fb5985d69b9bc4973db5f1e41af9733</span></li>
+<li><strong>Version 1 SHA-256 of the raw runtime bytes:</strong> <span class="break-all">89ca53b6aaea87fba5e3e0df7019b316f8a44304ef64569ea5a4978c4f9e4d60</span></li>
 <li><strong>Retired reminder keccak-256 of the runtime bytecode (EXTCODEHASH):</strong> <span class="break-all">67f23ec7a57f27c4c024c82ac45ef0e3a76e535b4f8224f2ce1de21c8029aec1</span></li>
-<li><strong>InheritanceVault SHA-256 of the raw runtime bytes:</strong> <span class="break-all">89ca53b6aaea87fba5e3e0df7019b316f8a44304ef64569ea5a4978c4f9e4d60</span></li>
 <li><strong>Retired reminder SHA-256 of the raw runtime bytes:</strong> <span class="break-all">f2c577fd64b9038127473e87bb1c9981497962e36fde0b82f67465bf92e4bb61</span></li>
 </ul>
 <p>Earlier versions of this page labelled the two keccak-256 values as SHA-256. The values were
-right; the label was wrong. To reproduce them with Foundry's <code>cast</code>, replacing
+right; the label was wrong. To reproduce any of them with Foundry's <code>cast</code>, replacing
 <code>ADDR</code> with a contract address:</p>
 <ul>
 <li>keccak-256: <code class="break-all">cast keccak $(cast code ADDR --rpc-url https://mainnet.base.org)</code></li>
 <li>SHA-256 of the raw bytes: <code class="break-all">cast code ADDR --rpc-url https://mainnet.base.org | sed 's/^0x//' | xxd -r -p | sha256sum</code></li>
 </ul>
-<p>Hashing the hex text instead of the bytes gives a different SHA-256 value. The build settings
-are Solidity 0.8.28, optimizer on with 200 runs, EVM target cancun. The
+<p>Hashing the hex text instead of the bytes gives a different SHA-256 value. The build settings of
+all three contracts are Solidity 0.8.28, optimizer on with 200 runs, EVM target cancun. The
 <a href="https://github.com/vinothkannaongc-prog/inheritance-vault" rel="noopener">source repository</a>
-contains compiler settings, deployment records, tests, audit scope and the review reports.</p>
+contains compiler settings, deployment records, tests, audit scope and the review reports. Version
+1's deployed source is <code>contracts/InheritanceVault.sol</code> at the tag <code>v1-base</code>; a
+renamed copy, so that both versions compile side by side, is kept as
+<code>contracts/v1/InheritanceVaultV1.sol</code>.</p>
 
 <h2 id="admin">Administrator powers</h2>
-<p>Since 24 September 2026 the administrator (owner) of both contracts, and the fee recipient, is a
-single Ledger hardware-wallet key,
+<p>The administrator (owner) of all three contracts, and the fee recipient of both vault contracts,
+is a single Ledger hardware-wallet key,
 <a href="https://basescan.org/address/0x883C821103B5415C53B11E584D3592205B5CdCA3" rel="noopener">0x883C821103B5415C53B11E584D3592205B5CdCA3</a>.
-It is one key, not a multisig; moving administration to a multisig is recommended. The deploy key
-holds no admin power. The five handover transactions on Base:</p>
+It is one key, not a multisig; moving administration to a multisig is recommended. Version 2 named
+it in its constructor, so it has held both roles there since the deployment on V2_DATE_TBD, and the
+key that sent the deployment never held either. On version 1 and the billing contract it took over
+from the deploy key on 24 September 2026, in five transactions:</p>
 <ul>
-<li>Vault fee recipient set to the hardware wallet: <a href="https://basescan.org/tx/0x83f734ad7bf258d2d6daf64f64bb7562565d199ea0d506ae1e45fe2c5851e894" rel="noopener">0x83f734ad7bf258d2d6daf64f64bb7562565d199ea0d506ae1e45fe2c5851e894</a></li>
-<li>Vault ownership transfer started: <a href="https://basescan.org/tx/0x29bc7cdd3ea9bc5b611645a231d22515d536e1bbf2ac42aa134041e875343f06" rel="noopener">0x29bc7cdd3ea9bc5b611645a231d22515d536e1bbf2ac42aa134041e875343f06</a></li>
-<li>Reminder contract ownership transfer started: <a href="https://basescan.org/tx/0x556b174a26f670fe481d08d6fef92cdaae8b789ae728effc8c462d962ddd0527" rel="noopener">0x556b174a26f670fe481d08d6fef92cdaae8b789ae728effc8c462d962ddd0527</a></li>
-<li>Vault ownership accepted: <a href="https://basescan.org/tx/0x5a0bb97d2d421eccc399b6727c49ea37c008a0a7bb782d53cf5a59d1ce85d532" rel="noopener">0x5a0bb97d2d421eccc399b6727c49ea37c008a0a7bb782d53cf5a59d1ce85d532</a></li>
-<li>Reminder contract ownership accepted: <a href="https://basescan.org/tx/0xff034fda9c4065a5dfa6579fa6afba3c6fb6be55da2c5b71ea323780077fd906" rel="noopener">0xff034fda9c4065a5dfa6579fa6afba3c6fb6be55da2c5b71ea323780077fd906</a></li>
+<li>Version 1 fee recipient set to the hardware wallet: <a class="break-all" href="https://basescan.org/tx/0x83f734ad7bf258d2d6daf64f64bb7562565d199ea0d506ae1e45fe2c5851e894" rel="noopener">0x83f734ad7bf258d2d6daf64f64bb7562565d199ea0d506ae1e45fe2c5851e894</a></li>
+<li>Version 1 ownership transfer started: <a class="break-all" href="https://basescan.org/tx/0x29bc7cdd3ea9bc5b611645a231d22515d536e1bbf2ac42aa134041e875343f06" rel="noopener">0x29bc7cdd3ea9bc5b611645a231d22515d536e1bbf2ac42aa134041e875343f06</a></li>
+<li>Reminder contract ownership transfer started: <a class="break-all" href="https://basescan.org/tx/0x556b174a26f670fe481d08d6fef92cdaae8b789ae728effc8c462d962ddd0527" rel="noopener">0x556b174a26f670fe481d08d6fef92cdaae8b789ae728effc8c462d962ddd0527</a></li>
+<li>Version 1 ownership accepted: <a class="break-all" href="https://basescan.org/tx/0x5a0bb97d2d421eccc399b6727c49ea37c008a0a7bb782d53cf5a59d1ce85d532" rel="noopener">0x5a0bb97d2d421eccc399b6727c49ea37c008a0a7bb782d53cf5a59d1ce85d532</a></li>
+<li>Reminder contract ownership accepted: <a class="break-all" href="https://basescan.org/tx/0xff034fda9c4065a5dfa6579fa6afba3c6fb6be55da2c5b71ea323780077fd906" rel="noopener">0xff034fda9c4065a5dfa6579fa6afba3c6fb6be55da2c5b71ea323780077fd906</a></li>
 </ul>
-<p>On the vault contract the administrator can:</p>
+<p>On the version 2 vault contract the administrator can do exactly this:</p>
 <ul>
 <li><strong>pause or unpause new vault creation</strong> (<code>setCreationPaused</code>). The pause
 blocks only vault creation. Top-ups, check-ins, withdrawals, claims, finalization and payouts keep
 working, so it cannot stop deposits into existing vaults;</li>
-<li><strong>change the global claim fee</strong> (<code>setClaimFee</code>), immediately and with no
-delay, within the 1% hard cap. Existing vaults keep their creation-time ceiling;</li>
-<li><strong>change or unset the fee recipient</strong> (<code>setFeeRecipient</code>), immediately.
-With no recipient set when a claim settles, no fee is taken; a claim that started while none was set
-is still charged its locked rate if a recipient is set before it settles;</li>
-<li><strong>sweep surplus</strong> (<code>sweepSurplus</code>): the contract's balance of one token
-address above the vault balances and payouts accounted to that same address;</li>
-<li><strong>transfer administration</strong> in two steps. Renouncing it is disabled.</li>
+<li><strong>change the global claim fee</strong> (<code>setClaimFee</code>), within the 1% hard cap.
+A cut applies at once and cancels any pending raise. A raise is only announced: it takes effect 30
+days later, and never lifts a vault above its creation-time ceiling. The permissionless
+<code>applyClaimFee</code> only records a raise whose 30 days have passed;</li>
+<li><strong>change the fee recipient</strong> (<code>setFeeRecipient</code>). Removing it stops fees
+at once, pending claims included. Setting one again after a period with none takes effect 30 days
+later. The addresses the contract refuses as payouts are refused here too;</li>
+<li><strong>sweep surplus</strong> (<code>sweepSurplus</code>), in ETH or a listed token only: the
+contract's balance above the vault balances and credits accounted in that asset;</li>
+<li><strong>transfer administration</strong> in two steps (<code>transferOwnership</code>, then
+<code>acceptOwnership</code> by the new address). Renouncing it is disabled.</li>
 </ul>
-<p>On the retired reminder contract it can change the price, withdraw its balance and transfer
+<p>It cannot add or remove a token, take anything from a vault balance or credit beyond the
+settlement fee, change a beneficiary or any vault setting, cancel an owner withdrawal, block a valid
+claim settlement, raise a vault's fee above its creation-time ceiling, or make a raise, or a switch of
+fees back on, take effect in less than 30 days. Those limits are arithmetic in the bytecode, not
+promises. They rest on the fixed token list, whose tokens each live at one address and never change
+a balance on their own, and on every token payout, and every ETH payout to an address with code,
+being measured. They describe Will &amp; Key, not token
+issuers: the issuers of USDC, EURC and cbBTC can pause, blocklist or upgrade their tokens, and so
+freeze every vault in that token at once, because all vaults in a token share one balance at the
+vault contract.</p>
+<p>On version 1 the same key can pause or unpause creation, change the claim fee at once with no
+delay, change or unset the fee recipient, sweep surplus in any token, and transfer ownership in two
+steps. On the retired reminder contract it can change the price, withdraw its balance and transfer
 ownership.</p>
-<p>For ETH and <a href="/how-it-works#tokens">supported single-address tokens</a>, the administrator
-cannot take anything from a vault balance or payout credit beyond the settlement fee, change a
-beneficiary, cancel an owner withdrawal,
-block a valid claim settlement, or raise a vault's fee above its creation-time ceiling. Those limits
-are arithmetic in the bytecode, not promises. They do not hold for unsupported tokens: a token
-reachable through a second address, or one whose balance grows on its own, lets the surplus sweep
-reach value that belongs to vaults. And they describe Will &amp; Key, not token issuers: an issuer
-that can pause, blocklist or wipe (Circle can pause and blocklist USDC) can freeze every vault in
-its token at once, because all vaults in a token share one balance at the vault contract.</p>
 
-<h2>Known limits of the live contract</h2>
-<p>These are disclosed rather than fixed, because the deployed bytecode cannot change. The
-<a href="/how-it-works">mechanism page</a> explains each one, and the
-<a href="/audit">preliminary audit</a> has the evidence.</p>
+<h2 id="limits">Known limits of version 2</h2>
+<p>These are part of the design, disclosed rather than fixed. The
+<a href="/how-it-works">mechanism page</a> explains each one.</p>
 <ul>
 <li><strong>No alerts.</strong> Will &amp; Key sends no alerts of any kind: nobody will notify you if
 your timer expires or a claim is filed, and nobody notifies your heir.</li>
@@ -128,31 +165,74 @@ Before the horizon, <a href="/how-it-works#veto">Veto claim and a few other owne
 or after it, only extending the horizon or withdrawing everything does.</li>
 <li><strong>Finalizable is not final.</strong> Until a finalize transaction is mined, the owner's key
 can still cancel a claim whose window has ended. Heirs should finalize promptly.</li>
-<li><strong>The horizon is a long-stop</strong>, not a guaranteed payout date.</li>
-<li><strong>Fees.</strong> Only a ceiling is fixed at creation; see <a href="/how-it-works#fees">how
-the rate is set</a>, including the no-recipient case.</li>
-<li><strong>Check-in chain.</strong> Advanced, with no app support. Only check-ins mined strictly
-before the deadline count, and the chain's values are bearer credentials that can postpone the heir
-up to the horizon.</li>
+<li><strong>The heir's cancel.</strong> An heir can correct a payout address by cancelling and filing
+again, but safely only before the claim becomes finalizable, and a stolen heir key can use the same
+route to redirect the payout until settlement (<a href="/how-it-works#heir-cancel">the costs</a>).</li>
+<li><strong>The horizon is a long-stop</strong>, not a guaranteed payout date. Check-ins stop moving
+the deadline once it reaches the horizon, and an heir named at or after the horizon can claim at
+once (<a href="/how-it-works#horizon">the horizon</a>).</li>
+<li><strong>Fees.</strong> Only a ceiling is fixed at creation, and a cut helps a claim only if it is
+still in force at settlement; see <a href="/how-it-works#fees">how the rate is set</a>.</li>
+<li><strong>Credits.</strong> After 30 days anyone may push a credit to its address, and the 30 days
+run per address, not per credit (<a href="/how-it-works#credits">credits</a>).</li>
+<li><strong>Payout addresses.</strong> The contract refuses a known list of addresses that could
+never pass a payout on, but no rule can recognise every such contract. Pay to an ordinary wallet.</li>
+<li><strong>Check-in chain.</strong> Advanced, with no app support. A chain check-in is safe only if
+it is mined strictly before the deadline, because from then on the heir can claim first, and the
+chain's values are bearer credentials that can postpone the heir up to the horizon.</li>
 <li><strong>Network inclusion.</strong> A veto must be included on chain in time. On Base a
 transaction can be forced in through Ethereum if the sequencer is down, which can take up to about
 12 hours, so we recommend challenge windows of at least 14 days.</li>
+<li><strong>Token issuers</strong> can freeze USDC, EURC or cbBTC for every vault at once.</li>
+<li><strong>The creation pause</strong> stops only new vaults. Existing vaults keep accepting
+top-ups, so in a migration owners would be asked to withdraw in full, which closes the vault.</li>
+</ul>
+
+<h2 id="v1">The retired version 1</h2>
+<p>Version 1,
+<a class="break-all" href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821849A1D74959753450409b594b23eCE7fEe2f</a>,
+was the live vault from 9 August 2026 until V2_DATE_TBD. It is immutable, so it could not be fixed
+or switched off. It was retired instead:</p>
+<ul>
+<li><strong>New vaults are refused.</strong> The administrator paused its vault creation
+(<code>setCreationPaused(true)</code>, transaction
+<a class="break-all" href="https://basescan.org/tx/V1_PAUSE_TX_TBD" rel="noopener">V1_PAUSE_TX_TBD</a>).
+Only the administrator could unpause it.</li>
+<li><strong>It held no user funds.</strong> Read from Base on 27 September 2026 (block 51,853,299):
+one vault had ever been created on it, the project's own test, since closed; it had no open vault;
+and its only balance was a 0.00002 ETH credit owed to the project's former deploy key, with none of
+the four tokens. With creation paused, new value could enter a version 1 vault only as a top-up of
+a vault that is still open.</li>
+<li><strong>Credits can still be withdrawn.</strong> The pause does not affect
+<code>withdrawCredit</code>, which anyone owed a version 1 credit can call on Basescan's Write
+Contract tab for that address.</li>
+<li><strong>The audit's findings still apply to it.</strong> Every contract behaviour the preliminary
+audit reported is still present in version 1 (the first row of
+<a href="/audit#results">results in numbers</a>). Among them: it accepts any token, so the
+administrator's sweep can take deposits in a token that has two addresses (F01); check-in chain
+values can be reused across vaults (F02); payouts are all-or-nothing (F04); and fee changes apply at
+once (F06). They matter only for value in version 1. Do not send it funds.</li>
 </ul>
 
 <h2>Review and testing</h2>
 <ul>
-<li>The deployed (v1) source shipped with 63 passing Hardhat contract tests.</li>
-<li>In August 2026 an internal adversarial review, run by the same system that wrote the code and
-not independent, fixed ten contract defects before deployment. Its report records fixed findings
-and open design questions.</li>
+<li>Version 1 shipped with 63 passing Hardhat contract tests. In August 2026 an internal adversarial
+review, run by the same system that wrote the code and not independent, fixed ten contract defects
+before it was deployed.</li>
 <li>In September 2026 a <a href="/audit">preliminary audit</a> by AI auditing agents, at the
-project's request and not independent, reported 47 findings with executable evidence against the
-deployed code.</li>
-<li>A 14-step local watcher scenario passed in August 2026, including delivery failures and claim
-backfill after an outage. It ran against a local chain only, and the watcher has since been
-retired: it is not running.</li>
-<li>No independent third-party audit has been completed.</li>
-<li>A real minimum-duration Base Sepolia claim lifecycle remains pending.</li>
+project's request and not independent, reported 47 findings with executable evidence against
+version 1.</li>
+<li>Version 2 was written in response. Each of its contract fixes has a regression test that fails
+on version 1. Five fix-review rounds then raised 48 further issues, and a pre-launch review raised
+16 more; none of those 16 was a defect in the contract. All are recorded in
+<a href="https://github.com/vinothkannaongc-prog/inheritance-vault/blob/main/CHANGELOG-v2.md" rel="noopener">the changelog</a>.
+Every one of these reviews was run by AI agents, none independent. On 27 September 2026 the
+version 2 test suite had 263 passing tests and none failing.</li>
+<li>No independent third-party audit of either version has been completed.</li>
+<li>A full-duration Base Sepolia lifecycle test of version 2, at least 14 days of real time for a
+complete create, claim, veto and settle cycle, has not been completed.</li>
+<li>The reminder watcher passed a 14-step local scenario in August 2026 against version 1 only. It
+has been retired and is not running.</li>
 </ul>
 <p>The contract is non-upgradeable. A serious contract finding requires a new deployment and a
 clearly communicated migration; it cannot be silently patched. The creation pause cannot stop

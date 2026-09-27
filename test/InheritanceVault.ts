@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
-import { deployVault } from "./helpers/deploy";
+import { deployVault, vaultFactory } from "./helpers/deploy";
 import { step as chainStep } from "../scripts/checkin-chain";
 
 const DAY = 86_400;
@@ -167,6 +167,27 @@ describe("InheritanceVault", () => {
       ).to.be.revertedWithCustomError(f.vault, "UnexpectedNativeValue");
     });
 
+    it("accepts a horizon exactly MAX_HORIZON ahead, and refuses one a second further", async () => {
+      // Pre-launch review. The test above tries only a whole day past the cap, so the comparison
+      // itself was unpinned: refusing the exact maximum, or accepting up to a day more, passed.
+      const f = await loadFixture(fixture);
+      const MAX = 36_500 * DAY;
+      expect(await f.vault.MAX_HORIZON()).to.equal(MAX);
+      const open = (horizon: number) =>
+        f.vault.connect(f.alice).createVault(NATIVE, ONE, f.bob.address, PERIOD, WINDOW, horizon, { value: ONE });
+      // Each call runs in a block stamped exactly t.
+      let t = (await time.latest()) + 10;
+      await time.setNextBlockTimestamp(t);
+      await expect(open(t + MAX + 1))
+        .to.be.revertedWithCustomError(f.vault, "HorizonTooFar")
+        .withArgs(t + MAX + 1, t + MAX);
+      t = (await time.latest()) + 10;
+      await time.setNextBlockTimestamp(t);
+      await open(t + MAX);
+      const v = await f.vault.getVault(f.alice.address, 0);
+      expect([v.createdAt, v.absoluteDeadline]).to.deep.equal([BigInt(t), BigInt(t + MAX)]);
+    });
+
     it("enforces the open-vault cap", async () => {
       const f = await loadFixture(fixture);
       for (let i = 0; i < 32; i++) await createNative(f, ONE);
@@ -206,12 +227,26 @@ describe("InheritanceVault", () => {
 
     it("is refused mid-claim and on terminal vaults", async () => {
       const f = await loadFixture(fixture);
-      await createNative(f);
+      await createNative(f); // 0: claimed, then settled
+      await createNative(f); // 1: closed by its owner
+      await f.vault.connect(f.alice).withdraw(1, DEPOSIT, f.alice.address);
       await time.increase(PERIOD + 1);
       await f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, f.bob.address);
-      await expect(
-        f.vault.connect(f.dave).topUp(f.alice.address, 0, ONE, { value: ONE })
-      ).to.be.revertedWithCustomError(f.vault, "VaultNotActive");
+      await expect(f.vault.connect(f.dave).topUp(f.alice.address, 0, ONE, { value: ONE }))
+        .to.be.revertedWithCustomError(f.vault, "VaultNotActive")
+        .withArgs(0, 2); // CLAIM_PENDING
+      // Pre-launch review: the terminal cases this title always promised, which the test never
+      // tried. A top-up written onto a settled or closed vault would be locked with no exit:
+      // withdraw reverts VaultTerminal, initiateClaim VaultNotActive and finalizeClaim
+      // NoClaimPending, and sweepSurplus never reaches the Locked lane.
+      await time.increase(WINDOW + 1);
+      await f.vault.finalizeClaim(f.alice.address, 0);
+      for (const [id, state] of [[0, 3], [1, 4]]) { // SETTLED, CLOSED
+        await expect(f.vault.connect(f.dave).topUp(f.alice.address, id, ONE, { value: ONE }))
+          .to.be.revertedWithCustomError(f.vault, "VaultNotActive")
+          .withArgs(id, state);
+      }
+      expect(await f.vault.totalLocked(NATIVE)).to.equal(0);
     });
 
     it("rejects zero and mismatched value", async () => {
@@ -635,6 +670,21 @@ describe("InheritanceVault", () => {
       );
     });
 
+    it("the constructor refuses a claim fee above MAX_CLAIM_FEE_BPS, and accepts the cap itself", async () => {
+      // Pre-launch review. Only setClaimFee's bound was tested. The constructor's check alone
+      // bounds the rate set at deployment, which every vault created before the first
+      // setClaimFee snapshots as its ceiling.
+      const f = await loadFixture(fixture);
+      const Factory = await vaultFactory(f.admin);
+      for (const bps of [101, 5_000, 65_535]) {
+        await expect(deployVault({ deployer: f.admin, feeBps: bps, feeRecipient: f.feeSink.address }))
+          .to.be.revertedWithCustomError(Factory, "FeeTooHigh")
+          .withArgs(bps, 100);
+      }
+      const atCap = await deployVault({ deployer: f.admin, feeBps: 100, feeRecipient: f.feeSink.address });
+      expect([await atCap.claimFeeBps(), await atCap.MAX_CLAIM_FEE_BPS()]).to.deep.equal([100n, 100n]);
+    });
+
     it("refuses plain native transfers", async () => {
       const f = await loadFixture(fixture);
       await expect(
@@ -693,6 +743,213 @@ describe("InheritanceVault", () => {
       expect(open.length).to.equal(1);
       expect(open[0].vaultId).to.equal(1);
       await expect(f.vault.getVault(f.alice.address, 2)).to.be.revertedWithCustomError(f.vault, "NoSuchVault");
+    });
+
+    it("getVault's expired flag turns AT the deadline second, the second from which the heir may claim", async () => {
+      // Pre-launch review. Warnings bit 0 was pinned at the deadline second; the expired flag an
+      // app shows was not, so it could have lagged the heir's right to claim by a second.
+      const f = await loadFixture(fixture);
+      const t0 = (await time.latest()) + 1;
+      await time.setNextBlockTimestamp(t0);
+      await f.vault
+        .connect(f.alice)
+        .createVault(NATIVE, DEPOSIT, f.bob.address, PERIOD, WINDOW, t0 + HORIZON_YEARS, { value: DEPOSIT });
+      const d = t0 + PERIOD;
+      expect((await f.vault.getVault(f.alice.address, 0)).deadline).to.equal(d);
+      await time.increaseTo(d - 1); // views read the block mined at this second
+      let v = await f.vault.getVault(f.alice.address, 0);
+      expect([v.expired, v.warnings], "a second before the deadline").to.deep.equal([false, 0n]);
+      await time.setNextBlockTimestamp(d);
+      await expect(f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, f.bob.address)).to.emit(
+        f.vault,
+        "ClaimInitiated"
+      );
+      v = await f.vault.getVault(f.alice.address, 0);
+      expect([v.claimInitiatedAt, v.expired, v.warnings], "AT the deadline").to.deep.equal([BigInt(d), true, 1n | 4n]);
+    });
+  });
+
+  // ------------------------------------------------------------------ terminal vaults
+
+  describe("terminal vaults", () => {
+    // Pre-launch review. The suite's terminal-state assertions covered check-ins,
+    // beneficiaryCancelClaim and a CLOSED vault's finalizeClaim. Dropping either terminal arm of
+    // _requireLive, or weakening the state checks of checkInByChain, topUp, initiateClaim or the
+    // terminal views, passed every test. _requireLive is a fund-safety guard: without it,
+    // withdraw(id, type(uint256).max, to) (F22) on a paid-out or closed vault goes through for 0
+    // and closes it again at its stale openIndex, which pops one of the owner's LIVE vaults from
+    // the open set; that vault's settlement and full withdrawal then underflow for good.
+    type Fx = Awaited<ReturnType<typeof fixture>>;
+    const SETTLED = 3;
+    const CLOSED = 4;
+    const MAX = ethers.MaxUint256;
+    const SET3 = "setCheckInChain(uint256,bytes32,uint32)";
+    const SET4 = "setCheckInChain(uint256,bytes32,uint32,uint32)";
+    const TERMINAL: [number, number][] = [[0, SETTLED], [1, CLOSED]];
+
+    /** Alice's vault 0 settles to bob (a keeper finalizes); her vault 1 is closed by her. */
+    async function settledAndClosed(f: Fx) {
+      await createNative(f); // 0
+      await createNative(f); // 1
+      await f.vault.connect(f.alice).withdraw(1, MAX, f.alice.address);
+      await time.increase(PERIOD + 1);
+      await f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, f.bob.address);
+      await time.increase(WINDOW + 1);
+      await f.vault.connect(f.dave).finalizeClaim(f.alice.address, 0);
+      for (const [id, state] of TERMINAL) expect((await f.vault.getVault(f.alice.address, id)).state).to.equal(state);
+    }
+
+    it("every owner action refuses a SETTLED and a CLOSED vault with VaultTerminal, before and past its horizon", async () => {
+      const f = await loadFixture(fixture);
+      await settledAndClosed(f);
+      for (const when of ["before the horizon", "past the horizon"]) {
+        if (when === "past the horizon") await time.increase(HORIZON_YEARS);
+        const far = (await time.latest()) + HORIZON_YEARS;
+        for (const [id, state] of TERMINAL) {
+          const v = await f.vault.getVault(f.alice.address, id);
+          expect(v.horizonReached, `vault ${id}, ${when}`).to.equal(when === "past the horizon");
+          const next = v.hbEpoch + 1n;
+          const calls: [string, () => Promise<unknown>][] = [
+            ["withdraw(id, type(uint256).max, to)", () => f.vault.connect(f.alice).withdraw(id, MAX, f.alice.address)],
+            ["withdraw(id, 1, to)", () => f.vault.connect(f.alice).withdraw(id, 1n, f.alice.address)],
+            ["setBeneficiary", () => f.vault.connect(f.alice).setBeneficiary(id, f.carol.address)],
+            ["setInactivityPeriod", () => f.vault.connect(f.alice).setInactivityPeriod(id, 60 * DAY)],
+            ["extendHorizon", () => f.vault.connect(f.alice).extendHorizon(id, far)],
+            ["setCheckInChain", () => f.vault.connect(f.alice)[SET3](id, ethers.id("an anchor"), 2)],
+            ["the epoch-checked setCheckInChain", () => f.vault.connect(f.alice)[SET4](id, ethers.id("an anchor"), 2, next)],
+            ["a disarm, setCheckInChain(id, 0, 0)", () => f.vault.connect(f.alice)[SET3](id, ethers.ZeroHash, 0)],
+          ];
+          for (const [label, send] of calls) {
+            await expect(send(), `${label} on vault ${id}, ${when}`)
+              .to.be.revertedWithCustomError(f.vault, "VaultTerminal")
+              .withArgs(id, state);
+          }
+        }
+      }
+    });
+
+    it("a stray close or settlement of a terminal vault cannot drop a live vault from the open set or strand it", async () => {
+      // Vaults 0 and 1 each left the open set from slot 0, which they still record; vaults 2 and
+      // 3 now fill slots 0 and 1. An app or keeper retrying a close or a settlement on a vault it
+      // no longer shows as open must change nothing. (The tests beside this one pin how each
+      // retry is refused; this one pins what a refusal protects.)
+      const f = await loadFixture(fixture);
+      await createNative(f, ONE); // 0: settles as the only open vault
+      await time.increase(PERIOD + 1);
+      await f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, f.bob.address);
+      await time.increase(WINDOW + 1);
+      await f.vault.connect(f.dave).finalizeClaim(f.alice.address, 0);
+      await createNative(f, ONE); // 1: closed as the only open vault
+      await f.vault.connect(f.alice).withdraw(1, MAX, f.alice.address);
+      await createNative(f, ONE); // 2
+      await createNative(f, ONE); // 3
+      expect(await f.vault.openVaultIds(f.alice.address)).to.deep.equal([2n, 3n]);
+      const strays = [
+        () => f.vault.connect(f.alice).withdraw(0, MAX, f.alice.address),
+        () => f.vault.connect(f.alice).withdraw(1, MAX, f.alice.address),
+        () => f.vault.connect(f.dave).finalizeClaim(f.alice.address, 0),
+        () => f.vault.connect(f.dave).finalizeClaim(f.alice.address, 1),
+      ];
+      for (const stray of strays) {
+        try {
+          await (await stray()).wait();
+        } catch {
+          // Refused, as it must be.
+        }
+      }
+      expect(await f.vault.openVaultIds(f.alice.address), "the open set").to.deep.equal([2n, 3n]);
+      expect([await f.vault.vaultsSettled(), await f.vault.vaultsClosed()]).to.deep.equal([1n, 1n]);
+      // Both live vaults keep both exits: the heir settles one, the owner closes the other.
+      await time.increase(PERIOD + 1);
+      await f.vault.connect(f.bob).initiateClaim(f.alice.address, 2, f.bob.address);
+      await time.increase(WINDOW + 1);
+      await expect(f.vault.connect(f.dave).finalizeClaim(f.alice.address, 2)).to.emit(f.vault, "ClaimSettled");
+      await expect(f.vault.connect(f.alice).withdraw(3, MAX, f.alice.address))
+        .to.emit(f.vault, "Withdrawn")
+        .withArgs(f.alice.address, 3, f.alice.address, ONE, true);
+      expect(await f.vault.openVaultIds(f.alice.address)).to.deep.equal([]);
+      expect([await f.vault.vaultsSettled(), await f.vault.vaultsClosed()]).to.deep.equal([2n, 2n]);
+    });
+
+    it("checkInByChain refuses a SETTLED and a CLOSED vault, before and past the horizon, and the armed value stays unspent", async () => {
+      // Round 5's R5-4 pinned checkIn and checkInMany on a SETTLED vault. The third check-in
+      // path, which anyone holding a chain value may call, was untested in both terminal
+      // states: were a settled vault accepted, an unspent value would go on checking in an
+      // estate already paid out, logging CheckedIn and DeadlineReset and spending the value.
+      const f = await loadFixture(fixture);
+      const chainId = (await ethers.provider.getNetwork()).chainId;
+      const vaultAddr = await f.vault.getAddress();
+      await createNative(f, DEPOSIT, PERIOD, WINDOW, PERIOD + WINDOW + 30 * DAY); // 0: settles before its near horizon
+      await createNative(f); // 1: closed
+      const value = (id: number) => ethers.id(`vault ${id}'s only chain value`);
+      const anchor = (id: number) =>
+        chainStep("v2", { chainId, vault: vaultAddr, owner: f.alice.address, vaultId: id, epoch: 1 }, value(id));
+      for (const id of [0, 1]) await f.vault.connect(f.alice)[SET3](id, anchor(id), 1);
+      await f.vault.connect(f.alice).withdraw(1, MAX, f.alice.address);
+      await time.increase(PERIOD + 1);
+      await f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, f.bob.address);
+      await time.increase(WINDOW + 1);
+      await f.vault.connect(f.dave).finalizeClaim(f.alice.address, 0);
+
+      const refused = async (when: string) => {
+        for (const [id, state] of TERMINAL) {
+          await expect(f.vault.connect(f.dave).checkInByChain(f.alice.address, id, value(id)), `vault ${id}, ${when}`)
+            .to.be.revertedWithCustomError(f.vault, "VaultNotActive")
+            .withArgs(id, state);
+          const v = await f.vault.getVault(f.alice.address, id);
+          expect([v.hbAnchor, v.hbLeft], `vault ${id}'s chain, ${when}`).to.deep.equal([anchor(id), 1n]);
+        }
+      };
+      const horizon = Number((await f.vault.getVault(f.alice.address, 0)).absoluteDeadline);
+      expect(await time.latest(), "vault 0's horizon is still ahead").to.be.lessThan(horizon);
+      await refused("before vault 0's horizon");
+      await time.increaseTo(horizon + 1);
+      await refused("past vault 0's horizon");
+    });
+
+    it("every claim call refuses a SETTLED and a CLOSED vault: initiateClaim as not active, the others as no claim pending", async () => {
+      const f = await loadFixture(fixture);
+      await settledAndClosed(f);
+      const owed = await f.vault.creditOf(NATIVE, f.bob.address);
+      for (const [id, state] of TERMINAL) {
+        await expect(f.vault.connect(f.bob).initiateClaim(f.alice.address, id, f.bob.address))
+          .to.be.revertedWithCustomError(f.vault, "VaultNotActive")
+          .withArgs(id, state);
+        await expect(f.vault.connect(f.bob).beneficiaryCancelClaim(f.alice.address, id))
+          .to.be.revertedWithCustomError(f.vault, "NoClaimPending")
+          .withArgs(id);
+        await expect(f.vault.connect(f.alice).abortClaim(id))
+          .to.be.revertedWithCustomError(f.vault, "NoClaimPending")
+          .withArgs(id);
+        await expect(f.vault.connect(f.dave).finalizeClaim(f.alice.address, id))
+          .to.be.revertedWithCustomError(f.vault, "NoClaimPending")
+          .withArgs(id);
+      }
+      expect(await f.vault.creditOf(NATIVE, f.bob.address), "the estate is credited once").to.equal(owed);
+    });
+
+    it("getVault and warningsOf report a SETTLED or CLOSED vault as terminal alone: nothing finalizable, no locked fee, also past its horizon", async () => {
+      // finalizeClaim leaves claimInitiatedAt and claimRecipient set, so only the state test keeps
+      // a paid-out vault from reporting a finalizable claim. Both vaults' deadlines have passed.
+      const f = await loadFixture(fixture);
+      await settledAndClosed(f);
+      for (const when of ["once terminal", "past the horizon"]) {
+        if (when === "past the horizon") await time.increase(HORIZON_YEARS);
+        for (const [id] of TERMINAL) {
+          const v = await f.vault.getVault(f.alice.address, id);
+          expect([v.expired, v.horizonReached], `vault ${id}, ${when}: the setup`).to.deep.equal([
+            true,
+            when === "past the horizon",
+          ]);
+          expect([v.warnings, v.finalizable, v.finalizableAt, v.lockedFeeBps], `vault ${id}, ${when}`).to.deep.equal([
+            128n,
+            false,
+            0n,
+            0n,
+          ]);
+          expect(await f.vault.warningsOf(f.alice.address, id)).to.equal(128);
+        }
+      }
     });
   });
 

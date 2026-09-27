@@ -1,51 +1,69 @@
 # Security policy
 
-## Current security status (2026-09)
+## Current security status (V2_DATE_ISO_TBD)
 
-InheritanceVault is deployed on Base (`0xC821849A1D74959753450409b594b23eCE7fEe2f`). Its deployed
-(v1) source shipped with 63 passing unit tests, and the former reminder watcher passed a 14-step
-local failure/recovery scenario. Two reviews exist, and neither is independent:
+The live contract is **InheritanceVault v2** on Base (`V2_ADDRESS_TBD`), deployed on V2_DATE_ISO_TBD
+(transaction `V2_TX_TBD`, block V2_BLOCK_TBD). It is immutable. **v2 has not been independently
+audited.** Every review so far was run by AI systems of the same kind that wrote the code:
 
-- The internal review ([AUDIT-2026-08-09.md](AUDIT-2026-08-09.md)) was run by the same system that
-  wrote the code.
-- A **preliminary audit** (2026-09) was performed by AI auditing agents at the project's request. It
-  reported 47 findings (5 medium, 21 low, 21 informational), published at
+- The internal review of v1 ([AUDIT-2026-08-09.md](AUDIT-2026-08-09.md)), run by the same system
+  that wrote the code.
+- A **preliminary audit** of v1 (2026-09), performed by AI auditing agents at the project's request.
+  It reported 47 findings (5 medium, 21 low, 21 informational), published at
   <https://willandkey.com/audit> with executable evidence in
   [audit/2026-09-preliminary/](audit/2026-09-preliminary/).
+- v2 was written in response. Its fix reviews, also by AI agents, are recorded in
+  [CHANGELOG-v2.md](CHANGELOG-v2.md): five fix-review rounds (48 issues), a pre-launch finalization
+  and a pre-launch review (16 issues, none a defect in the contract). On 2026-09-27 the v2 suite had
+  263 passing tests and none failing.
 
-It has **not** completed an independent third-party audit or a full-duration Base Sepolia lifecycle
-test. Treat the contracts as experimental and do not use material value yet.
+v2 has **not** completed an independent third-party audit or a full-duration Base Sepolia lifecycle
+test. Treat it as experimental and do not use material value yet. If a serious contract defect is
+confirmed, the remediation is a new reviewed deployment and a clearly communicated migration; the
+existing bytecode cannot be patched.
 
-The deployed vault is immutable. The preliminary audit's contract fixes exist only as undeployed
-source for a future version (v2); the live contract keeps the behaviour the audit describes, and
-those findings are handled by disclosure, app changes and operating commitments. If a serious
-contract defect is confirmed, the remediation is a new reviewed deployment and a clearly
-communicated migration; the existing bytecode cannot be patched.
+For ETH and the four listed tokens (USDC, WETH, cbBTC and EURC, fixed at deployment; no other token
+can be deposited), the administrator cannot take any value from a vault balance or payout credit
+beyond the settlement fee: `surplus()` is the balance minus `totalLocked` minus `totalCredited` for
+the same token, and `sweepSurplus` accepts only the native coin and the listed tokens. The fee is at
+most the vault's creation-time ceiling (never above 1%), a raise takes effect only 30 days after it
+is announced, and a fee recipient set after a period with none is in force only 30 days later. The
+guarantee does not protect against a token issuer freezing or wiping the vault contract's balance of
+its token: the issuers of USDC and EURC (Circle) and cbBTC (Coinbase) can pause, blocklist and
+upgrade them.
 
-For ETH and supported single-address tokens, the administrator cannot take any value from a vault
-balance or payout credit beyond the settlement fee: `surplus()` is the balance minus `totalLocked`
-minus `totalCredited` for the same token address. The fee is at most the vault's creation-time
-ceiling (never above 1%). One fee caveat: a claim that starts while no fee recipient is set is
-still charged its locked rate if the administrator sets a recipient before settlement. The
-guarantee does **not** hold for unsupported tokens (tokens reachable through a second address,
-rebasing, interest-bearing or reflection tokens, tokens that debit more than they pay out, and
-capped, max-wallet or cooldown tokens); see the README. It also does not protect against a token
-issuer freezing or wiping the vault contract's balance of its token.
+## Retired v1
+
+InheritanceVault v1 (`0xC821849A1D74959753450409b594b23eCE7fEe2f`) was the live contract from
+2026-08-09 to V2_DATE_ISO_TBD. It is immutable, so it was retired rather than fixed: the administrator
+paused its new-vault creation (`setCreationPaused(true)`, transaction `V1_PAUSE_TX_TBD`). On
+2026-09-27 it held no user funds: its one vault, the project's own test, was closed, and its only
+balance was a 0.00002 ETH credit owed to the former deploy key. Every contract behaviour the
+preliminary audit reported is still present in v1. Do not send it funds. A v1 credit can still be
+withdrawn with `withdrawCredit`.
 
 ## Administrator
 
-Since 2026-09-24 the administrator of both contracts, and the fee recipient, is a single Ledger
-hardware-wallet key, `0x883C821103B5415C53B11E584D3592205B5CdCA3`, not a multisig. The five handover
-transactions are in `deployments/base.json` and the README. On the vault it can:
+The administrator of all three contracts, and the fee recipient of both vaults, is a single Ledger
+hardware-wallet key, `0x883C821103B5415C53B11E584D3592205B5CdCA3`, not a multisig. v2 named it in
+its constructor (deploy transaction `V2_TX_TBD`), so the deploy key never held a v2 role; on v1 and
+the billing contract it took over from the deploy key on 2026-09-24 (five handover transactions, in
+`deployments/base.json` and the README). On v2 it can:
 
 - `setCreationPaused`: pause or unpause **new vault creation only**. The pause does not stop
   top-ups, check-ins, withdrawals, claims, finalization or credit withdrawals, so it cannot stop
   deposits into existing vaults. A migration notice must tell owners to withdraw in full, which
   closes the vault, and the website must stop offering top-ups;
-- `setClaimFee`: change the global claim fee, immediately, within the 1% bytecode cap;
-- `setFeeRecipient`: change or unset the fee recipient, immediately;
-- `sweepSurplus`: move a token's balance above the accounted lanes for that token address;
+- `setClaimFee`: cut the global claim fee at once, or schedule a raise that takes effect 30 days
+  later, within the 1% bytecode cap (`applyClaimFee`, which anyone may call, only records a raise
+  whose time has come);
+- `setFeeRecipient`: change or remove the fee recipient at once; a recipient set after a period with
+  none is in force only 30 days later;
+- `sweepSurplus`: move the native coin's or a listed token's balance above the accounted lanes;
 - transfer ownership in two steps (`renounceOwnership` is disabled).
+
+It cannot add or remove a token. On v1 it can pause creation, change the fee at once with no delay,
+change or unset the fee recipient, sweep surplus in any token, and transfer ownership.
 
 ## Retired reminder billing contract
 
@@ -71,7 +89,7 @@ project will never need one to investigate a report.
 
 Please include, once a private channel is established:
 
-- affected contract, function, website path, or watcher component;
+- affected contract (v2 or v1), function, or website path;
 - Base or Base Sepolia transaction hashes and block numbers, if applicable;
 - prerequisites, impact, and the smallest safe reproduction;
 - whether disclosure is already public or any funds appear to be at immediate risk.

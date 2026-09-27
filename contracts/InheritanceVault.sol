@@ -12,7 +12,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * @notice A self-custody dead man's switch: deposit native coin or an ERC20, name an heir, and
  *         check in on a schedule you chose. Stop checking in for longer than your inactivity
  *         period and the heir may claim; a challenge window then runs during which you can still
- *         veto; after it, anyone can finalize and the heir is paid.
+ *         veto (before the horizon; T3 says what works after it); after it, anyone can finalize,
+ *         which credits the payout to the recipient the heir named (THE CREDIT LANE).
  *
  * Lineage: the state machine (Active -> ClaimPending -> Settled/Closed, inactivity deadline,
  * challenge window, veto, pull-payment credit lane, three-lane accounting) is adapted from
@@ -23,22 +24,30 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * THE TRUST MODEL, stated plainly:
  *
  *   T1. The vault owner's wallet key is the ultimate authority. It can withdraw everything,
- *       change the heir, extend every deadline, and veto any claim. A stolen owner key is a
- *       stolen vault. This contract defends against a LOST key and an ABSENT owner, not a
- *       compromised one.
+ *       change the heir, extend every deadline, and stop any claim that has not settled: with
+ *       the veto (abortClaim) before the horizon, and past it only as T3 says. A stolen owner
+ *       key is a stolen vault. This contract defends against a LOST key and an ABSENT owner,
+ *       not a compromised one.
  *   T2. The beneficiary's wallet key is the claim authority. If the heir loses that key before
- *       claiming, the owner must name a new heir while alive; after the owner is gone, a
- *       lost beneficiary key means the funds are stuck until the horizon -- and if the heir
- *       never claims at all, they are stuck forever. Keeping the heir's address current is
- *       part of owning a vault.
+ *       claiming, the owner must name a new heir while alive. Nothing opens at the horizon or
+ *       after it: only the beneficiary can ever start a claim, so once the owner is gone a lost
+ *       beneficiary key leaves the funds stuck for good, as does an heir who never claims.
+ *       Keeping the heir's address current is part of owning a vault.
  *   T3. guaranteedInheritanceAt = absoluteDeadline + challengeWindow is a hard date against a
  *       lost owner key and against runaway check-in automation: checkIn, checkInByChain and
  *       setCheckInChain revert once the horizon is reached, abortClaim closes with them, and a
- *       partial withdraw no longer displaces a claim. The ONLY way past the date is
- *       extendHorizon, which needs the live owner key, must name a horizon at least one
- *       inactivity period in the future, and is logged as HorizonExtended. So a living owner
- *       can still override the date deliberately -- at a cost of one full inactivity period per
- *       override -- and nothing can do it silently or without bound.
+ *       partial withdraw no longer displaces a claim. The date is not a payout: it holds for an
+ *       heir who claims by the horizon. Past the horizon nothing but the live owner key can move
+ *       the date, and it can move the date or stop a claim only in two logged ways: withdrawing
+ *       everything, which closes the vault, or extendHorizon, which must name a horizon at least
+ *       one inactivity period and at most MAX_HORIZON ahead and is logged as HorizonExtended.
+ *       Either ends a pending claim. So a living owner can still override the date deliberately,
+ *       and nothing can do it silently. How far an override reaches is the owner's choice: the
+ *       heir may claim again at the new deadline, one inactivity period out -- the vault's
+ *       current period, which the owner can first cut to MIN_INACTIVITY (7 days) while no claim
+ *       is pending -- and one call can move the horizon as far as MAX_HORIZON (100 years) ahead.
+ *       Naming a new heir, which setBeneficiary allows past the horizon while no claim is
+ *       pending, does not move the date, and the new heir may claim at once.
  *       Check-ins stop extending even earlier: once the deadline has reached the horizon (which
  *       the first check-in within one inactivity period of it brings about), checkIn and
  *       checkInByChain revert DeadlinePinnedAtHorizon and checkInMany skips the vault (warnings
@@ -125,32 +134,42 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  *
  * PAYOUT ADDRESSES. This contract, every supported token (the chain's wrapped-native token,
  * wrappedNative, is always one of them), the OP-stack predeploy range 0x4200...0000 to
- * 0x4200...07FF and the four canonical ERC-4337 EntryPoints (v0.6 to v0.9) are refused as a
- * withdraw or withdrawCredit destination, a claim recipient, the fee recipient and a sweep
- * target. A token contract cannot claim its credit. Native coin paid to a wrap-on-receive
- * contract would come back as wrapped tokens held by THIS contract, outside every lane, where
- * only sweepSurplus could move them. That refusal is by address; the rule behind it is enforced
- * by measurement: a native payout to an address with code must lower this contract's native
- * balance by exactly the amount paid and leave its balance of every supported token unchanged,
- * or it reverts PayoutReturned and the credit stays. So no payee -- a wrap-and-forward helper, a
- * SELFDESTRUCT bounce, any contract that sends value back to its sender -- can turn a payout
- * into surplus the admin could sweep. An address with no code runs nothing when paid, so it
- * cannot send anything back and is not measured. (Value a payee sends back later, in a
- * transaction of its own, was paid. So was value it hands back in an asset that is not listed:
- * that stays here, stranded like any unlisted token sent directly.)
- * The predeploy and EntryPoint refusals are of payees that KEEP the value, so the measurement
- * passes them, but leave it owed to this contract somewhere it can never collect it: the payout
- * is lost, though never sweepable. Native coin paid to Base's L2ToL1MessagePasser (0x4200...0016)
- * is withdrawn to msg.sender on L1: to this contract's address there, where only the deployer
- * key, sending from the nonce that created this contract, could ever put code to collect it.
- * Native coin paid to an EntryPoint is booked there as a deposit owned by msg.sender, this
- * contract, and only the owner of a deposit can withdraw it, with a call this contract has no
- * function to make. Both refusals are by address, and no rule can see either kind in general: a
- * payee that forwards value to this contract's address on ANOTHER chain, or one that books the
- * value to msg.sender in a ledger of its own (an EntryPoint at any other address, a staking or
- * deposit contract that credits its sender). The refused addresses cover the one passer every
- * OP-stack chain has, and the canonical EntryPoints, which Base and BNB both have at these
- * addresses.
+ * 0x4200...07FF, the four canonical ERC-4337 EntryPoints (v0.6 to v0.9) and Venus vBNB are
+ * refused as a withdraw or withdrawCredit destination, a claim recipient, the fee recipient
+ * and a sweep target. A token contract cannot claim its credit. Native coin paid to a
+ * wrap-on-receive contract would come back as wrapped tokens held by THIS contract, outside
+ * every lane, where only sweepSurplus could move them. That refusal is by address; the rule
+ * behind it is enforced by measurement: a native payout to an address with code must lower
+ * this contract's native balance by exactly the amount paid and leave its balance of every
+ * supported token unchanged, or it reverts PayoutReturned and the credit stays. So no payee --
+ * a wrap-and-forward helper, a SELFDESTRUCT bounce, any contract that sends value back to its
+ * sender -- can hand a payout straight back as surplus the admin could sweep. An address with
+ * no code runs nothing when paid, so it cannot send anything back and is not measured. (Value
+ * a payee sends back later, in a transaction of its own, was paid: here it is surplus like any
+ * other force-fed value, which sweepSurplus can take in the native coin or a listed token.
+ * Value handed back in an asset that is not listed stays here, stranded like any unlisted token
+ * sent directly.)
+ * The predeploy, EntryPoint and vBNB refusals are of payees that KEEP the value, so the
+ * measurement passes them, but leave it owed to this contract somewhere it cannot collect it.
+ * Native coin paid to Base's L2ToL1MessagePasser (0x4200...0016) is withdrawn to msg.sender on
+ * L1: to this contract's address there, where only the deployer key, sending from the nonce
+ * that created this contract, could ever put code to collect it. Native coin paid to an
+ * EntryPoint is booked there as a deposit owned by msg.sender, this contract, and only the
+ * owner of a deposit can withdraw it, with a call this contract has no function to make.
+ * Native coin paid to Venus vBNB (BNB Chain) mints vBNB to msg.sender, which this contract has
+ * no call to redeem and cannot sweep, because it is not listed. These refusals are by address,
+ * and no rule can see such payees in general: one that forwards value to this contract's
+ * address on ANOTHER chain, or one that books the value to msg.sender in a ledger of its own
+ * (an EntryPoint at any other address, a staking, lending or deposit contract that credits its
+ * sender). The refused addresses cover the one passer every OP-stack chain has, the canonical
+ * EntryPoints, which Base and BNB both have at these addresses, and vBNB on BNB Chain (the
+ * address has no code on Base).
+ * A payout to such a payee is lost to whoever named it. Whether the admin can ever reach it
+ * depends on the payee: it stays out of reach only while nothing but its owner, this contract,
+ * can move the booking. A ledger that lets anyone release a booking to its owner, in a listed
+ * token (an "ETH, else WETH" refund) or by force-sending the native coin, returns the value
+ * here in a later transaction, as surplus that sweepSurplus can take. No rule can tell that
+ * return from any other force-feed.
  * Still not recoverable, and inherent rather than fixable: value credited to some other address
  * that can neither originate a call nor receive native value is stuck. withdrawCredit lets the
  * credited account route anywhere, which covers blocklisted EOAs and any contract able to make
@@ -176,9 +195,9 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  *     and once that clock has run out, anyone may settle it (finalizeClaim is permissionless)
  *     and push the whole balance in one transaction. So an heir whose address still holds an
  *     older credit should withdraw it before settling another claim into that address, or name
- *     a fresh recipient for each claim (beneficiaryCancelClaim can still change it before
- *     settlement). Restarting the clock on smaller credits instead would let anyone postpone
- *     the push to an account that cannot act forever, 1 wei at a time.
+ *     a fresh recipient for each claim (beneficiaryCancelClaim can still change it, safely only
+ *     before finalizableAt). Restarting the clock on smaller credits instead would let anyone
+ *     postpone the push to an account that cannot act forever, 1 wei at a time.
  *
  * VIEWS. surplus, totalLocked, totalCredited, getVault, getOpenVaults and creditOf revert
  * (ReentrancyGuardReentrantCall) while a nonReentrant function of this contract is running --
@@ -235,7 +254,7 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
     /// abortClaim (the veto) does. (Past the horizon the reason is
     /// SKIP_CLAIM_PENDING_PAST_HORIZON, because abortClaim reverts there.)
     uint8 public constant SKIP_CLAIM_PENDING = 3;
-    /// @dev The horizon has passed. Only extendHorizon reopens check-ins.
+    /// @dev The horizon has been reached. Only extendHorizon reopens check-ins.
     uint8 public constant SKIP_HORIZON_REACHED = 4;
     /// @dev The deadline already sits at the horizon, so a check-in cannot move it
     /// (DeadlinePinnedAtHorizon). extendHorizon first.
@@ -243,9 +262,10 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
     /// @dev The deadline already moved at this second: a repeated id in the batch, or a vault
     /// whose clock was reset earlier in the same block. Nothing is wrong.
     uint8 public constant SKIP_REPEATED = 6;
-    /// @dev A claim is pending and the horizon has passed. abortClaim reverts HorizonReached
-    /// there; only extendHorizon to at least now + inactivityPeriod, or withdrawing everything
-    /// (withdraw(id, type(uint256).max, to)), ends the claim, before finalizeClaim is mined.
+    /// @dev A claim is pending and the horizon has been reached. abortClaim reverts
+    /// HorizonReached there; only extendHorizon to at least now + inactivityPeriod, or
+    /// withdrawing everything (withdraw(id, type(uint256).max, to)), ends the claim, before
+    /// finalizeClaim is mined.
     uint8 public constant SKIP_CLAIM_PENDING_PAST_HORIZON = 7;
 
     /// @notice The domain tag of every check-in chain step (see hbStep).
@@ -293,8 +313,14 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
     address internal constant ENTRYPOINT_V08 = 0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108;
     address internal constant ENTRYPOINT_V09 = 0x433709009B8330FDa32311DF1C2AFA402eD8D009;
 
+    /// @dev Venus vBNB, BNB Chain's Compound-style market for the native coin, refused as a
+    /// payee (see PAYOUT ADDRESSES). Its fallback mints vBNB to msg.sender, which this contract
+    /// has no call to redeem. The address has no code on Base.
+    address internal constant VENUS_VBNB = 0xA07c5b74C9B40447a954e1466938b865b6BBea36;
+
     /// @dev The most gas a native payout's measurement gives one listed token's balanceOf (see
-    /// _holdings). About ten times what the proposed tokens, proxies included, use cold.
+    /// _holdings). About eight times what a cold read costs on the Base launch tokens (measured
+    /// in September 2026: about 12,600 through the USDC, EURC and cbBTC proxies, 5,300 for WETH).
     uint256 internal constant BALANCE_READ_GAS = 100_000;
 
     // ------------------------------------------------------------------ types
@@ -476,9 +502,10 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
     event CreditPaid(address indexed token, address indexed account, address indexed to, uint256 amount);
     /// @notice A TRANSFER OUT, emitted after it succeeded: force-fed surplus paid to `to`.
     event SurplusSwept(address indexed token, address indexed to, uint256 amount);
-    /// @notice The rate in force changed: a cut (immediate), or a scheduled raise being recorded
-    /// (by applyClaimFee or the next setClaimFee). A raise counts from its effectiveAt, which may
-    /// be earlier than this event.
+    /// @notice The recorded rate was set: by setClaimFee at or below the rate in force (a cut, or
+    /// the same rate restated to call off a raise; immediate, and `oldBps` may equal `newBps`),
+    /// or to a scheduled raise being recorded (by applyClaimFee or the next setClaimFee). A raise
+    /// counts from its effectiveAt, which may be earlier than this event.
     event ClaimFeeChanged(uint16 oldBps, uint16 newBps);
     /// @notice A raise was announced; it counts from `effectiveAt` and replaces any earlier one.
     event ClaimFeeRaiseScheduled(uint16 currentBps, uint16 newBps, uint64 effectiveAt);
@@ -623,10 +650,14 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
     }
 
     /**
-     * @dev Any owner action supersedes a running claim: the owner acting IS the liveness proof
-     * the claim asserted was missing. Unlike PQVault there is no proven recipient to preserve --
-     * no one-time key was burned, so the beneficiary re-initiates for free once the (reset)
-     * deadline expires again.
+     * @dev These owner actions supersede a running claim here: setBeneficiary,
+     * setInactivityPeriod, extendHorizon, setCheckInChain (a disarm included) and a partial
+     * withdraw. The owner acting IS the liveness proof the claim asserted was missing.
+     * A check-in does not (checkIn reverts and checkInMany skips the vault: abortClaim is the
+     * veto), nor does a top-up, which is refused mid-claim. A full withdraw ends the claim by
+     * closing the vault, without coming here. Unlike PQVault there is no proven recipient to
+     * preserve -- no one-time key was burned, so the beneficiary re-initiates for free once the
+     * (reset) deadline expires again.
      *
      * PAST THE HORIZON this closes. _resetClock can no longer move `deadline` (it clamps to
      * absoluteDeadline, already in the past), so a claim displaced after the horizon could be
@@ -735,7 +766,7 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
         if (to == address(this)) revert CannotPayToSelf();
         if (
             isSupportedToken[to] || uint160(to) >> 11 == uint160(OP_STACK_PREDEPLOYS) >> 11 || to == ENTRYPOINT_V06
-                || to == ENTRYPOINT_V07 || to == ENTRYPOINT_V08 || to == ENTRYPOINT_V09
+                || to == ENTRYPOINT_V07 || to == ENTRYPOINT_V08 || to == ENTRYPOINT_V09 || to == VENUS_VBNB
         ) revert ForbiddenPayoutAddress(to);
     }
 
@@ -883,8 +914,8 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
 
     /// @dev Permissionless. Deliberately does NOT reset the deadline -- if it did, any stranger
     /// could manufacture a liveness proof for a dead owner and deny the heir forever for the
-    /// price of one wei. Refused mid-claim so the amount an heir is claiming cannot move
-    /// underneath them. A gift is not quite harmless: a 1-wei topUp front-run onto an owner's
+    /// price of one wei. Refused mid-claim, so a gift cannot change the amount a pending claim
+    /// settles. A gift is not quite harmless: a 1-wei topUp front-run onto an owner's
     /// exact-balance withdraw used to keep the vault open; withdraw(id, type(uint256).max, to)
     /// closes it whatever the balance has become.
     function topUp(address vaultOwner, uint256 vaultId, uint256 amount) external payable nonReentrant {
@@ -893,9 +924,10 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
         if (v.state != STATE_ACTIVE) revert VaultNotActive(vaultId, v.state);
 
         uint256 received = _pull(v.token, amount);
-        // Re-assert AFTER the transfer. A token with a receive hook can call back into the
-        // owner's own functions during _pull; without this the deposit could be written onto a
-        // vault the callback had already closed, stranding it outside every exit.
+        // Re-asserted AFTER the transfer, as defence in depth. A deposit written onto a vault
+        // that a token's callback had closed during _pull would be stranded outside every exit.
+        // Today no callback can close one: every function that changes a vault is nonReentrant,
+        // and the listed tokens have no transfer hooks.
         if (v.state != STATE_ACTIVE) revert VaultNotActive(vaultId, v.state);
         v.balance = (uint256(v.balance) + received).toUint128();
         _totalLocked[v.token] += received;
@@ -928,10 +960,7 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
 
     /**
      * @notice Refresh a whole split estate in one transaction.
-     * @return refreshed how many vaults' deadlines this call actually moved. Each vault counts
-     * at most once, so a repeated id does not inflate it.
-     *
-     * Vaults that cannot be checked in are SKIPPED, not reverted on: an unknown id; a settled
+     * @dev Vaults that cannot be checked in are SKIPPED, not reverted on: an unknown id; a settled
      * or closed vault; a pending claim (it needs abortClaim before the horizon, and extendHorizon
      * or a full withdrawal past it); a vault past its own horizon; a deadline pinned at the
      * horizon; or a deadline already moved at this second. Each skip is logged as
@@ -947,6 +976,8 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
      * carries one bit per SKIP_* reason seen. A keeper must treat that revert as "read getVault
      * now", never as a harmless duplicate: for a one-vault owner it is how a pending claim shows
      * up.
+     * @return refreshed how many vaults' deadlines this call actually moved. Each vault counts
+     * at most once, so a repeated id does not inflate it.
      */
     function checkInMany(uint256[] calldata vaultIds) external nonReentrant returns (uint256 refreshed) {
         uint256 n = vaultIds.length;
@@ -1019,7 +1050,7 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
         if ((anchor == bytes32(0)) != (count == 0) || count > MAX_HB_COUNT) revert InvalidCheckInChain();
         Vault storage v = _vault(msg.sender, vaultId);
         _requireLive(v, vaultId);
-        // checkInByChain reverts past the horizon, so installing a chain there would take a fee,
+        // checkInByChain reverts past the horizon, so installing a chain there would cost gas,
         // clear the "chain exhausted" warning, and hand the owner a mechanism that can never
         // fire -- exactly the green-toast lie checkIn refuses to tell. A disarm is refused there
         // too: a chain cannot fire past the horizon anyway, and a disarm that ended a claim
@@ -1202,7 +1233,9 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
     /// @dev Only the named beneficiary may initiate, and the recipient is their choice -- an heir
     /// should route the payout to a fresh address if they want one, without moving their identity
     /// key. There is no relayer path here: on the target chains gas is cents, and gating on
-    /// msg.sender is what makes the beneficiary address the authority.
+    /// msg.sender is what makes the beneficiary address the authority. Check `recipient` before
+    /// sending: only beneficiaryCancelClaim can change it, and only safely before finalizableAt,
+    /// from which anyone may settle the claim to it (see beneficiaryCancelClaim).
     function initiateClaim(address vaultOwner, uint256 vaultId, address recipient) external nonReentrant {
         if (recipient == address(0) || recipient == address(this)) revert ZeroAddress();
         // Checked here, not only at payout: the recipient is recorded for the claim, and a
@@ -1243,6 +1276,12 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
      * deadline and horizon untouched, so the beneficiary can initiate again at once, with a new
      * recipient and a fresh, full challenge window.
      *
+     * The last safe moment to correct a recipient is finalizableAt (in getVault and in
+     * ClaimInitiated), not settlement. From that second anyone may call finalizeClaim, and a
+     * keeper's or a stranger's call mined first settles the claim to the recipient recorded for
+     * it: that credit is then the recipient's alone to withdraw, and a push can deliver it
+     * nowhere else. A cancel is certain to work only if it is mined before finalizableAt.
+     *
      * The cost, stated plainly: the payout address is NOT frozen for the life of a claim. Until
      * finalizeClaim is mined, the beneficiary key alone can cancel and re-initiate to any
      * address, so a beneficiary key stolen during the challenge window can redirect the payout,
@@ -1266,7 +1305,8 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
      *     postpones the heir's new claim by a full inactivity period (NotYetExpired);
      *   - past the horizon, where a pending claim makes setBeneficiary revert HorizonReached,
      *     the owner may name a new heir, who can claim at once -- where extendHorizon, the only
-     *     way to stop the claim itself, would have cost a full inactivity period;
+     *     way to stop the claim short of withdrawing everything, would have cost a full
+     *     inactivity period;
      *   - the new claim re-locks the fee at the rate then in force, up to the vault's ceiling
      *     (see FEES), which can be more than the cancelled claim had locked.
      * Re-initiate straight after the cancel (a smart-account beneficiary can batch the two).
@@ -1301,7 +1341,9 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
 
     /// @dev Permissionless and free of external calls. Splitting settlement from payment keeps a
     /// hostile or non-payable recipient from jamming the vault: value lands in the credit lane
-    /// and is pulled from there.
+    /// and is pulled from there. Whoever mines it first from finalizableAt settles the claim to
+    /// the recipient recorded at initiateClaim, so a correction of that recipient
+    /// (beneficiaryCancelClaim) is safe only before then.
     function finalizeClaim(address vaultOwner, uint256 vaultId) external nonReentrant {
         Vault storage v = _vault(vaultOwner, vaultId);
         if (v.state != STATE_CLAIM_PENDING) revert NoClaimPending(vaultId);
@@ -1430,9 +1472,9 @@ contract InheritanceVault is Ownable2Step, ReentrancyGuard {
     }
 
     /// @dev The contract itself is refused: credits to self can never be paid out, so allowing
-    /// it would let a careless admin strand fee revenue inside the credited lane forever. So are
-    /// wrappedNative and the supported tokens (PAYOUT ADDRESSES): with them refused here too, no
-    /// credit can ever be recorded for an address the payout rule refuses.
+    /// it would let a careless admin strand fee revenue inside the credited lane forever. So is
+    /// every other address the payout rule refuses (PAYOUT ADDRESSES): with them refused here
+    /// too, no credit can ever be recorded for an address the payout rule refuses.
     /// Removing the recipient is a cut to zero and applies at once, to claims already pending
     /// too. Setting one after a period with none is a raise from zero: until
     /// feeRecipientActiveAt (now + FEE_RAISE_DELAY) claims initiated lock a zero fee and claims

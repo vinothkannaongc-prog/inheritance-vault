@@ -23,7 +23,7 @@
 <main class="article">
   <h1>Terms and service disclosures</h1>
   <p class="standfirst">Read these disclosures before depositing assets or signing a transaction.</p>
-  <p class="byline">Last updated: 26 September 2026</p>
+  <p class="byline">Last updated: V2_DATE_TBD</p>
 
   <h2>Technical tool, not a legal will</h2>
   <p>Will &amp; Key is a software interface to an autonomous smart contract. It is not a lawyer,
@@ -31,17 +31,19 @@
   valid estate plan. Laws and tax treatment vary. Obtain qualified advice for your jurisdiction.</p>
 
   <h2>Self-custody and immutable-contract risk</h2>
-  <p>You control transaction signing and are responsible for wallet security, beneficiary
-  addresses, asset compatibility, check-in timing, horizon settings, and gas. The deployed vault
-  contract is non-upgradeable. A defect, compromised key, wrong address, unsupported token,
-  network failure, or lost beneficiary key can cause permanent loss. The deployed contract accepts
-  any token address, but only ETH and <a href="/how-it-works#tokens">supported single-address
-  tokens</a> are covered by the published guarantees; with other tokens, value can be lost or
-  become reachable by the administrator's surplus sweep. The contract has an internal adversarial
-  review and a <a href="/audit">preliminary audit</a> by AI auditing agents, performed at the
-  project's request and not independent, but no completed independent third-party audit. Fixes
-  from the preliminary audit cannot be applied to the deployed contract. Use only value you can
-  afford to lose.</p>
+  <p>You control transaction signing and are responsible for wallet security, beneficiary and
+  payout addresses, check-in timing, horizon settings, and gas. The vault contract (version 2,
+  deployed on Base on V2_DATE_TBD) is non-upgradeable. A defect, compromised key, wrong address,
+  network failure, token-issuer action or lost beneficiary key can cause permanent loss. A vault can
+  hold only ETH or one of the <a href="/how-it-works#tokens">four listed tokens</a> (USDC, WETH,
+  cbBTC and EURC), and the list can never change. The issuers of USDC and EURC (Circle) and of cbBTC
+  (Coinbase) can pause or blocklist their tokens, or change their code, which could freeze every
+  vault in that token at once. Version 2 contains the contract fixes from a
+  <a href="/audit">preliminary audit</a> of version 1 by AI auditing agents, performed at the
+  project's request and not independent; a few findings were kept by design and are listed as
+  <a href="/security#limits">known limits</a>. Version 2 itself has been reviewed only by AI
+  agents and has no completed independent third-party audit. Use only value you can afford to
+  lose.</p>
 
   <h2>No alerts</h2>
   <p>Will &amp; Key sends no alerts or reminders of any kind. Nobody will notify you if your timer
@@ -51,12 +53,22 @@
   <h2>Fees</h2>
   <p>The current global claim-settlement fee is 0.5%, capped at 1% by the deployed bytecode. Each
   vault's fee can never exceed the global rate in force when its creation transaction was mined.
-  Lower global rates apply only while they are in force. When a claim starts, its rate is capped at
-  the lower of the vault's ceiling and the global rate at that moment, and it can still fall before
-  settlement. No fee is taken if no fee recipient is set when the claim settles. The administrator
-  can change the global rate and the fee recipient without delay; the details are on the
+  The administrator can cut the global rate at once, but a raise takes effect only 30 days after it
+  is announced on chain. When a claim starts, its rate is capped at the lower of the vault's ceiling
+  and the global rate at that moment; a lower rate applies at settlement only if it is still in
+  force then. No fee is taken if no fee recipient is in force when the claim settles, and a
+  recipient set after a period with none takes effect only 30 days later. The details are on the
   <a href="/how-it-works#fees">mechanism page</a>. Blockchain gas fees are separate and go to the
   network, not Will &amp; Key. Verify current contract state before signing.</p>
+
+  <h2>The retired version 1</h2>
+  <p>The first vault contract,
+  <span class="break-all">0xC821849A1D74959753450409b594b23eCE7fEe2f</span>, is retired. It no longer
+  accepts new vaults: its creation was paused on chain (transaction
+  <a class="break-all" href="https://basescan.org/tx/V1_PAUSE_TX_TBD" rel="noopener">V1_PAUSE_TX_TBD</a>),
+  and this website no longer offers it. It cannot be changed, and the preliminary audit's findings
+  still apply to it. Do not send funds to it. Anyone owed a credit there can still withdraw it
+  directly on the contract, for example through Basescan.</p>
 
   <h2>Paid reminders are disabled</h2>
   <p>Will &amp; Key is not accepting new paid reminder subscriptions through this website, and the
@@ -81,11 +93,12 @@
   cannot legally be excluded.</p>
 
   <h2>Source and audit status</h2>
-  <p>The deployed contract addresses and source-verification links are published on the home page.
-  The project repository includes source, tests, deployment records, the internal review report and
-  the evidence for the <a href="/audit">preliminary audit</a>. Neither review is independent. An
-  independent third-party audit remains a release requirement for recommending use with material
-  value.</p>
+  <p>The deployed contract addresses are published on the home page, and their bytecode
+  fingerprints on the <a href="/security">security page</a>. The project repository includes
+  source, tests, deployment records, the internal review report, the evidence for the
+  <a href="/audit">preliminary audit</a> and the record of the version 2 fix reviews. None of these
+  reviews is independent. An independent third-party audit remains a release requirement for
+  recommending use with material value.</p>
 </main>
 
 <footer class="site"><div class="wrap">

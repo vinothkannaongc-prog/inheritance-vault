@@ -11,12 +11,12 @@
  * cost v2 accepts and documents, so it is not regression evidence; on v1 it asserts what v1 does
  * instead where v1 lacks the cost, or fails only because the v2 function it exercises is
  * absent). Most fail for the reason their finding describes. Tests of API that v2 adds as the fix
- * itself (hbStep, the epoch-checked setCheckInChain, hbEpoch, applyClaimFee, pendingClaimFeeAt,
- * ClaimFeeRaiseCancelled, beneficiaryCancelClaim, the three-argument withdrawCredit,
- * supportedTokens, creditedSince, feeRecipientActiveAt, NothingCheckedIn's argument,
- * SKIP_CLAIM_PENDING_PAST_HORIZON, and the constructor's supported and wrappedNative arguments,
- * which v1 does not take) may fail on v1 only because the function, getter or argument is
- * absent: there the missing function IS the fix. To see the failures:
+ * itself (HB_DOMAIN, hbStep, the epoch-checked setCheckInChain, hbEpoch, applyClaimFee,
+ * pendingClaimFeeAt, ClaimFeeRaiseCancelled, beneficiaryCancelClaim, the three-argument
+ * withdrawCredit, supportedTokens, creditedSince, feeRecipientActiveAt, NothingCheckedIn's
+ * argument, SKIP_CLAIM_PENDING_PAST_HORIZON, and the constructor's supported and wrappedNative
+ * arguments, which v1 does not take) may fail on v1 only because the function, getter or
+ * argument is absent: there the missing function IS the fix. To see the failures:
  *
  *   VAULT_IMPL=v1 npx hardhat test test/AuditPrelim2026-09.ts
  *
@@ -67,6 +67,9 @@ const ENTRYPOINTS = [
   "0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108",
   "0x433709009B8330FDa32311DF1C2AFA402eD8D009",
 ];
+// Pre-launch finalization (R5-3). Venus vBNB on BNB Chain: a plain native transfer mints vBNB to
+// msg.sender. The address has no code on Base.
+const VENUS_VBNB = "0xA07c5b74C9B40447a954e1466938b865b6BBea36";
 // Explicit gas and tips for same-block ordering: with automine off, a higher tip is mined first.
 const FRONT = { gasLimit: 600_000n, maxFeePerGas: 200n * GWEI, maxPriorityFeePerGas: 100n * GWEI };
 const USER = { gasLimit: 600_000n, maxFeePerGas: 200n * GWEI, maxPriorityFeePerGas: 2n * GWEI };
@@ -207,6 +210,36 @@ describe("Preliminary audit 2026-09 regressions (v2)", () => {
       .replace(/\s+/g, " ");
   }
   const VAULT_SOL = ["contracts", "InheritanceVault.sol"];
+
+  /**
+   * Pre-launch finalization: the comment block directly above `marker` in the v2 source (a
+   * NatSpec block, or a run of `///` or `//` lines), as prose. A guard that must hold for one
+   * function's documentation reads this, not the whole file, so the same sentence elsewhere
+   * cannot satisfy it.
+   */
+  function docAbove(marker: string): string {
+    const src = fs.readFileSync(path.join(__dirname, "..", ...VAULT_SOL), "utf8").replace(/\r\n/g, "\n");
+    const at = src.indexOf(marker);
+    expect(at, `${marker.trim()} found in the v2 source`).to.be.greaterThan(0);
+    expect(src.indexOf(marker, at + 1), `${marker.trim()} is unique`).to.equal(-1);
+    const lines = src.slice(0, at).replace(/[ \t]+$/, "").replace(/\n$/, "").split("\n");
+    const doc: string[] = [];
+    let j = lines.length - 1;
+    if (lines[j].trim().endsWith("*/")) {
+      for (; j >= 0; j--) {
+        doc.unshift(lines[j]);
+        if (lines[j].trim().startsWith("/**")) break;
+      }
+    } else {
+      for (; j >= 0 && lines[j].trim().startsWith("//"); j--) doc.unshift(lines[j]);
+    }
+    expect(doc.length, `a comment block above ${marker.trim()}`).to.be.greaterThan(0);
+    return doc
+      .join("\n")
+      .replace(/^[ \t]*(?:\/\/\/|\/\/|\/\*\*|\*\/|\*)?[ \t]?/gm, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
 
   /**
    * Review round 4: source guards that match text can always be dodged by a spelling the pattern
@@ -721,10 +754,63 @@ describe("Preliminary audit 2026-09 regressions (v2)", () => {
       expect(await f.vault.creditOf(NATIVE, f.carol.address), "the credit is kept").to.equal(ONE);
     });
 
-    it("(pin) the documented residual: a payee at any other address that books the value to its sender takes the payout; the vault is left with a claim it can never exercise, and nothing is sweepable", async () => {
+    // ---- pre-launch finalization (review round 5)
+
+    it("Venus vBNB is refused as a payee: native coin paid to it mints vBNB to this contract, which can neither redeem nor sweep it", async () => {
+      // R5-3. The EntryPoints' shape on BNB Chain: the payee keeps the value, so the measurement
+      // passes it, and books it to msg.sender, the vault. The heir's payout would be lost for
+      // good. The address has no code on Base.
+      const f = await loadFixture(fixture);
+      const code = await ethers.provider.getCode(
+        await (await (await ethers.getContractFactory("NativeMarketMintMock", f.admin)).deploy()).getAddress()
+      );
+      await network.provider.send("hardhat_setCode", [VENUS_VBNB, code]);
+      const vbnb = await ethers.getContractAt("NativeMarketMintMock", VENUS_VBNB);
+      await create(f, f.alice, NATIVE, DEPOSIT);
+      await f.vault.connect(f.alice).withdraw(0, ONE, f.carol.address);
+
+      const paid = await attempt(f.vault.connect(f.carol).withdrawCredit(NATIVE, VENUS_VBNB));
+      expect(await vbnb.balanceOf(f.vaultAddr), "vBNB minted to the vault").to.equal(0);
+      expect(paid, "a payout to vBNB was accepted").to.equal(false);
+      await expect(f.vault.connect(f.carol).withdrawCredit(NATIVE, VENUS_VBNB))
+        .to.be.revertedWithCustomError(f.vault, "ForbiddenPayoutAddress")
+        .withArgs(VENUS_VBNB);
+      await expect(f.vault.connect(f.alice).withdraw(0, ONE, VENUS_VBNB))
+        .to.be.revertedWithCustomError(f.vault, "ForbiddenPayoutAddress")
+        .withArgs(VENUS_VBNB);
+      await expect(f.vault.connect(f.admin).setFeeRecipient(VENUS_VBNB))
+        .to.be.revertedWithCustomError(f.vault, "ForbiddenPayoutAddress")
+        .withArgs(VENUS_VBNB);
+      await setBalance(f.vaultAddr, (await ethers.provider.getBalance(f.vaultAddr)) + ONE); // force-fed surplus
+      await expect(f.vault.connect(f.admin).sweepSurplus(NATIVE, VENUS_VBNB))
+        .to.be.revertedWithCustomError(f.vault, "ForbiddenPayoutAddress")
+        .withArgs(VENUS_VBNB);
+      await expect(
+        deployVault({
+          deployer: f.admin, feeBps: FEE_BPS, feeRecipient: VENUS_VBNB,
+          supported: [await f.weth.getAddress()], wrappedNative: await f.weth.getAddress(),
+        })
+      )
+        .to.be.revertedWithCustomError(await vaultFactory(f.admin), "ForbiddenPayoutAddress")
+        .withArgs(VENUS_VBNB);
+      await time.increase(PERIOD + 1);
+      await expect(f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, VENUS_VBNB))
+        .to.be.revertedWithCustomError(f.vault, "ForbiddenPayoutAddress")
+        .withArgs(VENUS_VBNB);
+      // Were vBNB ever held here, the admin could not sweep it either: it is not listed.
+      await expect(f.vault.connect(f.admin).sweepSurplus(VENUS_VBNB, f.admin.address))
+        .to.be.revertedWithCustomError(f.vault, "UnsupportedToken")
+        .withArgs(VENUS_VBNB);
+      expect(await vbnb.balanceOf(f.vaultAddr)).to.equal(0);
+      expect(await f.vault.creditOf(NATIVE, f.carol.address), "the credit is kept").to.equal(ONE);
+    });
+
+    it("(pin) the documented residual: a payee at any other address that books the value to its sender, where only the booking's owner can move it, takes the payout; the vault is left with a booking it can never withdraw, and nothing is sweepable", async () => {
       // No rule can see this class in general (a staking or deposit contract that credits its
       // sender, an EntryPoint deployed elsewhere): the value leaves, exactly, and nothing comes
-      // back. It is the payee's to keep; PAYOUT ADDRESSES says so.
+      // back. Pre-launch finalization (R5-1): retitled. "Nothing is sweepable" holds only for a
+      // booking nobody but its owner can move, like an EntryPoint deposit; the next pin shows
+      // a ledger that lets anyone release one.
       const f = await loadFixture(fixture);
       const other: any = await (await ethers.getContractFactory("EntryPointDepositMock", f.admin)).deploy();
       const otherAddr = await other.getAddress();
@@ -739,10 +825,51 @@ describe("Preliminary audit 2026-09 regressions (v2)", () => {
       );
       const src = prose(...VAULT_SOL);
       expect(src).to.include(
-        "Both refusals are by address, and no rule can see either kind in general: a payee that forwards value to " +
+        "These refusals are by address, and no rule can see such payees in general: one that forwards value to " +
           "this contract's address on ANOTHER chain, or one that books the value to msg.sender in a ledger of its own"
       );
-      expect(src).to.include("the payout is lost, though never sweepable.");
+      expect(src).to.include(
+        "A payout to such a payee is lost to whoever named it. Whether the admin can ever reach it depends on the " +
+          "payee: it stays out of reach only while nothing but its owner, this contract, can move the booking."
+      );
+      expect(src, "the round-4 claim R5-1 disproved").to.not.include("the payout is lost, though never sweepable");
+    });
+
+    it("(pin) the documented residual, other side: a ledger that lets anyone release a booking to its owner hands a mis-routed payout back here as surplus, in a listed token or in native coin, and the admin can sweep it", async () => {
+      // Pre-launch finalization (R5-1). The heir lost the payout when he named the ledger; what
+      // the ledger decides is whether it can later reach the admin. The release comes in a
+      // transaction of its own, which no rule can tell from any other force-feed.
+      const f = await loadFixture(fixture);
+      const b = await baseLike(f);
+      const ledger: any = await (await ethers.getContractFactory("ReleasableLedgerMock", f.admin)).deploy(b.wethAddr);
+      const L = await ledger.getAddress();
+      // "ETH, else WETH": the heir names the ledger as the claim recipient, and a stranger pushes.
+      const credit = await settleNativeTo(f, b.vault, L);
+      await expect(b.vault.connect(f.dave).pushCredit(NATIVE, L)).to.changeEtherBalance(L, credit);
+      expect(await ledger.booked(b.vaultAddr), "booked to the vault").to.equal(credit);
+      expect(await b.vault.surplus(b.wethAddr)).to.equal(0);
+      await ledger.connect(f.dave).release(b.vaultAddr); // the vault refuses the coin, so WETH comes
+      expect(await b.vault.surplus(b.wethAddr), "returned as listed WETH").to.equal(credit);
+      await expect(b.vault.connect(f.admin).sweepSurplus(b.wethAddr, f.admin.address)).to.changeTokenBalance(
+        b.weth,
+        f.admin,
+        credit
+      );
+      // Force-sent native coin: a credit paid to the ledger by withdrawCredit, released by SELFDESTRUCT.
+      await b.vault
+        .connect(f.alice)
+        .createVault(NATIVE, DEPOSIT, f.bob.address, PERIOD, WINDOW, (await time.latest()) + HORIZON, { value: DEPOSIT });
+      await b.vault.connect(f.alice).withdraw(1, ONE, f.carol.address);
+      await b.vault.connect(f.carol).withdrawCredit(NATIVE, L);
+      expect(await b.vault.surplus(NATIVE)).to.equal(0);
+      await ledger.connect(f.dave).forceRelease(b.vaultAddr);
+      expect(await b.vault.surplus(NATIVE), "returned as native coin").to.equal(ONE);
+      await expect(b.vault.connect(f.admin).sweepSurplus(NATIVE, f.admin.address)).to.changeEtherBalance(f.admin, ONE);
+      expect(prose(...VAULT_SOL)).to.include(
+        "A ledger that lets anyone release a booking to its owner, in a listed token (an \"ETH, else WETH\" refund) " +
+          "or by force-sending the native coin, returns the value here in a later transaction, as surplus that " +
+          "sweepSurplus can take."
+      );
     });
 
     it("(control) ordinary payout addresses still work, and a zero fee recipient still means no fee", async () => {
@@ -1615,8 +1742,14 @@ describe("Preliminary audit 2026-09 regressions (v2)", () => {
       expect(await f.vault.pendingClaimFeeAt()).to.equal(0);
 
       // Re-affirming the rate in force is how a raise is called off without changing anything.
+      // Pre-launch finalization: ClaimFeeChanged then carries the same rate twice, as its NatSpec
+      // now says.
       await f.vault.connect(f.admin).setClaimFee(90);
-      await expect(f.vault.connect(f.admin).setClaimFee(20)).to.emit(f.vault, "ClaimFeeRaiseCancelled").withArgs(90);
+      await expect(f.vault.connect(f.admin).setClaimFee(20))
+        .to.emit(f.vault, "ClaimFeeRaiseCancelled")
+        .withArgs(90)
+        .and.to.emit(f.vault, "ClaimFeeChanged")
+        .withArgs(20, 20);
       await time.increase(FEE_RAISE_DELAY + DAY);
       expect(await f.vault.claimFeeBps()).to.equal(20);
     });
@@ -2317,6 +2450,68 @@ describe("Preliminary audit 2026-09 regressions (v2)", () => {
       expect(prose).to.include("ANYONE holding an unspent check-in chain value");
       expect(prose).to.include("postpones the heir's new claim by a full inactivity period");
       expect(prose).to.include("the owner may name a new heir, who can claim at once");
+    });
+
+    // ---- pre-launch finalization (review round 5, R5-2): the correction deadline is finalizableAt
+
+    it("(pin) the documented cost: from finalizableAt a stranger's finalizeClaim mined first settles the estate to the mistyped recipient for good, so the heir's cancel is certain only before that second", async () => {
+      // R5-2 (F20 x F13). The lead kept the design: no grace period after finalizableAt and no
+      // atomic re-point. The NatSpec names the deadline, and the app shows it.
+      const f = await loadFixture(fixture);
+      await claimTo(f, WRONG);
+      const at = Number((await f.vault.getVault(f.alice.address, 0)).finalizableAt);
+      /** One block stamped `t`: a stranger's finalizeClaim (the higher tip, so mined first), then the heir's cancel. */
+      const race = async (t: number) => {
+        await time.setNextBlockTimestamp(t);
+        const [fin, cancel] = await oneBlock(async () => [
+          await f.vault.connect(f.dave).finalizeClaim(f.alice.address, 0, FRONT),
+          await f.vault.connect(f.bob).beneficiaryCancelClaim(f.alice.address, 0, USER),
+        ]);
+        expect((await ethers.provider.getBlock("latest"))!.transactions, "[finalize, cancel]").to.deep.equal([
+          fin.hash,
+          cancel.hash,
+        ]);
+        return [await statusOf(fin), await statusOf(cancel)];
+      };
+      const snap = await network.provider.send("evm_snapshot", []);
+      expect(await race(at), "statuses AT finalizableAt").to.deep.equal([1, 0]);
+      expect(await f.vault.creditOf(NATIVE, WRONG), "the estate, credited to the typo").to.equal(NET);
+      await expect(
+        f.vault.connect(f.bob)["withdrawCredit(address,address)"](NATIVE, f.bob.address)
+      ).to.be.revertedWithCustomError(f.vault, "NothingCredited");
+      await time.increase(PUSH_GRACE);
+      await expect(f.vault.connect(f.dave).pushCredit(NATIVE, WRONG)).to.changeEtherBalance(WRONG, NET);
+      await network.provider.send("evm_revert", [snap]);
+
+      // (control) A second earlier the window is still open: the finalize reverts, the cancel
+      // lands, and the re-initiated claim settles where the heir meant.
+      expect(await race(at - 1), "statuses a second before finalizableAt").to.deep.equal([0, 1]);
+      await f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, f.bob.address);
+      await time.increase(WINDOW + 1);
+      await f.vault.finalizeClaim(f.alice.address, 0);
+      expect(await f.vault.creditOf(NATIVE, f.bob.address)).to.equal(NET);
+      expect(await f.vault.creditOf(NATIVE, WRONG)).to.equal(0);
+    });
+
+    it("(guard) the NatSpec names finalizableAt, not settlement, as the last safe moment to correct a recipient: beneficiaryCancelClaim, initiateClaim, finalizeClaim and THE CREDIT LANE", async () => {
+      // R5-2. Until the pre-launch finalization, beneficiaryCancelClaim offered the undo "until
+      // finalizeClaim is mined" and THE CREDIT LANE "before settlement". The pin above shows
+      // that from finalizableAt on, a stranger's finalizeClaim can land first.
+      const cancel = docAbove("    function beneficiaryCancelClaim(");
+      expect(cancel).to.include(
+        "The last safe moment to correct a recipient is finalizableAt (in getVault and in ClaimInitiated), not settlement."
+      );
+      expect(cancel).to.include("From that second anyone may call finalizeClaim");
+      expect(cancel).to.include("A cancel is certain to work only if it is mined before finalizableAt.");
+      expect(docAbove("    function initiateClaim(")).to.include(
+        "only beneficiaryCancelClaim can change it, and only safely before finalizableAt"
+      );
+      expect(docAbove("    function finalizeClaim(")).to.include(
+        "a correction of that recipient (beneficiaryCancelClaim) is safe only before then"
+      );
+      const src = prose(...VAULT_SOL);
+      expect(src).to.not.include("beneficiaryCancelClaim can still change it before settlement");
+      expect(src).to.include("(beneficiaryCancelClaim can still change it, safely only before finalizableAt)");
     });
   });
 
@@ -3461,10 +3656,15 @@ describe("Preliminary audit 2026-09 regressions (v2)", () => {
       // And the NatSpec says which reason means which remedy.
       const src = prose(...VAULT_SOL);
       expect(src).to.include("A claim is pending and the horizon is still ahead. A check-in never ends one: abortClaim (the veto) does.");
+      // Pre-launch finalization: "has been reached", not "has passed". The reason is given AT the
+      // horizon second itself (the next test), as HorizonReached is.
       expect(src).to.include(
-        "A claim is pending and the horizon has passed. abortClaim reverts HorizonReached there; only extendHorizon " +
-          "to at least now + inactivityPeriod, or withdrawing everything (withdraw(id, type(uint256).max, to)), ends the claim"
+        "A claim is pending and the horizon has been reached. abortClaim reverts HorizonReached there; only " +
+          "extendHorizon to at least now + inactivityPeriod, or withdrawing everything (withdraw(id, " +
+          "type(uint256).max, to)), ends the claim"
       );
+      expect(src).to.include("The horizon has been reached. Only extendHorizon reopens check-ins.");
+      expect(src).to.not.include("the horizon has passed. abortClaim");
     });
 
     it("AT the horizon second itself the horizon has been reached everywhere: reason 7 and HorizonReached, never the veto; a second earlier, reason 3 and the veto", async () => {
@@ -3580,6 +3780,50 @@ describe("Preliminary audit 2026-09 regressions (v2)", () => {
         expect((await f.vault.getVault(f.alice.address, 3)).horizonReached).to.equal(false);
       });
     });
+
+    it("a SETTLED vault is terminal for checkIn and checkInMany, before and past its horizon: VaultNotActive(id, SETTLED) and SKIP_TERMINAL, never HorizonReached", async () => {
+      // Pre-launch finalization (R5-4). Every earlier terminal-state assertion used a CLOSED
+      // vault, so dropping SETTLED from either terminal test (checkIn's compound state test,
+      // checkInMany's SKIP_TERMINAL) went unnoticed: a check-in on an estate already paid out
+      // would have succeeded, and a keeper would have counted it as refreshed.
+      const f = await loadFixture(fixture);
+      const late = (await time.latest()) + PERIOD + 20 * DAY;
+      await create(f, f.alice, NATIVE, ONE); // 0: settled, its horizon far off
+      await f.vault.connect(f.alice).createVault(NATIVE, ONE, f.bob.address, PERIOD, WINDOW, late, { value: ONE }); // 1
+      await time.increase(PERIOD + 1);
+      for (const id of [0, 1]) await f.vault.connect(f.bob).initiateClaim(f.alice.address, id, f.bob.address);
+      await time.increase(WINDOW + 1);
+      for (const id of [0, 1]) await f.vault.finalizeClaim(f.alice.address, id);
+      await create(f, f.alice, NATIVE, ONE); // 2: healthy
+      for (const id of [0, 1]) expect((await f.vault.getVault(f.alice.address, id)).state).to.equal(STATE_SETTLED);
+
+      // Before either horizon.
+      expect(await time.latest(), "vault 1's horizon is still ahead").to.be.lessThan(late);
+      for (const id of [0, 1]) {
+        await expect(f.vault.connect(f.alice).checkIn(id))
+          .to.be.revertedWithCustomError(f.vault, "VaultNotActive")
+          .withArgs(id, STATE_SETTLED);
+      }
+      const rc = await (await f.vault.connect(f.alice).checkInMany([0, 1, 2])).wait();
+      const seen = vaultLogs(f, rc)
+        .filter((p) => p.name === "CheckedIn" || p.name === "CheckInSkipped")
+        .map((p) => (p.name === "CheckedIn" ? `${p.args.vaultId}:in` : `${p.args.vaultId}:skip${p.args.reason}`));
+      expect(seen).to.deep.equal([`0:skip${SKIP_TERMINAL}`, `1:skip${SKIP_TERMINAL}`, "2:in"]);
+      await expect(f.vault.connect(f.alice).checkInMany([0, 1]))
+        .to.be.revertedWithCustomError(f.vault, "NothingCheckedIn")
+        .withArgs(1 << SKIP_TERMINAL);
+
+      // Past vault 1's horizon: still the terminal state, never HorizonReached, whose remedy
+      // (extendHorizon) cannot help a settled vault.
+      await time.increaseTo(late + DAY);
+      expect((await f.vault.getVault(f.alice.address, 1)).horizonReached).to.equal(true);
+      await expect(f.vault.connect(f.alice).checkIn(1))
+        .to.be.revertedWithCustomError(f.vault, "VaultNotActive")
+        .withArgs(1, STATE_SETTLED);
+      await expect(f.vault.connect(f.alice).checkInMany([1]))
+        .to.be.revertedWithCustomError(f.vault, "NothingCheckedIn")
+        .withArgs(1 << SKIP_TERMINAL);
+    });
   });
 
   // ------------------------------------------------------------------------------------ F27
@@ -3673,6 +3917,33 @@ describe("Preliminary audit 2026-09 regressions (v2)", () => {
       expect((await q([topic, null, null, ethers.zeroPadValue(f.carol.address, 32)])).length).to.equal(1);
     });
 
+    it("DeadlineReset stays a complete record through a claim, a cancel and a settlement: after each, getVault's deadline is the last one logged", async () => {
+      // Pre-launch finalization (R5-5). The test above covers every owner action; this one covers
+      // the three claim paths, none of which may write the deadline without logging it.
+      const f = await loadFixture(fixture);
+      await create(f, f.alice, NATIVE, DEPOSIT);
+      const topic = f.vault.interface.getEvent("DeadlineReset")!.topicHash;
+      const lastLogged = async () => {
+        const logs = await ethers.provider.getLogs({
+          address: f.vaultAddr, fromBlock: 0, toBlock: "latest", topics: [topic, ethers.zeroPadValue(f.alice.address, 32)],
+        });
+        expect(logs.length, "DeadlineReset logs for alice").to.be.greaterThan(0);
+        return f.vault.interface.parseLog(logs[logs.length - 1])!.args.newDeadline;
+      };
+      const agree = async (label: string) =>
+        expect((await f.vault.getVault(f.alice.address, 0)).deadline, label).to.equal(await lastLogged());
+      await agree("created");
+      await time.increase(PERIOD + 1);
+      await f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, f.carol.address);
+      await agree("claim initiated");
+      await f.vault.connect(f.bob).beneficiaryCancelClaim(f.alice.address, 0);
+      await agree("claim cancelled");
+      await f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, f.bob.address);
+      await time.increase(WINDOW + 1);
+      await f.vault.connect(f.dave).finalizeClaim(f.alice.address, 0);
+      await agree("settled");
+    });
+
     it("(guard) the deadline is written in exactly one place, which emits DeadlineReset", async () => {
       const src = fs.readFileSync(path.join(__dirname, "..", "contracts", "InheritanceVault.sol"), "utf8");
       const code = src.split("\n").filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"));
@@ -3688,6 +3959,45 @@ describe("Preliminary audit 2026-09 regressions (v2)", () => {
       const body = src.slice(src.indexOf("function _resetClock("), src.indexOf("function _clearPending("));
       expect(body).to.include("v.deadline = next;");
       expect(body).to.include("emit DeadlineReset(");
+
+      // Pre-launch finalization (R5-5): the same rule on the compiler's AST, as review round 4
+      // did for F01. The text pattern above cannot see `delete v.deadline`, a tuple target
+      // `(v.deadline, x) = (..)` or `v.deadline++`; the AST marks each of them as an lvalue.
+      const VAULT_IN_STORAGE = /^struct InheritanceVault\.Vault storage\b/;
+      const memberWrites: string[] = [];
+      const wholeWrites: string[] = [];
+      const assembly: string[] = [];
+      const emits: string[] = [];
+      walkAst(await vaultAst(), (n, parent, fn) => {
+        const type = n.typeDescriptions?.typeString ?? "";
+        // A stored Vault's deadline as an lvalue, however it is spelled (getVault's `o` is a
+        // VaultView in memory, and so does not match).
+        if (
+          n.nodeType === "MemberAccess" && n.memberName === "deadline" && n.lValueRequested === true &&
+          VAULT_IN_STORAGE.test(n.expression?.typeDescriptions?.typeString ?? "")
+        ) {
+          memberWrites.push(fn);
+        }
+        // A whole stored Vault as an lvalue (assigned into, deleted, a tuple target) writes its
+        // deadline without naming it. The one lvalue allowed is a storage pointer being pointed
+        // at a vault (`v = _vaults[o][id]` in _vault), which writes nothing.
+        if (n.lValueRequested === true && VAULT_IN_STORAGE.test(type)) {
+          const pointed =
+            n.nodeType === "Identifier" && /storage pointer$/.test(type) &&
+            parent?.nodeType === "Assignment" && parent.operator === "=" && parent.leftHandSide === n;
+          if (!pointed) wholeWrites.push(`${fn}: ${n.nodeType} (${type})`);
+        }
+        // Raw storage writes name no member at all.
+        if (n.nodeType === "YulFunctionCall" && n.functionName?.name === "sstore") assembly.push(`${fn}: sstore`);
+        if (n.nodeType === "InlineAssembly") {
+          for (const r of n.externalReferences ?? []) if (r.isSlot || r.suffix === "slot") assembly.push(`${fn}: .slot`);
+        }
+        if (n.nodeType === "EmitStatement" && n.eventCall?.expression?.name === "DeadlineReset") emits.push(fn);
+      });
+      expect(memberWrites, "AST: every write of a stored Vault's deadline, by function").to.deep.equal(["_resetClock"]);
+      expect(wholeWrites, "AST: a whole stored Vault written").to.deep.equal([]);
+      expect(assembly, "AST: inline assembly that can write storage").to.deep.equal([]);
+      expect(emits, "AST: every DeadlineReset, by function").to.deep.equal(["_resetClock"]);
     });
   });
 
@@ -4033,6 +4343,260 @@ describe("Preliminary audit 2026-09 regressions (v2)", () => {
       expect(await t.balanceOf(h.bob.address)).to.equal(net);
       await lanes(h, t);
       expect([await h.vault.totalLocked(a), await h.vault.totalCredited(a), await t.balanceOf(h.vaultAddr)]).to.deep.equal([0n, 0n, 0n]);
+    });
+  });
+
+  // ====================================================================== pre-launch finalization
+
+  describe("F21 and F29 the v2 source comments say what the code does", () => {
+    // The audit found these comments wrong in v1, and its report said v2 still carried them. Each
+    // guard first establishes the behaviour by running the contract, then checks the comment
+    // against it, so it fails on the audited wording because the code contradicts it.
+    const ACT_SET_BENEFICIARY = 2;
+    /** The trust-model paragraph that starts at `start`, as prose, up to `end`. */
+    const section = (start: string, end: string) => {
+      const src = prose(...VAULT_SOL);
+      const i = src.indexOf(start);
+      expect(i, `${start} found`).to.be.greaterThan(0);
+      const j = src.indexOf(end, i);
+      expect(j, `${end} found after ${start}`).to.be.greaterThan(i);
+      return src.slice(i, j);
+    };
+    /** Stamps the next block one second after the last, and returns that second. */
+    const nextSecond = async () => {
+      const s = (await time.latest()) + 1;
+      await time.setNextBlockTimestamp(s);
+      return s;
+    };
+
+    it("(guard) T2: once the owner is gone, a lost heir key strands the funds for good; nothing opens at the horizon or twenty years after it", async () => {
+      // F29 (5). The audited T2 said "stuck until the horizon".
+      const f = await loadFixture(fixture);
+      await create(f, f.alice, NATIVE, DEPOSIT);
+      const g = (await f.vault.getVault(f.alice.address, 0)).guaranteedInheritanceAt;
+      await time.increaseTo(Number(g) + 20 * 365 * DAY); // the owner never acts again; bob lost his key
+      for (const s of [f.carol, f.dave, f.admin, f.feeSink]) {
+        await expect(f.vault.connect(s).initiateClaim(f.alice.address, 0, s.address))
+          .to.be.revertedWithCustomError(f.vault, "NotTheBeneficiary")
+          .withArgs(s.address, f.bob.address);
+      }
+      await expect(f.vault.connect(f.carol).finalizeClaim(f.alice.address, 0)).to.be.revertedWithCustomError(
+        f.vault,
+        "NoClaimPending"
+      );
+      const v = await f.vault.getVault(f.alice.address, 0);
+      expect([v.state, v.balance, v.horizonReached], "still ACTIVE, still holding the estate").to.deep.equal([
+        STATE_ACTIVE,
+        DEPOSIT,
+        true,
+      ]);
+      const t2 = section("T2. The beneficiary's wallet key", "T3. guaranteedInheritanceAt");
+      expect(t2).to.not.include("stuck until the horizon");
+      expect(t2).to.include(
+        "Nothing opens at the horizon or after it: only the beneficiary can ever start a claim, so once the owner " +
+          "is gone a lost beneficiary key leaves the funds stuck for good, as does an heir who never claims."
+      );
+    });
+
+    it("(guard) T1: the owner key stops any claim that has not settled, a matured one included, with the veto before the horizon and past it only as T3 says", async () => {
+      // F29 (6, control). The audited T1 said the owner key can "veto any claim"; past the
+      // horizon abortClaim reverts.
+      const f = await loadFixture(fixture);
+      const t0 = await nextSecond();
+      const H = t0 + PERIOD + DAY;
+      await f.vault.connect(f.alice).createVault(NATIVE, ONE, f.bob.address, PERIOD, WINDOW, H, { value: ONE }); // 0
+      await create(f, f.alice, NATIVE, ONE); // 1: its horizon far off
+      await create(f, f.alice, NATIVE, ONE); // 2: its horizon far off; its claim will mature
+      await time.increaseTo(H - DAY / 2); // every vault has expired: they were opened a second apart
+      for (const id of [0, 1, 2]) await f.vault.connect(f.bob).initiateClaim(f.alice.address, id, f.bob.address);
+      await time.increaseTo(H + DAY);
+      // Before its own horizon, the veto: on a pending claim, and on a matured one not yet settled.
+      await expect(f.vault.connect(f.alice).abortClaim(1)).to.emit(f.vault, "ClaimAborted");
+      await time.increase(WINDOW);
+      expect((await f.vault.getVault(f.alice.address, 2)).finalizable, "vault 2's claim has matured").to.equal(true);
+      await expect(f.vault.connect(f.alice).abortClaim(2)).to.emit(f.vault, "ClaimAborted");
+      // Past its horizon, no veto; the claim is stopped only as T3 says (extendHorizon here).
+      await expect(f.vault.connect(f.alice).abortClaim(0))
+        .to.be.revertedWithCustomError(f.vault, "HorizonReached")
+        .withArgs(H);
+      await f.vault.connect(f.alice).extendHorizon(0, (await time.latest()) + PERIOD + 10);
+      expect((await f.vault.getVault(f.alice.address, 0)).state).to.equal(STATE_ACTIVE);
+      const t1 = section("T1. The vault owner's wallet key", "T2. The beneficiary's wallet key");
+      expect(t1).to.not.include("veto any claim");
+      expect(t1).to.include(
+        "stop any claim that has not settled: with the veto (abortClaim) before the horizon, and past it only as T3 says."
+      );
+    });
+
+    it("(guard) T3: past the horizon only the owner key moves the date, in two logged ways; an override can be as short as MIN_INACTIVITY or as long as MAX_HORIZON; a new heir does not move the date", async () => {
+      // F21. The audited T3 called extendHorizon "the ONLY way past the date", priced every
+      // override at "one full inactivity period", and said nothing moves the date "without bound".
+      const f = await loadFixture(fixture);
+      const MAX_HORIZON = 36_500 * DAY;
+      expect([await f.vault.MIN_INACTIVITY(), await f.vault.MAX_HORIZON()]).to.deep.equal([BigInt(7 * DAY), BigInt(MAX_HORIZON)]);
+      const t0 = await nextSecond();
+      const H = t0 + PERIOD + DAY;
+      for (let i = 0; i < 4; i++) {
+        await f.vault.connect(f.alice).createVault(NATIVE, ONE, f.bob.address, PERIOD, WINDOW, H, { value: ONE });
+      }
+      await time.increaseTo(H - DAY / 2); // every vault has expired: they were opened a second apart
+      for (const id of [1, 2]) await f.vault.connect(f.bob).initiateClaim(f.alice.address, id, f.bob.address);
+      // The date holds for an heir who claims by the horizon: each claim is finalizable by it.
+      for (const id of [1, 2]) {
+        const v = await f.vault.getVault(f.alice.address, id);
+        expect(v.finalizableAt, `vault ${id}`).to.be.lessThanOrEqual(v.guaranteedInheritanceAt);
+      }
+      await time.increaseTo(H + DAY); // past the horizon; both challenge windows still open
+
+      // Vault 1, a claim pending: no veto and no cut of the period, but one call can move the
+      // horizon MAX_HORIZON ahead, which ends the claim.
+      await expect(f.vault.connect(f.alice).abortClaim(1)).to.be.revertedWithCustomError(f.vault, "HorizonReached");
+      await expect(f.vault.connect(f.alice).setInactivityPeriod(1, 7 * DAY)).to.be.revertedWithCustomError(
+        f.vault,
+        "HorizonReached"
+      );
+      let s = await nextSecond();
+      await expect(f.vault.connect(f.alice).extendHorizon(1, s + MAX_HORIZON + 1)).to.be.revertedWithCustomError(
+        f.vault,
+        "HorizonTooFar"
+      );
+      s = await nextSecond();
+      await expect(f.vault.connect(f.alice).extendHorizon(1, s + MAX_HORIZON))
+        .to.emit(f.vault, "HorizonExtended")
+        .withArgs(f.alice.address, 1, s + MAX_HORIZON);
+      const v1 = await f.vault.getVault(f.alice.address, 1);
+      expect([v1.state, v1.deadline], "the claim ended; the heir's next chance is one period out").to.deep.equal([
+        STATE_ACTIVE,
+        BigInt(s + PERIOD),
+      ]);
+
+      // Vault 2, a claim pending: withdrawing everything closes the vault, and the claim with it.
+      await f.vault.connect(f.alice).withdraw(2, ONE, f.alice.address); // the exact balance: v1 has no sentinel
+      expect((await f.vault.getVault(f.alice.address, 2)).state).to.equal(STATE_CLOSED);
+      await expect(f.vault.finalizeClaim(f.alice.address, 2)).to.be.revertedWithCustomError(f.vault, "NoClaimPending");
+
+      // Vault 3, no claim pending: a new heir moves no date, and may claim at once.
+      await f.vault.connect(f.alice).setBeneficiary(3, f.carol.address);
+      expect((await f.vault.getVault(f.alice.address, 3)).absoluteDeadline).to.equal(H);
+      await expect(f.vault.connect(f.carol).initiateClaim(f.alice.address, 3, f.carol.address)).to.emit(
+        f.vault,
+        "ClaimInitiated"
+      );
+
+      // Vault 0, no claim pending: the period cut to MIN_INACTIVITY first, so the override costs
+      // the heir 7 days, not the vault's 30.
+      await f.vault.connect(f.alice).setInactivityPeriod(0, 7 * DAY);
+      s = await nextSecond();
+      await expect(f.vault.connect(f.alice).extendHorizon(0, s + 7 * DAY))
+        .to.emit(f.vault, "HorizonExtended")
+        .withArgs(f.alice.address, 0, s + 7 * DAY);
+      expect((await f.vault.getVault(f.alice.address, 0)).deadline).to.equal(s + 7 * DAY);
+      await time.setNextBlockTimestamp(s + 7 * DAY - 1);
+      await expect(f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, f.bob.address)).to.be.revertedWithCustomError(
+        f.vault,
+        "NotYetExpired"
+      );
+      await time.setNextBlockTimestamp(s + 7 * DAY);
+      await expect(f.vault.connect(f.bob).initiateClaim(f.alice.address, 0, f.bob.address)).to.emit(
+        f.vault,
+        "ClaimInitiated"
+      );
+
+      const t3 = section("T3. guaranteedInheritanceAt", "T4. The admin can");
+      for (const audited of [
+        "The ONLY way past the date is extendHorizon",
+        "at a cost of one full inactivity period per override",
+        "nothing can do it silently or without bound",
+      ]) {
+        expect(t3).to.not.include(audited);
+      }
+      expect(t3).to.include("The date is not a payout: it holds for an heir who claims by the horizon.");
+      expect(t3).to.include(
+        "Past the horizon nothing but the live owner key can move the date, and it can move the date or stop a claim " +
+          "only in two logged ways: withdrawing everything, which closes the vault, or extendHorizon"
+      );
+      expect(t3).to.include("Either ends a pending claim.");
+      expect(t3).to.include(
+        "the heir may claim again at the new deadline, one inactivity period out -- the vault's current period, which " +
+          "the owner can first cut to MIN_INACTIVITY (7 days) while no claim is pending -- and one call can move the " +
+          "horizon as far as MAX_HORIZON (100 years) ahead."
+      );
+      expect(t3).to.include(
+        "Naming a new heir, which setBeneficiary allows past the horizon while no claim is pending, does not move " +
+          "the date, and the new heir may claim at once."
+      );
+    });
+
+    it("(guard) _clearPending's comment names the owner actions that end a claim, and says a check-in and a top-up do not", async () => {
+      // F29 (6). The audited comment said "Any owner action supersedes a running claim".
+      const f = await loadFixture(fixture);
+      expect(await f.vault.ACT_SET_BENEFICIARY()).to.equal(ACT_SET_BENEFICIARY);
+      for (let i = 0; i < 7; i++) await create(f, f.alice, NATIVE, DEPOSIT);
+      await time.increase(PERIOD + 1);
+      for (let i = 0; i < 7; i++) await f.vault.connect(f.bob).initiateClaim(f.alice.address, i, f.bob.address);
+      // These do not end it.
+      await expect(f.vault.connect(f.alice).checkIn(0)).to.be.revertedWithCustomError(f.vault, "ClaimPendingUseAbort");
+      await expect(f.vault.connect(f.alice).checkInMany([0])).to.be.revertedWithCustomError(f.vault, "NothingCheckedIn");
+      await expect(
+        f.vault.connect(f.alice).topUp(f.alice.address, 0, ONE, { value: ONE })
+      ).to.be.revertedWithCustomError(f.vault, "VaultNotActive");
+      expect((await f.vault.getVault(f.alice.address, 0)).state).to.equal(STATE_CLAIM_PENDING);
+      // These do, each through _clearPending, which logs the action's tag.
+      const ends: [string, () => Promise<any>, number, number][] = [
+        ["setBeneficiary", () => f.vault.connect(f.alice).setBeneficiary(1, f.carol.address), 1, ACT_SET_BENEFICIARY],
+        ["setInactivityPeriod", () => f.vault.connect(f.alice).setInactivityPeriod(2, PERIOD), 2, ACT_SET_INACTIVITY],
+        [
+          "extendHorizon",
+          async () => f.vault.connect(f.alice).extendHorizon(3, (await time.latest()) + HORIZON + DAY),
+          3,
+          ACT_EXTEND_HORIZON,
+        ],
+        ["a disarm", () => f.vault.connect(f.alice)[SET3](4, ethers.ZeroHash, 0), 4, ACT_SET_CHECKIN_CHAIN],
+        ["a partial withdraw", () => f.vault.connect(f.alice).withdraw(5, ONE, f.alice.address), 5, ACT_WITHDRAW],
+      ];
+      for (const [label, send, id, tag] of ends) {
+        await expect(send(), label).to.emit(f.vault, "ClaimSuperseded").withArgs(f.alice.address, id, tag);
+        expect((await f.vault.getVault(f.alice.address, id)).state, label).to.equal(STATE_ACTIVE);
+      }
+      // A full withdraw ends the claim by closing the vault, not through _clearPending.
+      await expect(f.vault.connect(f.alice).withdraw(6, DEPOSIT, f.alice.address))
+        .to.emit(f.vault, "ClaimSuperseded")
+        .withArgs(f.alice.address, 6, ACT_CLOSE);
+      expect((await f.vault.getVault(f.alice.address, 6)).state).to.equal(STATE_CLOSED);
+
+      const doc = docAbove("    function _clearPending(");
+      expect(doc).to.not.include("Any owner action supersedes a running claim");
+      expect(doc).to.include(
+        "These owner actions supersede a running claim here: setBeneficiary, setInactivityPeriod, extendHorizon, " +
+          "setCheckInChain (a disarm included) and a partial withdraw."
+      );
+      expect(doc).to.include(
+        "A check-in does not (checkIn reverts and checkInMany skips the vault: abortClaim is the veto), nor does a " +
+          "top-up, which is refused mid-claim. A full withdraw ends the claim by closing the vault, without coming here."
+      );
+    });
+
+    it("(guard) setCheckInChain's comment no longer says an install past the horizon \"would take a fee\": the call is not payable, and there it reverts", async () => {
+      // F29. The audited comment said installing a chain past the horizon "would take a fee".
+      const f = await loadFixture(fixture);
+      for (const sig of [SET3, SET4]) {
+        expect(f.vault.interface.getFunction(sig)!.stateMutability, `${sig} is not payable`).to.equal("nonpayable");
+      }
+      const h = await vaultWithHorizon(f, DAY);
+      const anchor = ethers.id("an anchor");
+      const data = f.vault.interface.encodeFunctionData(SET3, [h.id, anchor, 3]);
+      await expect(f.alice.sendTransaction({ to: f.vaultAddr, data, value: 1n }), "value sent with it").to.be.reverted;
+      await time.increaseTo(h.horizon);
+      await expect(f.vault.connect(f.alice)[SET3](h.id, anchor, 3))
+        .to.be.revertedWithCustomError(f.vault, "HorizonReached")
+        .withArgs(h.horizon);
+      // The comment is a `//` block, which prose() keeps as " // " between lines.
+      const src = prose(...VAULT_SOL).replace(/ \/\/ /g, " ");
+      expect(src).to.not.include("would take a fee");
+      expect(src).to.include(
+        "checkInByChain reverts past the horizon, so installing a chain there would cost gas, clear the \"chain " +
+          "exhausted\" warning, and hand the owner a mechanism that can never fire"
+      );
     });
   });
 });

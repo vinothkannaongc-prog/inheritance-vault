@@ -1,1 +1,4 @@
 *.pdf binary
+# Solidity sources stay LF on every checkout: solc hashes the source text into the bytecode
+# metadata, so a CRLF copy would not reproduce the deployed bytecode byte for byte.
+*.sol text eol=lf
