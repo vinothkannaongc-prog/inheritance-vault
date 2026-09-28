@@ -8,7 +8,7 @@
 <link rel="canonical" href="https://willandkey.com/audit">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Will &amp; Key">
 <meta property="og:title" content="Will &amp; Key preliminary security audit (September 2026)">
-<meta property="og:description" content="47 findings (5 medium, 21 low, 21 informational) from a preliminary audit of v1 by AI agents. Not independent. Since V2_DATE_TBD the fixes are live in v2, which has not been independently audited.">
+<meta property="og:description" content="47 findings (5 medium, 21 low, 21 informational) from a preliminary audit of v1 by AI agents. Not independent. Since 28 September 2026 the fixes are live in v2, which has not been independently audited.">
 <meta property="og:url" content="https://willandkey.com/audit"><meta property="og:image" content="https://willandkey.com/assets/social/willandkey-home.jpg">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="https://willandkey.com/assets/social/willandkey-home.jpg">
@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="/assets/style.css">
 <script src="/assets/audit.js" defer></script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@graph":[{"@type":"WebPage","url":"https://willandkey.com/audit","name":"Preliminary Security Audit, September 2026","isPartOf":{"@id":"https://willandkey.com/#website"},"about":{"@id":"https://willandkey.com/#organization"},"datePublished":"2026-09-27","dateModified":"V2_DATE_ISO_TBD"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"Security","item":"https://willandkey.com/security"},{"@type":"ListItem","position":3,"name":"Preliminary audit","item":"https://willandkey.com/audit"}]}]}
+{"@context":"https://schema.org","@graph":[{"@type":"WebPage","url":"https://willandkey.com/audit","name":"Preliminary Security Audit, September 2026","isPartOf":{"@id":"https://willandkey.com/#website"},"about":{"@id":"https://willandkey.com/#organization"},"datePublished":"2026-09-27","dateModified":"2026-09-28"},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"Security","item":"https://willandkey.com/security"},{"@type":"ListItem","position":3,"name":"Preliminary audit","item":"https://willandkey.com/audit"}]}]}
 </script>
 </head>
 <body>
@@ -30,11 +30,11 @@
 <p class="byline">Published 27 September 2026 · Audit performed 24–26 September 2026 · Not independent · <a href="https://github.com/vinothkannaongc-prog/inheritance-vault/tree/audit-2026-09-prelim/audit/2026-09-preliminary" rel="noopener">Evidence on GitHub</a></p>
 
 <div class="risk-box" role="note">
-<p><strong>Since this report (added V2_DATE_TBD).</strong> The report below is unchanged. It describes the contracts, the app and the documentation as they were when it was published on 27 September 2026, while v2 was still undeployed source. Above this box, the line under the title, and the summaries this page gives search engines and link previews, were reworded on V2_DATE_TBD: they called version 1 &quot;the live contract&quot;.</p>
+<p><strong>Since this report (added 28 September 2026).</strong> The report below is unchanged. It describes the contracts, the app and the documentation as they were when it was published on 27 September 2026, while v2 was still undeployed source. Above this box, the line under the title, and the summaries this page gives search engines and link previews, were reworded on 28 September 2026: they called version 1 &quot;the live contract&quot;.</p>
 <ul>
-<li><strong>v2 is live.</strong> It was deployed on Base on V2_DATE_TBD at <a href="https://basescan.org/address/V2_ADDRESS_TBD" rel="noopener">V2_ADDRESS_TBD</a> (<a href="https://basescan.org/tx/V2_TX_TBD" rel="noopener">transaction</a>). It contains the fixes this report marks &quot;Fixed in v2 source&quot; and the changes made after it, which <a href="https://github.com/vinothkannaongc-prog/inheritance-vault/blob/main/CHANGELOG-v2.md" rel="noopener"><code>CHANGELOG-v2.md</code></a> records: among them, v2 also refuses Venus vBNB as a payout address, and the v2 comments that <a href="#f21">F21</a> and <a href="#f29">F29</a> quote were corrected. The app now uses v2.</li>
+<li><strong>v2 is live.</strong> It was deployed on Base on 28 September 2026 at <a href="https://basescan.org/address/0xA07b59d9249A996604A5fF482f1E564EdeE3A774" rel="noopener">0xA07b59d9249A996604A5fF482f1E564EdeE3A774</a> (<a href="https://basescan.org/tx/0x4bbd4b1d74924f64e0c817ff1815ade20a0141094c091003ec1f527b86413e8e" rel="noopener">transaction</a>). It contains the fixes this report marks &quot;Fixed in v2 source&quot; and the changes made after it, which <a href="https://github.com/vinothkannaongc-prog/inheritance-vault/blob/main/CHANGELOG-v2.md" rel="noopener"><code>CHANGELOG-v2.md</code></a> records: among them, v2 also refuses Venus vBNB as a payout address, and the v2 comments that <a href="#f21">F21</a> and <a href="#f29">F29</a> quote were corrected. The app now uses v2.</li>
 <li><strong>v2 has not been independently audited.</strong> Only AI agents of the same kind that wrote it have reviewed it: this audit's five fix-review rounds and a pre-launch review. Do not use material value until an independent audit is complete.</li>
-<li><strong>v1 is retired.</strong> New-vault creation on v1 (<a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821849A1D74959753450409b594b23eCE7fEe2f</a>) is paused (<a href="https://basescan.org/tx/V1_PAUSE_TX_TBD" rel="noopener">transaction</a>). v1 cannot change, so every v1 behaviour described below is still present in it. On 27 September 2026 it held no user funds.</li>
+<li><strong>v1 is retired.</strong> New-vault creation on v1 (<a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821849A1D74959753450409b594b23eCE7fEe2f</a>) is paused (<a href="https://basescan.org/tx/0x195ddeb6ec795a327c430e772ab5239a10b4a682f172b10fefd41cfb2af647c7" rel="noopener">transaction</a>). v1 cannot change, so every v1 behaviour described below is still present in it. On 27 September 2026 it held no user funds.</li>
 </ul>
 </div>
 <div class="audit-status" role="note">

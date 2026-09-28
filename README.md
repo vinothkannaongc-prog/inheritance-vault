@@ -11,17 +11,17 @@ them. No custodian, no lawyer holding a seed phrase, no key-sharing while you're
 is filed, your wallet will not show a claim against your vault, and nobody notifies your heir. The
 veto only helps if you look.
 
-**Version 2 is live on Base** (chain id 8453) at `V2_ADDRESS_TBD`, deployed on V2_DATE_ISO_TBD
-(transaction `V2_TX_TBD`, block V2_BLOCK_TBD). Version 1 (`0xC821849A1D74959753450409b594b23eCE7fEe2f`)
+**Version 2 is live on Base** (chain id 8453) at `0xA07b59d9249A996604A5fF482f1E564EdeE3A774`, deployed on 2026-09-28
+(transaction `0x4bbd4b1d74924f64e0c817ff1815ade20a0141094c091003ec1f527b86413e8e`, block 51900754). Version 1 (`0xC821849A1D74959753450409b594b23eCE7fEe2f`)
 is retired. **BNB Chain is planned, not deployed.** Those are the only chains the contract has been
 reviewed for. Its token list is permanent and must meet the rules in the contract's SUPPORTED TOKENS
 comment; on a chain whose native coin also has an ERC-20 address (Celo and Moonbeam are examples),
 never list that address, or the admin's surplus sweep could reach vault balances.
 
-## Security status (V2_DATE_ISO_TBD)
+## Security status (2026-09-28)
 
-- **Live contract (v2):** `InheritanceVault` at `V2_ADDRESS_TBD` on Base, deployed on V2_DATE_ISO_TBD
-  (transaction `V2_TX_TBD`, block V2_BLOCK_TBD). It is immutable. Its source is
+- **Live contract (v2):** `InheritanceVault` at `0xA07b59d9249A996604A5fF482f1E564EdeE3A774` on Base, deployed on 2026-09-28
+  (transaction `0x4bbd4b1d74924f64e0c817ff1815ade20a0141094c091003ec1f527b86413e8e`, block 51900754). It is immutable. Its source is
   [`contracts/InheritanceVault.sol`](contracts/InheritanceVault.sol); the runtime bytecode
   fingerprints are in [AUDIT_SCOPE.md](AUDIT_SCOPE.md).
 - **v2 is not independently audited.** It was written in response to the 2026-09 preliminary audit
@@ -29,11 +29,11 @@ never list that address, or the admin's surplus sweep could reach vault balances
   fix-review rounds (48 issues), a pre-launch finalization and a pre-launch review (16 issues, none a
   defect in the contract). Every change and review item is in [CHANGELOG-v2.md](CHANGELOG-v2.md).
 - **Retired contract (v1):** `0xC821849A1D74959753450409b594b23eCE7fEe2f` on Base, live from
-  2026-08-09 to V2_DATE_ISO_TBD and source-verified on Basescan. Its deployed source is
+  2026-08-09 to 2026-09-28 and source-verified on Basescan. Its deployed source is
   `contracts/InheritanceVault.sol` at the tag `v1-base` (commit `b8baf34`); the working tree keeps it
   as [`contracts/v1/InheritanceVaultV1.sol`](contracts/v1/InheritanceVaultV1.sol), identical except
   for the contract name and a header comment. Its new-vault creation is paused (transaction
-  `V1_PAUSE_TX_TBD`). On 2026-09-27 it held no user funds: one vault had ever been created on it, the
+  `0x195ddeb6ec795a327c430e772ab5239a10b4a682f172b10fefd41cfb2af647c7`). On 2026-09-27 it held no user funds: one vault had ever been created on it, the
   project's own test, since closed, and its only balance was a 0.00002 ETH credit owed to the former
   deploy key. It cannot change, so every contract behaviour the preliminary audit reported is still
   present in it. Do not send it funds; a v1 credit can still be withdrawn with `withdrawCredit`.
@@ -216,7 +216,7 @@ Value leaves the contract only in `withdrawCredit`, `pushCredit` and `sweepSurpl
 
 The owner of the v2 vault, and its fee recipient, is a single Ledger hardware-wallet key,
 `0x883C821103B5415C53B11E584D3592205B5CdCA3`, named in the constructor when v2 was deployed on
-V2_DATE_ISO_TBD; the deploy key (`0x4306a8875a04c0FbaC76CE2FC860E0b3c7aAd986`) never held a v2 role. It
+2026-09-28; the deploy key (`0x4306a8875a04c0FbaC76CE2FC860E0b3c7aAd986`) never held a v2 role. It
 is not a multisig; moving administration to a multisig is recommended.
 
 The same key has owned v1 and the retired `NotifySubscription` since 2026-09-24, when it took over
@@ -258,7 +258,7 @@ A claim fee in basis points is taken **only when an inheritance settles** — ne
 check-ins, owner withdrawals or credit payouts. How the rate is set:
 
 1. `MAX_CLAIM_FEE_BPS = 100` (1%) is burned into the bytecode. v2 was deployed on Base on
-   V2_DATE_ISO_TBD with a claim fee of 50 bps (0.5%).
+   2026-09-28 with a claim fee of 50 bps (0.5%).
 2. Each vault snapshots `claimFeeBps()`, the rate in force when `createVault` is mined, as its
    **ceiling**. A raise that is only scheduled does not count yet. The admin can never raise a vault
    above its ceiling.
@@ -305,7 +305,7 @@ v1.)
 
 On Base:
 
-- `InheritanceVault` v2 (live): `V2_ADDRESS_TBD`
+- `InheritanceVault` v2 (live): `0xA07b59d9249A996604A5fF482f1E564EdeE3A774`
 - `InheritanceVault` v1 (retired, creation paused): `0xC821849A1D74959753450409b594b23eCE7fEe2f`
 - Retired reminder billing contract: `0x60749aF621180de1DC05DB4f3d158D09dE979dC6`
 
@@ -317,7 +317,7 @@ retired billing contract (tx
 (`ZeroAmount`). Only the admin could reverse that. Do not send the contract funds or call it
 directly; refund requests for earlier payments are handled under the site's terms. The website is
 a static Cloudflare Pages deployment with locally hosted dependencies and a restrictive Content
-Security Policy. Since V2_DATE_ISO_TBD its app manages v2 vaults only; it reads v1 only to show a
+Security Policy. Since 2026-09-28 its app manages v2 vaults only; it reads v1 only to show a
 connected wallet what it still has there.
 
 **Status: v2 deployed; reviewed only by AI agents; no independent third-party audit yet.** See

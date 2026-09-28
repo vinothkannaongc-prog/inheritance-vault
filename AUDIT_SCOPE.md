@@ -1,10 +1,10 @@
 # Independent audit scope
 
-Prepared: 2026-08-10. Updated: V2_DATE_ISO_TBD (v2 deployed on Base; v1 retired).
+Prepared: 2026-08-10. Updated: 2026-09-28 (v2 deployed on Base; v1 retired).
 
 ## Objective
 
-Independently review the **InheritanceVault v2** deployed on Base at `V2_ADDRESS_TBD`, the v2 web
+Independently review the **InheritanceVault v2** deployed on Base at `0xA07b59d9249A996604A5fF482f1E564EdeE3A774`, the v2 web
 app, and the operational tooling. The contract has no upgrade mechanism, so a serious finding
 requires a new deployment and a migration. v2 has never had an independent review; everything
 listed below was done by AI agents of the same kind that wrote the code.
@@ -27,8 +27,8 @@ listed below was done by AI agents of the same kind that wrote the code.
 
 | Contract | Base address | Status | Runtime size | Runtime bytecode keccak-256 (EXTCODEHASH) | Runtime bytecode SHA-256 (raw bytes) |
 |---|---|---|---:|---|---|
-| `InheritanceVault` v2 | `V2_ADDRESS_TBD` | live since V2_DATE_ISO_TBD (tx `V2_TX_TBD`, block V2_BLOCK_TBD) | 21,119 bytes | `V2_KECCAK_TBD` | `V2_SHA256_TBD` |
-| `InheritanceVault` v1 | `0xC821849A1D74959753450409b594b23eCE7fEe2f` | retired; creation paused (tx `V1_PAUSE_TX_TBD`) | 16,163 bytes | `26a231771f3b5e7de6a09b3cd5a3e0d03fb5985d69b9bc4973db5f1e41af9733` | `89ca53b6aaea87fba5e3e0df7019b316f8a44304ef64569ea5a4978c4f9e4d60` |
+| `InheritanceVault` v2 | `0xA07b59d9249A996604A5fF482f1E564EdeE3A774` | live since 2026-09-28 (tx `0x4bbd4b1d74924f64e0c817ff1815ade20a0141094c091003ec1f527b86413e8e`, block 51900754) | 21,119 bytes | `1b3c172193ad01100daefcbd31e16682210462a7455a50908e65c72b2d077f1b` | `959da8425b7446a5a50748fd193c930722e0b2786ce500f0c529a59dd6c89f32` |
+| `InheritanceVault` v1 | `0xC821849A1D74959753450409b594b23eCE7fEe2f` | retired; creation paused (tx `0x195ddeb6ec795a327c430e772ab5239a10b4a682f172b10fefd41cfb2af647c7`) | 16,163 bytes | `26a231771f3b5e7de6a09b3cd5a3e0d03fb5985d69b9bc4973db5f1e41af9733` | `89ca53b6aaea87fba5e3e0df7019b316f8a44304ef64569ea5a4978c4f9e4d60` |
 | `NotifySubscription` (retired) | `0x60749aF621180de1DC05DB4f3d158D09dE979dC6` | retired; every payment reverts | 2,108 bytes | `67f23ec7a57f27c4c024c82ac45ef0e3a76e535b4f8224f2ce1de21c8029aec1` | `f2c577fd64b9038127473e87bb1c9981497962e36fde0b82f67465bf92e4bb61` |
 
 v2's constructor arguments (the launch plan; the deployment record in `deployments/` holds the
@@ -37,7 +37,7 @@ values actually sent): admin `0x883C821103B5415C53B11E584D3592205B5CdCA3` (a Led
 `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, WETH `0x4200000000000000000000000000000000000006`,
 cbBTC `0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf` and EURC
 `0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42` (in that order), and `wrappedNative` WETH. The
-deployment (transaction `V2_TX_TBD`) was sent by the former hot key
+deployment (transaction `0x4bbd4b1d74924f64e0c817ff1815ade20a0141094c091003ec1f527b86413e8e`) was sent by the former hot key
 `0x4306a8875a04c0FbaC76CE2FC860E0b3c7aAd986`, which holds no v2 role.
 
 v2 has one immutable variable, `wrappedNative`. The code on chain is therefore the compiled runtime
@@ -75,7 +75,7 @@ transfer.
 ## Source and configuration in scope
 
 - `contracts/InheritanceVault.sol`: the v2 source. Confirm that the reviewed commit compiles to the
-  runtime at `V2_ADDRESS_TBD` (with the immutable filled) before relying on the review.
+  runtime at `0xA07b59d9249A996604A5fF482f1E564EdeE3A774` (with the immutable filled) before relying on the review.
 - `contracts/test/TestHelpers.sol`: test mocks, not deployed.
 - `test/`, in particular `test/AuditPrelim2026-09.ts` (regression tests for 23 of the preliminary
   audit's 47 findings, including every contract fix) and `test/InheritanceVault.ts`.
@@ -166,7 +166,7 @@ v2 by `CheckInSkipped`) and F06 (create-time fee slippage, fixed in v2 by the ra
   in `deployments/base.json` as `subscriptionSalesDisabled`), so every `subscribe` now reverts
   (`ZeroAmount`). Only the admin could reverse it (preliminary-audit finding F23, resolved by this
   admin action). Users are still instructed not to send the contract funds.
-- v1 is retired: its new-vault creation is paused (tx `V1_PAUSE_TX_TBD`). On 2026-09-27 it held no
+- v1 is retired: its new-vault creation is paused (tx `0x195ddeb6ec795a327c430e772ab5239a10b4a682f172b10fefd41cfb2af647c7`). On 2026-09-27 it held no
   user funds (one vault ever, the project's own test, closed; a 0.00002 ETH credit owed to the former
   deploy key).
 - A full-duration Base Sepolia lifecycle test of v2 (create, check in, claim, veto, cancel, settle,

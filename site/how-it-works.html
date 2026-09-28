@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="/assets/style.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
-{"@type":"TechArticle","headline":"How the Will & Key Crypto Inheritance Vault Works","description":"A complete walkthrough of vault creation, check-ins, claims, challenges and settlement.","image":"https://willandkey.com/assets/social/dead-mans-switch.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-10","dateModified":"V2_DATE_ISO_TBD","mainEntityOfPage":"https://willandkey.com/how-it-works"},
+{"@type":"TechArticle","headline":"How the Will & Key Crypto Inheritance Vault Works","description":"A complete walkthrough of vault creation, check-ins, claims, challenges and settlement.","image":"https://willandkey.com/assets/social/dead-mans-switch.jpg","author":{"@type":"Organization","name":"Will & Key project team","url":"https://willandkey.com/authors"},"publisher":{"@type":"Organization","name":"Will & Key","url":"https://willandkey.com/","logo":{"@type":"ImageObject","url":"https://willandkey.com/favicon.png"}},"datePublished":"2026-08-10","dateModified":"2026-09-28","mainEntityOfPage":"https://willandkey.com/how-it-works"},
 {"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://willandkey.com/"},{"@type":"ListItem","position":2,"name":"How it works","item":"https://willandkey.com/how-it-works"}]}
 ]}
 </script>
@@ -31,9 +31,9 @@
 <p class="standfirst">Will &amp; Key is a non-custodial smart contract. It does not detect death.
 It follows a timer, an heir's transaction and a challenge period in which the owner can still stop
 the claim.</p>
-<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Published 10 August 2026 · Updated V2_DATE_TBD · <a href="/security">Security status</a></p>
-<p>This page describes version 2 of the vault contract, live on Base since V2_DATE_TBD at
-<a class="break-all" href="https://basescan.org/address/V2_ADDRESS_TBD" rel="noopener">V2_ADDRESS_TBD</a>.
+<p class="byline">By the <a href="/authors">Will &amp; Key project team</a> · Published 10 August 2026 · Updated 28 September 2026 · <a href="/security">Security status</a></p>
+<p>This page describes version 2 of the vault contract, live on Base since 28 September 2026 at
+<a class="break-all" href="https://basescan.org/address/0xA07b59d9249A996604A5fF482f1E564EdeE3A774" rel="noopener">0xA07b59d9249A996604A5fF482f1E564EdeE3A774</a>.
 Version 1 is retired; <a href="#v1">how it differs</a> is at the end of the page.</p>
 
 <h2>The owner creates a vault</h2>
@@ -288,7 +288,7 @@ hardware wallet.</li>
 <p>The administrator of the vault contract, and its fee recipient, is a single Ledger
 hardware-wallet key, <span class="break-all">0x883C821103B5415C53B11E584D3592205B5CdCA3</span>. It is
 one key, not a multisig. Version 2 named it in its constructor, so it has held both roles since the
-deployment on V2_DATE_TBD, and the key that sent the deployment never held either. This is the
+deployment on 28 September 2026, and the key that sent the deployment never held either. This is the
 complete list:</p>
 <div class="table-scroll">
 <table>
@@ -347,8 +347,8 @@ owners should withdraw in full, which closes the vault.</li>
 <h2 id="v1">Version 1, retired</h2>
 <p>Version 1 of the vault contract,
 <a class="break-all" href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821849A1D74959753450409b594b23eCE7fEe2f</a>,
-ran on Base from 9 August 2026 until version 2 replaced it on V2_DATE_TBD. Its new-vault creation is
-paused (<a href="https://basescan.org/tx/V1_PAUSE_TX_TBD" rel="noopener">transaction</a>), and on
+ran on Base from 9 August 2026 until version 2 replaced it on 28 September 2026. Its new-vault creation is
+paused (<a href="https://basescan.org/tx/0x195ddeb6ec795a327c430e772ab5239a10b4a682f172b10fefd41cfb2af647c7" rel="noopener">transaction</a>), and on
 27 September 2026 it held no user funds. It cannot change, and it lacks the fixes described on this
 page: among the <a href="/audit">preliminary audit's</a> findings, it accepts any token, applies fee
 changes at once, has no heir's cancel, pays a credit only in one piece, lets anyone push a credit at

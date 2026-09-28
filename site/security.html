@@ -27,7 +27,7 @@
 <p class="standfirst">Will &amp; Key is live software with an immutable contract. Its current
 version has internal tests and reviews by AI agents, and no completed independent audit. Verify the
 evidence before using it.</p>
-<p class="byline">Updated V2_DATE_TBD</p>
+<p class="byline">Updated 28 September 2026</p>
 
 <div class="risk-box"><strong>Current risk status:</strong> version 2 is live and not independently
 audited. It was written in response to a <a href="/audit">preliminary audit</a> of version 1,
@@ -43,13 +43,13 @@ full-duration Base Sepolia lifecycle test of version 2 has not been completed ei
 <div class="table-scroll">
 <table>
 <tr><th>Contract</th><th>Address</th><th>Status</th></tr>
-<tr><td>InheritanceVault, version 2</td><td class="break-all"><a href="https://basescan.org/address/V2_ADDRESS_TBD" rel="noopener">V2_ADDRESS_TBD</a></td><td>Live since V2_DATE_TBD</td></tr>
+<tr><td>InheritanceVault, version 2</td><td class="break-all"><a href="https://basescan.org/address/0xA07b59d9249A996604A5fF482f1E564EdeE3A774" rel="noopener">0xA07b59d9249A996604A5fF482f1E564EdeE3A774</a></td><td>Live since 28 September 2026</td></tr>
 <tr><td>InheritanceVault, version 1</td><td class="break-all"><a href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821849A1D74959753450409b594b23eCE7fEe2f</a></td><td>Retired: new vaults refused (see <a href="#v1">version 1</a>)</td></tr>
 <tr><td>Reminder billing</td><td class="break-all"><a href="https://basescan.org/address/0x60749aF621180de1DC05DB4f3d158D09dE979dC6" rel="noopener">0x60749aF621180de1DC05DB4f3d158D09dE979dC6</a></td><td>Retired: every payment reverts</td></tr>
 </table>
 </div>
-<p>Version 2 was deployed on V2_DATE_TBD in Base block V2_BLOCK_TBD, transaction
-<a class="break-all" href="https://basescan.org/tx/V2_TX_TBD" rel="noopener">V2_TX_TBD</a>. Its
+<p>Version 2 was deployed on 28 September 2026 in Base block 51900754, transaction
+<a class="break-all" href="https://basescan.org/tx/0x4bbd4b1d74924f64e0c817ff1815ade20a0141094c091003ec1f527b86413e8e" rel="noopener">0x4bbd4b1d74924f64e0c817ff1815ade20a0141094c091003ec1f527b86413e8e</a>. Its
 constructor set the administrator and the fee recipient (the Ledger key
 <span class="break-all">0x883C821103B5415C53B11E584D3592205B5CdCA3</span> for both) and the claim
 fee (0.5%), and fixed for the life of the contract the tokens a vault can hold: USDC, WETH, cbBTC
@@ -66,15 +66,15 @@ directly.</strong> Refund requests for earlier payments are handled under the
 <a href="/terms">terms</a>.</p>
 
 <h2 id="bytecode">Bytecode evidence</h2>
-<p>Version 2's runtime bytecode, read from Base after its deployment on V2_DATE_TBD, and its
+<p>Version 2's runtime bytecode, read from Base after its deployment on 28 September 2026, and its
 source:</p>
 <ul>
-<li><strong>Version 2 keccak-256 of the runtime bytecode (EXTCODEHASH):</strong> <span class="break-all">V2_KECCAK_TBD</span></li>
-<li><strong>Version 2 SHA-256 of the raw runtime bytes:</strong> <span class="break-all">V2_SHA256_TBD</span></li>
+<li><strong>Version 2 keccak-256 of the runtime bytecode (EXTCODEHASH):</strong> <span class="break-all">1b3c172193ad01100daefcbd31e16682210462a7455a50908e65c72b2d077f1b</span></li>
+<li><strong>Version 2 SHA-256 of the raw runtime bytes:</strong> <span class="break-all">959da8425b7446a5a50748fd193c930722e0b2786ce500f0c529a59dd6c89f32</span></li>
 <li><strong>Version 2 source:</strong> <code>contracts/InheritanceVault.sol</code> in the
 <a href="https://github.com/vinothkannaongc-prog/inheritance-vault" rel="noopener">source repository</a>,
 21,119 bytes of runtime code when compiled. The address's
-<a href="https://basescan.org/address/V2_ADDRESS_TBD#code" rel="noopener">Contract tab on Basescan</a>
+<a href="https://basescan.org/address/0xA07b59d9249A996604A5fF482f1E564EdeE3A774#code" rel="noopener">Contract tab on Basescan</a>
 shows whether that source has been verified against the deployed bytecode.</li>
 </ul>
 <p>Version 2 has one immutable variable: the wrapped native token's address (WETH), which the
@@ -112,7 +112,7 @@ renamed copy, so that both versions compile side by side, is kept as
 is a single Ledger hardware-wallet key,
 <a href="https://basescan.org/address/0x883C821103B5415C53B11E584D3592205B5CdCA3" rel="noopener">0x883C821103B5415C53B11E584D3592205B5CdCA3</a>.
 It is one key, not a multisig; moving administration to a multisig is recommended. Version 2 named
-it in its constructor, so it has held both roles there since the deployment on V2_DATE_TBD, and the
+it in its constructor, so it has held both roles there since the deployment on 28 September 2026, and the
 key that sent the deployment never held either. On version 1 and the billing contract it took over
 from the deploy key on 24 September 2026, in five transactions:</p>
 <ul>
@@ -191,12 +191,12 @@ top-ups, so in a migration owners would be asked to withdraw in full, which clos
 <h2 id="v1">The retired version 1</h2>
 <p>Version 1,
 <a class="break-all" href="https://basescan.org/address/0xC821849A1D74959753450409b594b23eCE7fEe2f" rel="noopener">0xC821849A1D74959753450409b594b23eCE7fEe2f</a>,
-was the live vault from 9 August 2026 until V2_DATE_TBD. It is immutable, so it could not be fixed
+was the live vault from 9 August 2026 until 28 September 2026. It is immutable, so it could not be fixed
 or switched off. It was retired instead:</p>
 <ul>
 <li><strong>New vaults are refused.</strong> The administrator paused its vault creation
 (<code>setCreationPaused(true)</code>, transaction
-<a class="break-all" href="https://basescan.org/tx/V1_PAUSE_TX_TBD" rel="noopener">V1_PAUSE_TX_TBD</a>).
+<a class="break-all" href="https://basescan.org/tx/0x195ddeb6ec795a327c430e772ab5239a10b4a682f172b10fefd41cfb2af647c7" rel="noopener">0x195ddeb6ec795a327c430e772ab5239a10b4a682f172b10fefd41cfb2af647c7</a>).
 Only the administrator could unpause it.</li>
 <li><strong>It held no user funds.</strong> Read from Base on 27 September 2026 (block 51,853,299):
 one vault had ever been created on it, the project's own test, since closed; it had no open vault;

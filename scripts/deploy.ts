@@ -567,7 +567,13 @@ async function main() {
   const rc = await tx.wait();
   if (!rc || rc.status !== 1) throw new Error(`deployment transaction ${tx.hash} failed`);
   const vaultAddr = ethers.getAddress(rc.contractAddress ?? ethers.getCreateAddress({ from: deployer.address, nonce: tx.nonce }));
-  const mined = await ethers.provider.getBlock(rc.blockNumber);
+  // A load-balanced endpoint can answer null for a block it has not seen yet, even though another
+  // node has just returned the receipt (the Base launch on 2026-09-28 got null here once).
+  let mined = await ethers.provider.getBlock(rc.blockNumber).catch(() => null);
+  for (let i = 0; !mined && i < 10; i++) {
+    await sleep(1500);
+    mined = await ethers.provider.getBlock(rc.blockNumber).catch(() => null);
+  }
   console.log(`InheritanceVault  ${vaultAddr}   gas ${rc.gasUsed}  cost ${ethers.formatEther(rc.gasUsed * rc.gasPrice)}`);
   if (vaultAddr !== predicted) console.log(`note: the contract is at ${vaultAddr}, not the ${predicted} printed above`);
 
@@ -638,9 +644,12 @@ async function main() {
   );
   if (EXPLORERS[cid]) console.log(`     ${EXPLORERS[cid]}/address/${vaultAddr}#code`);
   if (cid === "8453" || cid === "84532") {
-    // The deploy block's UTC date, as the site writes it ("28 September 2026").
-    const d = new Date(Number(mined?.timestamp ?? 0) * 1000);
-    const date = `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "long", timeZone: "UTC" })} ${d.getUTCFullYear()}`;
+    // The deploy block's UTC date, as the site writes it ("28 September 2026"). If the block could
+    // not be read, say so: a date made up from timestamp 0 would read as 1 January 1970.
+    const d = mined ? new Date(Number(mined.timestamp) * 1000) : null;
+    const date = d
+      ? `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "long", timeZone: "UTC" })} ${d.getUTCFullYear()}`
+      : `<the UTC date of block ${rc.blockNumber}>`;
     const launch = `--address ${vaultAddr} --block ${rc.blockNumber} --tx ${tx.hash} --date "${date}"`;
     if (cid === "8453") {
       console.log(`  2. The launch values (V2_ADDRESS_TBD, V2_BLOCK_TBD, V2_TX_TBD, V2_DATE_TBD): scripts/set-launch-values.js`);

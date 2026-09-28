@@ -34,8 +34,8 @@ const CHAINS = {
   8453: {
     name: "Base", explorer: "https://basescan.org",
     hex: "0x2105", rpc: "https://mainnet.base.org", coin: "ETH", testnet: false,
-    contract: "V2_ADDRESS_TBD", deployBlock: "V2_BLOCK_TBD",
-    codehash: "V2_KECCAK_TBD",
+    contract: "0xA07b59d9249A996604A5fF482f1E564EdeE3A774", deployBlock: "51900754",
+    codehash: "1b3c172193ad01100daefcbd31e16682210462a7455a50908e65c72b2d077f1b",
     // The public endpoint's eth_getLogs limit (blocks per call), for the heir search.
     logSpan: 2000,
     wrappedNative: "0x4200000000000000000000000000000000000006",

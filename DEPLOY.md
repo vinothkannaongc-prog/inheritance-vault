@@ -9,8 +9,8 @@ every setting; this file is the runbook.
 
 ## The Base deployment
 
-v2 went live on Base on V2_DATE_ISO_TBD at `V2_ADDRESS_TBD` (transaction `V2_TX_TBD`, block
-V2_BLOCK_TBD), with the launch plan's constructor:
+v2 went live on Base on 2026-09-28 at `0xA07b59d9249A996604A5fF482f1E564EdeE3A774` (transaction `0x4bbd4b1d74924f64e0c817ff1815ade20a0141094c091003ec1f527b86413e8e`, block
+51900754), with the launch plan's constructor:
 
 | Argument | Value |
 |---|---|

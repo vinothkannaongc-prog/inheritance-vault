@@ -34,7 +34,33 @@ function copySite(prefix = "willandkey-e2e-site-") {
   for (const script of ["serve-site.js", "validate-site.js"]) {
     fs.copyFileSync(path.join(REPO, "scripts", script), path.join(root, "scripts", script));
   }
+  restoreMarkers(root);
   return root;
+}
+
+/**
+ * After the Base launch the repository's site/ carries the real launch values, and
+ * set-launch-values.js rightly refuses to re-point an already-filled app at another deployment.
+ * So in the COPY only, turn the recorded launch values back into their markers, and the suite
+ * fills them from the local chain exactly as it did before launch. Longest values first, and the
+ * block number only as a whole number, so no value is cut out of a longer one.
+ */
+function restoreMarkers(root) {
+  const record = path.join(REPO, "deployments", "base-v2.launch-values.json");
+  if (!fs.existsSync(record)) return;
+  const { markers } = JSON.parse(fs.readFileSync(record, "utf8"));
+  const pairs = Object.entries(markers).sort((a, b) => b[1].length - a[1].length);
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const file of walk(root)) {
+    if (/\.(png|jpe?g|webp|gif|ico|woff2?|pdf)$/i.test(file)) continue;
+    let text = fs.readFileSync(file, "utf8");
+    const before = text;
+    for (const [marker, value] of pairs) {
+      const pattern = /^\d+$/.test(value) ? new RegExp(`\\b${escape(value)}\\b`, "g") : new RegExp(escape(value), "g");
+      text = text.replace(pattern, marker);
+    }
+    if (text !== before) fs.writeFileSync(file, text);
+  }
 }
 
 /** Runs the repository's scripts/set-launch-values.js against `root` with `args`. */

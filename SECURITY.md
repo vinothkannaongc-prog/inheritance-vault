@@ -1,9 +1,9 @@
 # Security policy
 
-## Current security status (V2_DATE_ISO_TBD)
+## Current security status (2026-09-28)
 
-The live contract is **InheritanceVault v2** on Base (`V2_ADDRESS_TBD`), deployed on V2_DATE_ISO_TBD
-(transaction `V2_TX_TBD`, block V2_BLOCK_TBD). It is immutable. **v2 has not been independently
+The live contract is **InheritanceVault v2** on Base (`0xA07b59d9249A996604A5fF482f1E564EdeE3A774`), deployed on 2026-09-28
+(transaction `0x4bbd4b1d74924f64e0c817ff1815ade20a0141094c091003ec1f527b86413e8e`, block 51900754). It is immutable. **v2 has not been independently
 audited.** Every review so far was run by AI systems of the same kind that wrote the code:
 
 - The internal review of v1 ([AUDIT-2026-08-09.md](AUDIT-2026-08-09.md)), run by the same system
@@ -35,8 +35,8 @@ upgrade them.
 ## Retired v1
 
 InheritanceVault v1 (`0xC821849A1D74959753450409b594b23eCE7fEe2f`) was the live contract from
-2026-08-09 to V2_DATE_ISO_TBD. It is immutable, so it was retired rather than fixed: the administrator
-paused its new-vault creation (`setCreationPaused(true)`, transaction `V1_PAUSE_TX_TBD`). On
+2026-08-09 to 2026-09-28. It is immutable, so it was retired rather than fixed: the administrator
+paused its new-vault creation (`setCreationPaused(true)`, transaction `0x195ddeb6ec795a327c430e772ab5239a10b4a682f172b10fefd41cfb2af647c7`). On
 2026-09-27 it held no user funds: its one vault, the project's own test, was closed, and its only
 balance was a 0.00002 ETH credit owed to the former deploy key. Every contract behaviour the
 preliminary audit reported is still present in v1. Do not send it funds. A v1 credit can still be
@@ -46,7 +46,7 @@ withdrawn with `withdrawCredit`.
 
 The administrator of all three contracts, and the fee recipient of both vaults, is a single Ledger
 hardware-wallet key, `0x883C821103B5415C53B11E584D3592205B5CdCA3`, not a multisig. v2 named it in
-its constructor (deploy transaction `V2_TX_TBD`), so the deploy key never held a v2 role; on v1 and
+its constructor (deploy transaction `0x4bbd4b1d74924f64e0c817ff1815ade20a0141094c091003ec1f527b86413e8e`), so the deploy key never held a v2 role; on v1 and
 the billing contract it took over from the deploy key on 2026-09-24 (five handover transactions, in
 `deployments/base.json` and the README). On v2 it can:
 

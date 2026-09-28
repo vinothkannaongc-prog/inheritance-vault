@@ -1,0 +1,14 @@
+{
+  "note": "The exact strings scripts/set-launch-values.js wrote in place of each launch marker on 2026-09-28, after checking them on chain. e2e/lib/site.js turns them back into markers in its temporary copy of the site, so the end-to-end suite can re-point the app at a local chain.",
+  "chainId": 8453,
+  "markers": {
+    "V2_ADDRESS_TBD": "0xA07b59d9249A996604A5fF482f1E564EdeE3A774",
+    "V2_BLOCK_TBD": "51900754",
+    "V2_TX_TBD": "0x4bbd4b1d74924f64e0c817ff1815ade20a0141094c091003ec1f527b86413e8e",
+    "V2_DATE_TBD": "28 September 2026",
+    "V2_DATE_ISO_TBD": "2026-09-28",
+    "V2_KECCAK_TBD": "1b3c172193ad01100daefcbd31e16682210462a7455a50908e65c72b2d077f1b",
+    "V2_SHA256_TBD": "959da8425b7446a5a50748fd193c930722e0b2786ce500f0c529a59dd6c89f32",
+    "V1_PAUSE_TX_TBD": "0x195ddeb6ec795a327c430e772ab5239a10b4a682f172b10fefd41cfb2af647c7"
+  }
+}
